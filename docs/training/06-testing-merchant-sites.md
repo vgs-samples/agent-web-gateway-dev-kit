@@ -22,6 +22,8 @@ cp harness/card.example.json card.json
 
 `sites.yaml`, `card.json` and `runs/` are git-ignored. Keep them that way.
 
+In the command blocks on this page, text after `#` is a note. Do not type it: the default macOS shell (zsh) would pass it to the command.
+
 ## Credentials
 
 Nothing secret goes in a file in that folder.
