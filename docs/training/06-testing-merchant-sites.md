@@ -49,10 +49,10 @@ A new site needs only `id`, `name` and `urls` in `sites.yaml`. Each run writes `
 |---|---|---|
 | `reachable` | Every page loaded through the gateway and none was blocked | Write a recipe, then `probe --deep` |
 | `blocked-by-gateway-path` | Blocked through the gateway, fine with `--direct` | The gateway path is the cause. Check the vault has `agentGatewayBrowserEmulation=true` and the egress profile has a `sticky_suffix` |
-| `blocked-even-direct` | Blocked through the gateway, and a direct page was also blocked or failed to load | Check `direct_pages[].error` first: `--direct` needs an egress profile. If the direct page really was blocked, the site blocks the exit IP or region; try another egress profile. Not a gateway bug |
+| `blocked-even-direct` | Blocked through the gateway, and a direct page was also blocked, failed to load, or returned a status outside 200–399 | Check `direct_pages[].error` first: `--direct` needs an egress profile. If the direct page really was blocked, the site blocks the exit IP or region; try another egress profile. Not a gateway bug |
 | `blocked` | Blocked through the gateway, and no direct comparison was run | Run again with `--direct` |
 | `errors` | A page errored, or returned a status outside 200–399 that is not a recognised bot-wall block (a `404` or `500`, for example) | Look at `pages[].error` and the video |
-| `error` | The run failed before any page loaded | Read the error in `result.json` |
+| `error` | The run failed before any page was attempted, for example at session creation or browser launch. A page that fails to load gives `errors` | Read the error in `result.json` |
 
 `--direct` is how you tell whose problem it is: it loads the same URLs through the egress proxy only. If direct is 200 and the gateway is 403, it is the gateway path. If both are 403, it is the site or the IP.
 
@@ -60,7 +60,7 @@ A new site needs only `id`, `name` and `urls` in `sites.yaml`. Each run writes `
 
 ## Level 2: verify
 
-For Adyen adapters today. The files in `harness/merchants/` hold one vault's binding ids: `hm.json`, `jysk.json`, `dunelm.json` and `alza.json` belong to the dev vault, and the `*-prod-sandbox.json` files to a prod sandbox vault. For each merchant file you pass, the harness:
+For Adyen adapters today. The files in `harness/merchants/` hold one vault's binding ids: the `*-prod-sandbox.json` files name a prod sandbox vault, and `hm.json`, `jysk.json`, `dunelm.json` and `alza.json` are the bindings the engineering spec and the harness README describe on the dev vault. For each merchant file you pass, the harness:
 
 1. dry-runs the capture binding's function on a saved payment page and checks that the merchant's public key is what ends up in the session;
 2. copies the merchant's checkout binding onto a unique path on an echo host, opens a session, plants a key **the harness owns** through the capture function, sends the merchant's checkout body with placeholders where the browser's ciphertext would be, and decrypts what comes back.
@@ -81,7 +81,7 @@ To iterate on a function without touching the live binding:
 uv run awg-sitecheck verify harness/merchants/hm-us-prod-sandbox.json --card card.json --function FN…=path/to/edited.star
 ```
 
-Always pass `--card`. Without it the harness looks for a dev smoke card through a module that is not in this repository, and exits.
+Always pass `--card`. The harness README says that without it the harness uses the dev smoke card, but the code loads that card through a module that is not in this repository, and exits when it cannot.
 
 Details and how to add a merchant: `tools/sitecheck/harness/README.md`.
 
@@ -133,4 +133,4 @@ For AI agents working in that folder, `tools/sitecheck/AGENTS.md` and the three 
 
 ---
 
-Sources: `tools/sitecheck/README.md`, `tools/sitecheck/AGENTS.md`, `tools/sitecheck/harness/README.md`, `tools/sitecheck/adapters/README.md`, `tools/sitecheck/docs/lessons.md`, `tools/sitecheck/skills/awg-site-probe/SKILL.md`, `tools/sitecheck/awg_sitecheck/probe.py` (verdicts), `tools/sitecheck/awg_sitecheck/purchase.py` (`--max-total`), `tools/sitecheck/pyproject.toml`.
+Sources: `tools/sitecheck/README.md`, `tools/sitecheck/AGENTS.md`, `tools/sitecheck/harness/README.md`, `tools/sitecheck/adapters/README.md`, `tools/sitecheck/docs/lessons.md`, `tools/sitecheck/skills/awg-site-probe/SKILL.md`, `tools/sitecheck/skills/awg-checkout-recipe/SKILL.md` (recipes), `tools/sitecheck/sites.example.yaml`, `tools/sitecheck/.gitignore`, `tools/sitecheck/pyproject.toml`, and the code: `tools/sitecheck/awg_sitecheck/cli.py`, `probe.py` (verdicts, `--deep`, the session card), `session.py`, `purchase.py` (`--max-total`), `adapters.py` (`apply`, `teardown`), `tools/sitecheck/harness/awg_harness.py` (`--card`), `tools/sitecheck/harness/merchants/*.json`.

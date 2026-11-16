@@ -7,7 +7,7 @@ Evervault's Browser Tokens solve the same problem as AWG: an agent types stand-i
 How to read it:
 
 - The **Evervault** column is what Evervault's public documentation page said when it was read on 2026-11-16 (`https://docs.evervault.com/browser-tokens`). Text in quotation marks is quoted from that page. Nothing was tested against Evervault's product. Their page will change; re-read it before relying on a row.
-- The **AWG** column is what the AWG sources in this repository say, as of 2026-11-12 for the reference docs and 2026-11-14 for `lessons.md`. AWG is pre-release.
+- The **AWG** column is what the AWG sources in this repository say, as of 2026-11-12 for the reference docs and 2026-11-14 for `lessons.md`; rows that rely on the October 2026 doc set say so. AWG is pre-release.
 - "Not stated" means the source read does not say. It does not mean the feature is absent.
 
 ## Side by side
@@ -25,9 +25,9 @@ How to read it:
 | Human approval of a new host | Not stated | `step_up` mode: the request is held while the customer's webhook is called, and approved or denied through the API |
 | Restricting who may use the session | Not stated | `allowed_client_cidrs`, at most 10 ranges |
 | Payment providers that encrypt in the browser | "some PSP-specific flows need shims, which Evervault manages on your behalf" | Adapters made of functions. VGS publishes some; customers can write, version and test their own. Adyen client-side encryption is the reference integration |
-| Outbound IP | Evervault's addresses by default; a custom proxy; or managed residential egress, which "isn't enabled by default" and is turned on by their support team | VGS's own egress for hosts routed through VGS, unless the session sets the customer's own proxy in `egress_proxy_settings`; hosts outside the PAC list go direct from the browser. No AWG source describes a residential egress managed by VGS |
+| Outbound IP | Evervault's addresses by default; a custom proxy; or managed residential egress, which "isn't enabled by default" and is turned on by their support team | VGS's own egress for hosts routed through VGS, unless the session sets the customer's own proxy in `egress_proxy_settings`; hosts outside the PAC list go to the session's egress proxy when one is set, otherwise direct from the browser. No AWG source describes a residential egress managed by VGS |
 | Looking like a browser to the merchant | "It uses TLS and HTTP client impersonation techniques, so network fingerprints such as JA4 match expected browser behavior." | The vault preference `agentGatewayBrowserEmulation`: connections use Chrome's TLS and HTTP/2 settings, with no `Via` header (`lessons.md`) |
-| Routing the browser | An HTTP CONNECT proxy, with a US and an EU endpoint | A proxy URL, plus a PAC file that sends only the session's hosts through VGS. No customer-selectable region is stated; the engineering spec names only the cell regions (dev in us-west-2, prod sandbox in us-east-1) |
+| Routing the browser | An HTTP CONNECT proxy, with a US and an EU endpoint | A proxy URL, plus a PAC file that sends the session's `allowed_hosts` and the hosts of enabled adapter destinations through VGS. No customer-selectable region is stated; the engineering spec names only the cell regions (dev in us-west-2, prod sandbox in us-east-1) |
 | CAPTCHAs, MFA, 3-D Secure challenges | Not solved: "Evervault doesn't attempt to solve browser-level automation challenges such as CAPTCHAs, MFA, 3D Secure, or human-in-the-loop flows." "Frictionless 3D Secure works normally" | The test tool's rules require a human to complete 3-D Secure and CAPTCHAs (`AGENTS.md`). 3-D Secure through AWG was listed as untested on 2026-11-12 |
 | Values other than cards | Passwords and other credentials are covered: "This applies to credentials as well as card data." | Sessions accept loose `aliases` with format `text` as well as card number and CVC. No AWG source describes a login flow |
 | Seeing what happened | Guidance to "log which token categories were revealed and to which destinations"; each value's `id` is "reflected in the Evervault logs". No per-request decision record is described | `reveal_count` and `refusal_count` on the session; per-request access, operation and reveal-decision logs by `vgs-request-id` |
@@ -60,4 +60,4 @@ Evervault's page is a single reference page with code samples. This repository a
 
 ---
 
-Sources: Evervault, "Browser Tokens", `https://docs.evervault.com/browser-tokens`, read 2026-11-16. AWG: `docs/reference/04-developer-guide.md`, `docs/reference/01-internal-engineering-spec.md`, `tools/sitecheck/docs/lessons.md`, `tools/sitecheck/AGENTS.md`.
+Sources: Evervault, "Browser Tokens", `https://docs.evervault.com/browser-tokens`, read 2026-11-16. AWG: `docs/reference/04-developer-guide.md`, `docs/reference/01-internal-engineering-spec.md`, `docs/reference/api-inventory-full.md`, `tools/sitecheck/docs/lessons.md`, `tools/sitecheck/AGENTS.md`.

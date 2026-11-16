@@ -10,7 +10,9 @@ It depends on how the merchant's payment provider (PSP) takes the card.
 | Client-side encryption (CSE): the browser encrypts the card with the PSP's public key | Adyen Secured Fields, CyberSource Flex Microform, Worldpay CSE | An adapter with two functions: `capture` (on the response that delivers the key) and `encrypt` (on the checkout request) |
 | Wallet or redirect | PayPal, Klarna, Apple Pay | Out of scope for card reveal |
 
-Do not decide from the provider's name alone. Look at the actual card-bearing request in a capture of the real checkout: intact session-token-shaped fields mean the default swap may be enough; application-encrypted fields plus a key exchange mean a custom function. The list of providers above comes from `tools/sitecheck/adapters/README.md`; only Adyen CSE has been tested end to end.
+Do not decide from the provider's name alone. Look at the actual card-bearing request in a capture of the real checkout: intact session-token-shaped fields mean the default swap may be enough; application-encrypted fields plus a key exchange mean a custom function. The list of providers above comes from `tools/sitecheck/adapters/README.md`; `tools/sitecheck/AGENTS.md` marks only the Adyen CSE adapter as tested end to end.
+
+"No adapter" is the default, not a guarantee. The skill's `provider-notes.md` records a custom Stripe function, used for deliberately scoped field reveal and for card-number stand-ins typed with spaces.
 
 `awg-sitecheck probe --deep` reports which PSP a site loaded and whether it is a CSE one (page 6).
 
@@ -87,7 +89,7 @@ def process(input, ctx):
 | `vault.reveal([aliases])` | The real values for those aliases, in order. Each reveal counts in `reveal_count` |
 | `fail("message")` | Stops the request. The client gets `422 Request processing error. Request id: <id>`; the message does not reach the client |
 
-A complete, working example is [`examples/functions/hm_reencrypt.star`](../../examples/functions/hm_reencrypt.star). Templates are in `tools/sitecheck/adapters/_template-cse/` and `tools/sitecheck/adapters/adyen-cse/`.
+A complete example is H&M's re-encrypt function, [`examples/functions/hm_reencrypt.star`](../../examples/functions/hm_reencrypt.star). It is specific to H&M's field names, and it does not check `card.cvc` before revealing it, which the engineering spec lists as a known gap. Do not copy that part. Templates are in `tools/sitecheck/adapters/_template-cse/` and `tools/sitecheck/adapters/adyen-cse/`.
 
 Rules that come from real integrations:
 
@@ -130,4 +132,4 @@ An HTTP 200, a loaded SDK or a rising `reveal_count` alone do not establish that
 
 ---
 
-Sources: `tools/sitecheck/adapters/README.md` (decision table, rules), `skills/vgs-checkout-adapter/references/har-review.md` (decide from the capture), `docs/reference/04-developer-guide.md` (Destinations, adapters and functions; Writing functions; Testing and debugging; Errors and limits), `docs/reference/01-internal-engineering-spec.md` (Function runtime), `tools/sitecheck/harness/README.md` (propagation), `skills/vgs-checkout-adapter/SKILL.md` and `references/gateway-verification.md` (what each test proves).
+Sources: `tools/sitecheck/adapters/README.md` (decision table, rules), `tools/sitecheck/AGENTS.md` and `tools/sitecheck/README.md`, `tools/sitecheck/awg_sitecheck/adapters.py` (what `apply`, `teardown` and `list` do), `skills/vgs-checkout-adapter/references/provider-notes.md` (Stripe), `skills/vgs-checkout-adapter/references/local-larky.md`, `skills/vgs-checkout-adapter/references/har-review.md` (decide from the capture), `docs/reference/04-developer-guide.md` (Destinations, adapters and functions; Writing functions; Testing and debugging; Errors and limits), `docs/reference/01-internal-engineering-spec.md` (Function runtime), `tools/sitecheck/harness/README.md` (propagation), `skills/vgs-checkout-adapter/SKILL.md` and `references/gateway-verification.md` (what each test proves).

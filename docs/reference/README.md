@@ -9,7 +9,7 @@ Copied unchanged from the AWG docs bundle of 2026-11-12. The bundle's own README
 | `03-support-runbook.md` | Support | Parts and ids, access, common lookups, symptom to cause to fix, escalation checklist, error codes |
 | `04-developer-guide.md` | Customers | How it works, quickstart, sessions, adapters, PAC browser setup, writing functions, debugging, limits, API reference |
 | `request-path.svg` | All | The request-path diagram used by the engineering spec |
-| `api-inventory-full.md` | Engineering | The full code inventory the OpenAPI specs were built from |
+| `api-inventory-full.md` | Engineering | The full code inventory of the AWG API (vault-management `d37e6452`) |
 
 The OpenAPI specs are in [`../../openapi/`](../../openapi/).
 

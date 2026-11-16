@@ -38,7 +38,7 @@ Read these in order. Budget about two hours for reading and half a day for the l
 |---|---|
 | `docs/training/` | The training pages above |
 | `docs/comparison-evervault-browser-tokens.md` | AWG next to Evervault's Browser Tokens, row by row, from each side's own documents |
-| `docs/reference/` | The engineering docs bundle of 2026-11-12, copied unchanged: engineering spec, API detail, support runbook, customer developer guide, full API inventory |
+| `docs/reference/` | The engineering docs bundle of 2026-11-12, copied unchanged except for its README, which was rewritten: engineering spec, API detail, support runbook, customer developer guide, full API inventory |
 | `openapi/` | OpenAPI 3.1 specs: 34 tenant operations and 15 admin operations |
 | `examples/functions/` | H&M's Adyen re-encrypt function, and a deliberately broken copy for the harness demo |
 | `tools/sitecheck/` | `awg-sitecheck`: a CLI that tests merchant sites at three levels, with the level 2 harness, adapter templates and recipes |
@@ -48,7 +48,7 @@ Read these in order. Budget about two hours for reading and half a day for the l
 
 You need these from the AWG team; none of them are in this repository:
 
-- a service account (client id and secret) on a sandbox vault that is enabled for AWG, with the scopes `reveal-sessions:read`, `reveal-sessions:write`, `agent-gateway:read` and `agent-gateway:write`;
+- a service account (client id and secret) on a sandbox vault that is enabled for AWG, with the scopes `reveal-sessions:read`, `reveal-sessions:write`, `agent-gateway:read` and `agent-gateway:write`, plus the extra scopes named in lab 4 and page 6;
 - the vault id (`tnt…`);
 - for browser work against real merchants, a residential egress proxy you are authorized to use.
 

@@ -5,7 +5,7 @@ These apply to everyone working with AWG, and to any AI agent you run against it
 ## Card data
 
 - Never type a real card number or CVC into a payment form, and never print, log or store one in a file, a ticket or a chat. The payment form gets the session's tokens only.
-- The only place a card is entered is the call that stores it in the vault, by a person, at a hidden prompt.
+- A card is entered only in the call that stores it in the vault: by a person at a hidden prompt, or, for test cards, through `CARD_PAN` and `CARD_CVC` in the environment (page 4).
 - Files named `card.json` hold vault aliases, not card data.
 - Use a test card in the labs. Do not swap in a different card to get past a failure.
 - Do not send real card values to echo services.
@@ -45,4 +45,4 @@ These apply to everyone working with AWG, and to any AI agent you run against it
 
 ---
 
-Sources: `tools/sitecheck/AGENTS.md` (Hard rules), `docs/reference/03-support-runbook.md` (Rules for support, Escalation), `skills/vgs-checkout-adapter/SKILL.md` (Operating rules), `skills/vgs-checkout-adapter/references/har-review.md`, `references/gateway-verification.md`, `tools/sitecheck/docs/lessons.md` (Running demos).
+Sources: `tools/sitecheck/AGENTS.md` (Hard rules; Typical flow for "in writing"), `tools/sitecheck/skills/awg-checkout-recipe/SKILL.md`, `docs/reference/03-support-runbook.md` (Rules for support, Escalation), `docs/reference/01-internal-engineering-spec.md` (the signed PAC link), `skills/vgs-checkout-adapter/SKILL.md` (Operating rules), `skills/vgs-checkout-adapter/references/har-review.md`, `skills/vgs-checkout-adapter/references/gateway-verification.md`, `skills/vgs-checkout-adapter/references/fresh-session.md` (card entry, `.env` mode), `skills/vgs-checkout-adapter/references/deploy-adapters.md` (shared adapters), `tools/sitecheck/docs/lessons.md` (Running demos), and this repository's `.gitignore`. Extending "a capture or review does not authorize a purchase" to testing is this page's own reading.

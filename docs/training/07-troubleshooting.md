@@ -43,12 +43,14 @@ curl -sS "$VGS_API/reveal-sessions/$SESSION_ID?include=values" \
 | `guard_refused` | Guarded mode: the reveal guard's limits were reached | Add the host explicitly instead of relying on guarded mode |
 | `step_up_rejected`, `step_up_timeout`, `step_up_unavailable`, `step_up_limit` | Step-up was denied, timed out, could not call the webhook, or hit its limit | Check the webhook and the approval |
 | `session_store_unavailable` | VGS could not check the session or read the value; the request fails closed | Retry, then escalate with the request id |
+| `destinations_unavailable` | VGS could not load the destination settings; the request fails closed | Retry, then escalate with the request id |
+| `replacement_failed` | VGS could not place the real value in the request | Escalate with the request id |
 
 Three rows on this page do not come from the 2026-11-12 bundle, so confirm them against the running system:
 
-- The `reveal_refused` body, its reasons and their meanings come from the October 2026 doc set. The "what to do" column is this page's reading of those meanings. Sandbox test notes of 2026-11-10 (not in this repository) record `reveal_refused` with `session_store_unavailable`, and the session kit's notes of 2026-11-13 still refer to `SESSION_STORE_UNAVAILABLE`.
-- The `502` row comes from the October 2026 doc set.
-- The `agentGatewayBrowserEmulation` fix comes from `tools/sitecheck/docs/lessons.md`. The runbook's own advice for a merchant `403` is a real browser through the PAC file, residential `egress_proxy_settings`, and that a reload often passes.
+- The `reveal_refused` body, its reasons and their meanings come from the October 2026 doc set. The "what to do" column is this page's reading of those meanings. Sandbox test notes of 2026-11-10 (not in this repository) record `reveal_refused` with `session_store_unavailable`, and the session kit's notes of 2026-11-13 (`skills/vgs-checkout-adapter/references/fresh-session.md`) still refer to `SESSION_STORE_UNAVAILABLE`.
+- The `502` row comes from the October 2026 doc set; its fix is this page's reading.
+- The `agentGatewayBrowserEmulation` and sticky-egress fixes come from `tools/sitecheck/docs/lessons.md`. The runbook's own advice for a merchant `403` is a real browser through the PAC file, residential `egress_proxy_settings`, and that a reload often passes.
 
 ## Tracing one request
 
@@ -85,4 +87,4 @@ Never include card numbers, CVCs, session proxy passwords or `proxy.url`.
 
 ---
 
-Sources: `docs/reference/03-support-runbook.md` (Troubleshooting by symptom, Escalation, error codes), `docs/reference/04-developer-guide.md` (Testing and debugging, Errors and limits), `docs/reference/01-internal-engineering-spec.md` (Observability), `tools/sitecheck/docs/lessons.md` (bot walls).
+Sources: `docs/reference/03-support-runbook.md` (Troubleshooting by symptom, Escalation, error codes), `docs/reference/04-developer-guide.md` (Testing and debugging, Errors and limits), `docs/reference/01-internal-engineering-spec.md` (Observability), `tools/sitecheck/docs/lessons.md` (bot walls), `skills/vgs-checkout-adapter/references/fresh-session.md`.

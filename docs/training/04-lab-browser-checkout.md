@@ -28,7 +28,7 @@ bash setup.sh
 |---|---|
 | `VGS_CLIENT_ID`, `VGS_CLIENT_SECRET`, `VGS_TENANT` | Your service account and vault id |
 | `VGS_API`, `VGS_AUTH_URL` | Preset for prod sandbox (`.com`). Dev uses the `.io` hosts |
-| `EGRESS_PROXY` | Your Byteful proxy URL. `start.sh` needs it set here |
+| `EGRESS_PROXY` | Your Byteful proxy URL. `start.sh` needs it set here or exported in the shell |
 | `ALLOWED_HOSTS` | Optional default hosts |
 
 For a second environment, create `.env.<name>` and prefix every command with `KIT_ENV=<name>`; its state goes to `.state-<name>/`. Variables already exported in your shell override the file, so clear stale `VGS_*` and `EGRESS_*` values before switching.
@@ -60,8 +60,8 @@ It also prints the card's vault aliases, the proxy username and password, and th
 - **Traffic goes through VGS.** Responses from a host that went through VGS carry a `vgs-request-id` header (DevTools → Network), and the host's certificate is issued by the session's CA. The test kit README of 2026-11-07 says the issuer shows as Very Good Security.
 - **Your egress IP.** Open `https://ipinfo.io/json` in the session browser to see the exit IP. The test kit README says that with an egress proxy it should show a consumer ISP, not a hosting company. An IP lookup does not tell you how a merchant's bot protection will rate it.
 - **The payment host.** The card form may post to a different host than the page. In DevTools → Network, find the request that carries the tokens and check its host is in `allowed_hosts`. If it is not, what happens depends on the vault's unlisted-host mode and on the PAC file:
-  - with the PAC split, the request goes direct and the provider receives the session tokens;
-  - in `strict` mode, a request VGS can see is refused with `403 reveal_refused` (`session_host_not_allowed`), and an HTTPS host that no rule names is tunnelled untouched;
+  - with the PAC split, the request bypasses VGS (it goes out through the session's egress proxy, which this kit always sets) and the provider receives the session tokens;
+  - in `strict` mode, a request VGS can see is refused, and an HTTPS host that no rule names is tunnelled untouched. The October 2026 doc set gives the refusal as `403 reveal_refused` with reason `session_host_not_allowed`; the 2026-11-12 bundle does not describe the body;
   - in `guarded` mode, the card may be revealed within the reveal guard's limits;
   - in `step_up` mode, the request is held for approval.
 
@@ -69,8 +69,10 @@ It also prints the card's vault aliases, the proxy username and password, and th
 - **The session counters.**
 
 ```bash
-./session-status.sh        # state, reveal_count, refusal_count of the latest session
+./session-status.sh
 ```
+
+It prints the latest session's `state`, `reveal_count` and `refusal_count`.
 
 `reveal_count` going up shows a reveal happened. On its own it does not prove the merchant accepted the payment.
 
@@ -89,8 +91,10 @@ Ending a session does not delete the stored card or local files. Clean `.state/`
 ```bash
 bash ./create-fresh-session.sh --hosts payments.example-psp.com \
   --adapter AD... --egress-profile /absolute/private/proxy.json
-./launch-chromium.sh "" https://www.example-shop.com/checkout   # "" = the latest session
+./launch-chromium.sh "" https://www.example-shop.com/checkout
 ```
+
+  The empty first argument means the latest session.
 
 - `--egress-profile` takes a private JSON file with `scheme`, `hostname`, numeric `port`, `username` and `password`.
 - `--adapter AD…` sets the session's `adapter`, which limits the session to that adapter's bindings, and sends role-based `cards`, which functions that call `session.card()` require. The id must be registered in the vault. The named forms `--adapter adyen` and `--adapter stripe` need a registration ledger file; none is bundled.
@@ -101,4 +105,4 @@ bash ./create-fresh-session.sh --hosts payments.example-psp.com \
 
 ---
 
-Sources: `skills/vgs-checkout-adapter/references/fresh-session.md`, `skills/vgs-checkout-adapter/references/gateway-verification.md`, the scripts in `skills/vgs-checkout-adapter/scripts/session-kit/` (`setup.sh`, `lib.sh`, `start.sh`, `create-card.sh`, `create-session.sh`, `launch-chromium.sh`, `session-status.sh`, `end-session.sh`, `.env.example`), and the test kit README of 2026-11-07 for the "Check it works" steps (not in this repository; quoted in `SOURCES.md`).
+Sources: `skills/vgs-checkout-adapter/references/fresh-session.md`, `skills/vgs-checkout-adapter/references/gateway-verification.md`, the scripts in `skills/vgs-checkout-adapter/scripts/session-kit/` (`setup.sh`, `lib.sh`, `start.sh`, `create-card.sh`, `create-fresh-session.sh`, `create-session.sh`, `launch-chromium.sh`, `session-status.sh`, `end-session.sh`, `.env.example`), `docs/reference/01-internal-engineering-spec.md` (Proxy behavior) and `docs/reference/04-developer-guide.md` for the unlisted-host cases and the `vgs-request-id` header for `reveal_refused`, and the test kit README of 2026-11-07 where the page says so (not in this repository; listed in `SOURCES.md`).

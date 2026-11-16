@@ -15,7 +15,7 @@ The create response returns:
 - a CA certificate (`proxy.ca_bundle`), which the browser must trust for those hosts;
 - the session's stand-in card values (`tokens` and `cards`), which the agent types at checkout.
 
-The proxy login, the PAC link and the stand-in values are returned only in this response; later reads never return secrets. The CA bundle can also be read from `GET /reveal-sessions/proxy-ca`.
+The proxy login, the PAC link and the stand-in values are returned only in this response; later reads never return secrets. (An endpoint that reissues the proxy password exists but is off by default.) The CA bundle can also be read from `GET /reveal-sessions/proxy-ca`.
 
 VGS terminates TLS for the hosts that go through it. That is why the browser needs the CA, and it is what lets VGS change the payment request.
 
@@ -55,7 +55,7 @@ The Adyen client-side-encryption flow is the reference integration:
 - A function that runs but does not recognise the request returns it unchanged, with no error. The request then goes out with the stand-in values, which are worthless to the receiver. This is the most common failure in testing.
 - Some hosts can never receive real values (`never_host`), whatever a session says.
 - A PAC file is a convenience, not enforcement. A browser that cannot fetch or apply it connects directly, and then nothing is revealed, refused or recorded.
-- AWG does not get an agent past a merchant's bot protection. A `403` from the merchant is not a VGS error.
+- AWG does not get an agent past a merchant's bot protection. A `403` from the merchant comes from that protection, not from a VGS refusal. The gateway path can trigger it, through its TLS fingerprint, a `Via` header or the exit IP; page 6 shows how to tell and what to set.
 - Wallets and redirects (PayPal, Klarna, Apple Pay) are out of scope for card reveal.
 
 ## Status
@@ -74,4 +74,4 @@ Known gaps listed in the engineering spec on 2026-11-12 include: a failed functi
 
 ---
 
-Sources: `docs/reference/04-developer-guide.md` (Overview, How it works), `docs/reference/01-internal-engineering-spec.md` (Overview, Proxy behavior, Environments, Known gaps), `docs/reference/README.md`, `tools/sitecheck/adapters/README.md`, `tools/sitecheck/docs/lessons.md`.
+Sources: `docs/reference/04-developer-guide.md` (Overview, How it works), `docs/reference/01-internal-engineering-spec.md` (Overview, Proxy behavior, Environments, Known gaps), `docs/reference/README.md`, `tools/sitecheck/adapters/README.md`, `tools/sitecheck/docs/lessons.md`, `docs/reference/02-internal-api-detail.md` (credential reissue, `proxy-ca`).
