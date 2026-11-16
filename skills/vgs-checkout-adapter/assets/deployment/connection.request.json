@@ -1,0 +1,21 @@
+{
+  "data": {
+    "type": "agent-gateway-adapter-destinations",
+    "attributes": {
+      "adapter": "AD_REPLACE_WITH_RETURNED_ID",
+      "adapter_version": 1,
+      "enabled": false,
+      "when": {
+        "host": "payments.example",
+        "method": "POST",
+        "path": "/checkout/*"
+      },
+      "functions": [
+        {
+          "id": "FN_REPLACE_WITH_RETURNED_ID",
+          "inputs": {}
+        }
+      ]
+    }
+  }
+}

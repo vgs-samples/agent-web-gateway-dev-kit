@@ -1,0 +1,2368 @@
+openapi: 3.1.0
+info:
+  title: VGS Agent Web Gateway API
+  version: '2026-11-12'
+  description: Reveal sessions, agent destinations, functions, adapters and adapter destinations. JSON:API. Generated from
+    vault-management awg/stack-top d37e6452. Scopes are listed per operation (`x-vgs-required-scope`); write scopes do not
+    include read.
+servers:
+- url: https://sandbox.vgsapi.com
+  description: Sandbox
+- url: https://vgsapi.com
+  description: Live
+security:
+- bearerAuth: []
+tags:
+- name: Reveal sessions
+- name: Step-up approvals
+- name: Destinations
+- name: Functions
+- name: Adapters
+- name: Adapter destinations
+paths:
+  /reveal-sessions:
+    post:
+      operationId: createRevealSession
+      summary: Create a reveal session
+      tags:
+      - Reveal sessions
+      responses:
+        '201':
+          description: Created; the only response carrying `proxy` and alias values
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/RevealSessionDocument'
+          headers:
+            Location:
+              description: URL of the created resource
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: reveal-sessions:write
+      description: 'Lifetime and unlisted-host mode come from tenant preferences and cannot be set per session.
+
+
+        Error codes: `missing_attributes`, `missing_aliases`, `too_many_aliases`, `invalid_alias`, `unknown_format`, `missing_bin`,
+        `invalid_storage`, `invalid_label`, `invalid_card`, `invalid_card_label`, `missing_card_number`, `invalid_host`, `never_host`,
+        `too_many_hosts`, `invalid_client_cidr`, `too_many_client_cidrs`, `invalid_context`, `invalid_adapter`, `adapter_unavailable`,
+        `invalid_egress_proxy_settings`, `invalid_egress_proxy_hostname`, `invalid_egress_proxy_port`, `invalid_egress_proxy_credentials`,
+        `ttl_not_configurable`, `unlisted_host_mode_not_configurable`, `step_up_not_configurable`, `session_too_large`, `invalid_ttl`,
+        `stateless_unavailable`, `reveal_session_proxy_host_unusable`.
+
+
+        Requires `reveal-sessions:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/RevealSessionRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevealSessionRequest'
+    get:
+      operationId: listRevealSessions
+      summary: List reveal sessions
+      tags:
+      - Reveal sessions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/RevealSessionListDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+      x-vgs-required-scope: reveal-sessions:read
+      description: 'Newest expiry first; items carry no `values`.
+
+
+        Error codes: `invalid_state`, `invalid_paging`.
+
+
+        Requires `reveal-sessions:read`.'
+      parameters:
+      - name: state
+        in: query
+        required: false
+        description: '`active` (default) or `revoked`'
+        schema:
+          type: string
+          enum:
+          - active
+          - revoked
+      - name: offset
+        in: query
+        required: false
+        description: Page offset, >= 0 (default 0)
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        description: Page size, 1..100 (default 30)
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 30
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+  /reveal-sessions/{id}:
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+    - name: id
+      in: path
+      required: true
+      description: Reveal session id
+      schema:
+        type: string
+        example: RSxxxxxxxxxxxxxxxxxxxxxx
+    get:
+      operationId: getRevealSession
+      summary: Read a reveal session
+      tags:
+      - Reveal sessions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/RevealSessionDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: reveal-sessions:read
+      description: 'Never returns secrets. 404 also for stateless sessions.
+
+
+        Error codes: `invalid_include`.
+
+
+        Requires `reveal-sessions:read`.'
+      parameters:
+      - name: include
+        in: query
+        required: false
+        description: Only `values` is supported
+        schema:
+          type: string
+          enum:
+          - values
+    delete:
+      operationId: revokeRevealSession
+      summary: Revoke a reveal session
+      tags:
+      - Reveal sessions
+      responses:
+        '204':
+          description: Revoked (idempotent)
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+      x-vgs-required-scope: reveal-sessions:write
+      description: 'Error codes: `revocation_list_disabled`.
+
+
+        Requires `reveal-sessions:write`.'
+  /reveal-sessions/{id}/credentials:
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+    - name: id
+      in: path
+      required: true
+      description: Reveal session id
+      schema:
+        type: string
+        example: RSxxxxxxxxxxxxxxxxxxxxxx
+    post:
+      operationId: reissueRevealSessionCredentials
+      summary: Reissue the session's proxy password
+      tags:
+      - Reveal sessions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/RevealSessionDocument'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '500':
+          $ref: '#/components/responses/E500'
+      x-vgs-required-scope: reveal-sessions:write
+      description: 'Off unless the platform enables credential reissue (`404 credential_reissue_disabled`). Redis sessions
+        only.
+
+
+        Error codes: `credential_reissue_disabled`, `session_not_active`, `reveal_session_proxy_host_unusable`.
+
+
+        Requires `reveal-sessions:write`.'
+  /reveal-sessions/proxy-ca:
+    get:
+      operationId: getRevealSessionProxyCa
+      summary: The forward proxy CA bundle
+      tags:
+      - Reveal sessions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/ProxyCaDocument'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: reveal-sessions:read
+      description: Requires `reveal-sessions:read`.
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+  /reveal-sessions/{id}.pac:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      description: Reveal session id
+      schema:
+        type: string
+        example: RSxxxxxxxxxxxxxxxxxxxxxx
+    get:
+      operationId: getRevealSessionPac
+      summary: The session's PAC file (pre-signed link)
+      tags:
+      - Reveal sessions
+      responses:
+        '200':
+          description: PAC script
+          content:
+            application/x-ns-proxy-autoconfig:
+              schema:
+                type: string
+        '404':
+          description: 'Any failure (empty body): expired link, bad signature, inactive session, PAC disabled'
+      description: 'No token or tenant header: the signed query is the credential. Use `proxy.pac_url` as returned.'
+      parameters:
+      - name: tenant
+        in: query
+        required: true
+        description: Vault id
+        schema:
+          type: string
+          maxLength: 128
+      - name: expires
+        in: query
+        required: true
+        description: Epoch seconds, in the future
+        schema:
+          type: string
+          pattern: ^[1-9][0-9]{0,11}$
+      - name: signature
+        in: query
+        required: true
+        description: base64url HMAC-SHA256, 43 characters
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{43}$
+      security: []
+  /reveal-session-approvals:
+    get:
+      operationId: listApprovals
+      summary: List a session's step-up approvals
+      tags:
+      - Step-up approvals
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/ApprovalListDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: reveal-sessions:read
+      description: 'Error codes: `missing_filter`, `invalid_paging`.
+
+
+        Requires `reveal-sessions:read`.'
+      parameters:
+      - name: filter[reveal_session]
+        in: query
+        required: true
+        description: Reveal session id
+        schema:
+          type: string
+      - name: offset
+        in: query
+        required: false
+        description: Page offset, >= 0 (default 0)
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        description: Page size, 1..100 (default 30)
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 30
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+  /reveal-session-approvals/{id}:
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+    - name: id
+      in: path
+      required: true
+      description: Approval id
+      schema:
+        type: string
+        example: APxxxxxxxxxxxxxxxxxxxxxx
+    get:
+      operationId: getApproval
+      summary: Read an approval
+      tags:
+      - Step-up approvals
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/ApprovalDocument'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: reveal-sessions:read
+      description: Requires `reveal-sessions:read`.
+    patch:
+      operationId: decideApproval
+      summary: Approve or deny a held request
+      tags:
+      - Step-up approvals
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/ApprovalDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+      x-vgs-required-scope: reveal-sessions:write
+      description: '`data.type` must be `reveal-session-approvals` and `data.id` the path id. `scope: session` with `approved`
+        approves the host for the rest of the session.
+
+
+        Error codes: `missing_attributes`, `invalid_type`, `id_mismatch`, `invalid_state`, `invalid_scope`, `approval_closed`.
+
+
+        Requires `reveal-sessions:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/ApprovalRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalRequest'
+  /agent-gateway-destinations:
+    get:
+      operationId: listDestinations
+      summary: List agent destinations
+      tags:
+      - Destinations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/DestinationListDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+      x-vgs-required-scope: agent-gateway:read
+      description: Requires `agent-gateway:read`.
+    post:
+      operationId: createDestination
+      summary: Create an agent destination
+      tags:
+      - Destinations
+      responses:
+        '201':
+          description: Created
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/DestinationDocument'
+          headers:
+            Location:
+              description: URL of the created resource
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '409':
+          $ref: '#/components/responses/E409'
+      x-vgs-required-scope: agent-gateway:write
+      description: 'Creates a forward-proxy route; at most 1000 per vault. A `trust` records the caller as approver.
+
+
+        Error codes: `missing_attributes`, `invalid_host_pattern`, `invalid_action`, `never_host`, `origin_not_writable`,
+        `too_many_destinations`, `destination_exists`.
+
+
+        Requires `agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/DestinationRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DestinationRequest'
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+  /agent-gateway-destinations/{id}:
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+    - name: id
+      in: path
+      required: true
+      description: Agent destination id
+      schema:
+        type: string
+        example: AGDxxxxxxxxxxxxxxxxxxxxxx
+    get:
+      operationId: getDestination
+      summary: Read an agent destination
+      tags:
+      - Destinations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/DestinationDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: agent-gateway:read
+      description: Requires `agent-gateway:read`.
+    patch:
+      operationId: updateDestination
+      summary: Change a destination's action
+      tags:
+      - Destinations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/DestinationDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: agent-gateway:write
+      description: 'Error codes: `missing_attributes`, `invalid_action`, `host_pattern_immutable`, `origin_not_writable`,
+        `never_host`, `route_tag_limit`.
+
+
+        Requires `agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/DestinationRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DestinationRequest'
+    delete:
+      operationId: deleteDestination
+      summary: Delete an agent destination
+      tags:
+      - Destinations
+      responses:
+        '204':
+          description: Deleted (route, then row)
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: agent-gateway:write
+      description: 'Hard delete. No in-use check against adapter destinations.
+
+
+        Requires `agent-gateway:write`.'
+  /agent-gateway-registry:
+    get:
+      operationId: listRegistry
+      summary: VGS trusted destinations as this vault sees them
+      tags:
+      - Destinations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/RegistryEntryListDocument'
+        '403':
+          $ref: '#/components/responses/E403'
+      x-vgs-required-scope: agent-gateway:read
+      description: Requires `agent-gateway:read`.
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+  /functions:
+    get:
+      operationId: listFunctions
+      summary: List own and VGS functions
+      tags:
+      - Functions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/FunctionListDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+      x-vgs-required-scope: agent-gateway:read
+      description: 'Newest first, at most 200.
+
+
+        Requires `agent-gateway:read`.'
+      parameters:
+      - name: filter[name]
+        in: query
+        required: false
+        description: Exact name
+        schema:
+          type: string
+    post:
+      operationId: createFunction
+      summary: Create a function
+      tags:
+      - Functions
+      responses:
+        '201':
+          description: Created
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/FunctionDocument'
+          headers:
+            Location:
+              description: URL of the created resource
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+      x-vgs-required-scope: agent-gateway:write
+      description: 'Functions are immutable: a new version is a new function linked by `previous_version`.
+
+
+        Error codes: `missing_attributes`, `invalid_name`, `invalid_language`, `invalid_extension_point`, `invalid_source`,
+        `source_too_large`, `invalid_inputs`, `invalid_previous_version`.
+
+
+        Requires `agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/FunctionRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunctionRequest'
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+  /functions/{id}:
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+    - name: id
+      in: path
+      required: true
+      description: Function id
+      schema:
+        type: string
+        example: FNxxxxxxxxxxxxxxxxxxxxxx
+    get:
+      operationId: getFunction
+      summary: Read a function
+      tags:
+      - Functions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/FunctionDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: agent-gateway:read
+      description: Requires `agent-gateway:read`.
+    delete:
+      operationId: deleteFunction
+      summary: Soft-delete an own function
+      tags:
+      - Functions
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+      x-vgs-required-scope: agent-gateway:write
+      description: '404 for VGS functions.
+
+
+        Error codes: `function_in_use`.
+
+
+        Requires `agent-gateway:write`.'
+  /functions/{id}/invocations:
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+    - name: id
+      in: path
+      required: true
+      description: Function id
+      schema:
+        type: string
+        example: FNxxxxxxxxxxxxxxxxxxxxxx
+    post:
+      operationId: invokeFunction
+      summary: Dry-run a route function, or run an invoke function
+      tags:
+      - Functions
+      responses:
+        '201':
+          description: 'Recorded, even when the run failed (`status: failed`)'
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/InvocationDocument'
+          headers:
+            Location:
+              description: URL of the created resource
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: agent-gateway:write
+      description: '`route.request`: `request` (method, absolute URL). `route.response`: `response` only. `invoke`: `input`
+        only. 10 s deadline, bodies <= 1 MiB. `session.card` and aliases always fail in a dry run.
+
+
+        Error codes: `missing_attributes`, `invalid_invocation`, `invalid_inputs`, `invalid_function`, `invocations_unavailable`.
+
+
+        Requires `agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/InvocationRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvocationRequest'
+  /function-invocations:
+    get:
+      operationId: listInvocations
+      summary: List function invocations
+      tags:
+      - Functions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/InvocationListDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+      x-vgs-required-scope: agent-gateway:read
+      description: 'Newest first, at most 100; never `result`.
+
+
+        Error codes: `invalid_filter`.
+
+
+        Requires `agent-gateway:read`.'
+      parameters:
+      - name: filter[function]
+        in: query
+        required: false
+        description: FN id
+        schema:
+          type: string
+      - name: filter[source]
+        in: query
+        required: false
+        description: '`api` or `test`'
+        schema:
+          type: string
+          enum:
+          - api
+          - test
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+  /function-invocations/{id}:
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+    - name: id
+      in: path
+      required: true
+      description: Invocation id
+      schema:
+        type: string
+        example: FIxxxxxxxxxxxxxxxxxxxxxx
+    get:
+      operationId: getInvocation
+      summary: Read a function invocation
+      tags:
+      - Functions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/InvocationDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: agent-gateway:read
+      description: Requires `agent-gateway:read`.
+  /agent-gateway-adapters:
+    get:
+      operationId: listAdapters
+      summary: List own and published VGS adapters
+      tags:
+      - Adapters
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterListDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+      x-vgs-required-scope: agent-gateway:read
+      description: Requires `agent-gateway:read`.
+    post:
+      operationId: createAdapter
+      summary: Create an adapter (version 1)
+      tags:
+      - Adapters
+      responses:
+        '201':
+          description: Created
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDocument'
+          headers:
+            Location:
+              description: URL of the created resource
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '409':
+          $ref: '#/components/responses/E409'
+      x-vgs-required-scope: agent-gateway:write
+      description: 'Error codes: `missing_attributes`, `invalid_name`, `invalid_functions`, `adapter_exists`.
+
+
+        Requires `agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+  /agent-gateway-adapters/{id}:
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+    - name: id
+      in: path
+      required: true
+      description: Adapter id
+      schema:
+        type: string
+        example: ADxxxxxxxxxxxxxxxxxxxxxx
+    get:
+      operationId: getAdapter
+      summary: Read an adapter
+      tags:
+      - Adapters
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: agent-gateway:read
+      description: Requires `agent-gateway:read`.
+    post:
+      operationId: createAdapterVersion
+      summary: Add a version (`functions` only)
+      tags:
+      - Adapters
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '409':
+          $ref: '#/components/responses/E409'
+      x-vgs-required-scope: agent-gateway:write
+      description: 'VGS adapters are read-only to tenants.
+
+
+        Error codes: `missing_attributes`, `name_immutable`, `invalid_functions`, `adapter_not_found`, `adapter_version_conflict`.
+
+
+        Requires `agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+    patch:
+      operationId: publishAdapter
+      summary: Publish the latest version (`publish_at`)
+      tags:
+      - Adapters
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+      x-vgs-required-scope: agent-gateway:write
+      description: 'Error codes: `missing_attributes`, `invalid_attributes`, `invalid_publish_at`, `adapter_not_found`.
+
+
+        Requires `agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+    delete:
+      operationId: deleteAdapter
+      summary: Soft-delete an own adapter
+      tags:
+      - Adapters
+      responses:
+        '204':
+          description: Deleted; the name is free again
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+      x-vgs-required-scope: agent-gateway:write
+      description: '404 for VGS adapters.
+
+
+        Error codes: `adapter_in_use`.
+
+
+        Requires `agent-gateway:write`.'
+  /agent-gateway-adapter-destinations:
+    get:
+      operationId: listAdapterDestinations
+      summary: List adapter destinations
+      tags:
+      - Adapter destinations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDestinationListDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+      x-vgs-required-scope: agent-gateway:read
+      description: Requires `agent-gateway:read`.
+      parameters:
+      - name: filter[adapter]
+        in: query
+        required: false
+        description: AD id or name
+        schema:
+          type: string
+    post:
+      operationId: createAdapterDestination
+      summary: Bind an adapter version's functions to traffic
+      tags:
+      - Adapter destinations
+      responses:
+        '201':
+          description: Created
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDestinationDocument'
+          headers:
+            Location:
+              description: URL of the created resource
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '409':
+          $ref: '#/components/responses/E409'
+      x-vgs-required-scope: agent-gateway:write
+      description: 'At most 100 per vault. Without `adapter`, exactly one function and no version: an `fn-<FN id>` adapter
+        is created or reused.
+
+
+        Error codes: `missing_attributes`, `too_many_destinations`, `invalid_adapter`, `adapter_required`, `invalid_functions`,
+        `invalid_adapter_version`, `host_required`, `invalid_when`, `unknown_host`, `destination_blocked`, `function_not_in_adapter`,
+        `invalid_inputs`, `input_source_unsupported`, `destination_overlap`, `adapter_conflict`.
+
+
+        Requires `agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/AdapterDestinationRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdapterDestinationRequest'
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+  /agent-gateway-adapter-destinations/{id}:
+    parameters:
+    - $ref: '#/components/parameters/VgsTenant'
+    - name: id
+      in: path
+      required: true
+      description: Adapter destination id
+      schema:
+        type: string
+        example: AXxxxxxxxxxxxxxxxxxxxxxx
+    get:
+      operationId: getAdapterDestination
+      summary: Read an adapter destination
+      tags:
+      - Adapter destinations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDestinationDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: agent-gateway:read
+      description: Requires `agent-gateway:read`.
+    patch:
+      operationId: updateAdapterDestination
+      summary: Change version, enabled, when or functions
+      tags:
+      - Adapter destinations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDestinationDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+      x-vgs-required-scope: agent-gateway:write
+      description: '`functions` replaces the list; optimistic on `revision`.
+
+
+        Error codes: `adapter_immutable`, `invalid_adapter`, `function_not_in_adapter`, `invalid_inputs`, `concurrent_change`,
+        `destination_overlap`.
+
+
+        Requires `agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/AdapterDestinationRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdapterDestinationRequest'
+    delete:
+      operationId: deleteAdapterDestination
+      summary: Delete an adapter destination
+      tags:
+      - Adapter destinations
+      responses:
+        '204':
+          description: Deleted (route entries, then row)
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+      x-vgs-required-scope: agent-gateway:write
+      description: Requires `agent-gateway:write`.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token of a VGS service account with the operation's scope
+  parameters:
+    VgsTenant:
+      name: VGS-Tenant
+      in: header
+      required: true
+      description: Vault id
+      schema:
+        type: string
+  schemas:
+    Error:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: integer
+              code:
+                type: string
+                description: Present on 400, 409 and 503 errors
+              title:
+                type: string
+              detail:
+                type: string
+              href:
+                type: string
+                description: The request URL
+    PageMeta:
+      type: object
+      properties:
+        total_pages:
+          type: integer
+        total_elements:
+          type: integer
+    PageLinks:
+      type: object
+      additionalProperties:
+        type: string
+    Alias:
+      type: object
+      properties:
+        alias:
+          type: string
+          description: Vault alias (for card parts) or loose alias
+        format:
+          type: string
+          enum:
+          - card_number
+          - card_cvc
+          - text
+          description: Loose aliases only; card parts are forced
+        bin:
+          type: string
+          description: Required for card_number unless the alias is a 13-19 digit number; defaults to its first 6 digits
+        length:
+          type: integer
+          description: 'Card number default: alias length if numeric, else 16; CVC default 3'
+        storage:
+          type: string
+          enum:
+          - PERSISTENT
+          - VOLATILE
+          default: PERSISTENT
+        label:
+          type: string
+          pattern: ^[a-z0-9][a-z0-9_-]{0,31}$
+          description: Text aliases only
+        value:
+          type: string
+          description: The session alias handed to the agent; create response only
+          readOnly: true
+    Card:
+      type: object
+      required:
+      - number
+      properties:
+        label:
+          type: string
+          pattern: ^[a-z0-9][a-z0-9_-]{0,31}$
+          description: Required when the session has more than one card
+        number:
+          $ref: '#/components/schemas/Alias'
+        cvc:
+          $ref: '#/components/schemas/Alias'
+        expiry:
+          $ref: '#/components/schemas/Alias'
+        holder:
+          $ref: '#/components/schemas/Alias'
+    Token:
+      type: object
+      properties:
+        alias:
+          type: string
+        format:
+          type: string
+        value:
+          type: string
+    Proxy:
+      type: object
+      properties:
+        url:
+          type: string
+          description: '`<scheme>://<session id>:<secret>@<host>:<port>`; the secret appears only here'
+        ca_bundle:
+          type: string
+          description: PEM of the forward proxy CA(s)
+        pac_url:
+          type: string
+          description: Pre-signed PAC link, valid until the session expires
+    EgressProxySettings:
+      type: object
+      required:
+      - type
+      - scheme
+      - hostname
+      - port
+      properties:
+        type:
+          type: string
+          enum:
+          - custom
+        scheme:
+          type: string
+          enum:
+          - http
+          - https
+        hostname:
+          type: string
+          description: Public host name; not a never-host
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        username:
+          type: string
+          maxLength: 256
+        password:
+          type: string
+          maxLength: 256
+          writeOnly: true
+        has_password:
+          type: boolean
+          readOnly: true
+    StepUp:
+      type: object
+      properties:
+        webhook_url:
+          type: string
+        hold_seconds:
+          type: integer
+        webhook_secret:
+          type: string
+          description: Create response only
+          readOnly: true
+    RevealSessionAttributes:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+        aliases:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alias'
+          description: '`cards` or `aliases` is required; at most 20 parts in total'
+        allowed_hosts:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            description: 'Exact host name: no wildcard, port or IP'
+        allowed_client_cidrs:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            description: IPv4/IPv6 address or CIDR
+        egress_proxy_settings:
+          $ref: '#/components/schemas/EgressProxySettings'
+        context:
+          type: object
+          maxProperties: 32
+          propertyNames:
+            type: string
+            pattern: ^[a-z][a-z0-9_]{0,63}$
+          additionalProperties:
+            type: string
+            maxLength: 512
+          description: At most 4096 characters in total (1024 for stateless sessions)
+        adapter:
+          type: string
+          description: 'AD id or adapter name; stored as the id. Absent: every enabled binding matches'
+        state:
+          type: string
+          enum:
+          - active
+          - revoked
+          - expired
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+        unlisted_host_mode:
+          type: string
+          enum:
+          - strict
+          - guarded
+          - step_up
+          description: From tenant preferences
+          readOnly: true
+        tokens:
+          type: array
+          items:
+            $ref: '#/components/schemas/Token'
+          readOnly: true
+        session_aliases:
+          type: array
+          items:
+            $ref: '#/components/schemas/Token'
+          readOnly: true
+        proxy:
+          $ref: '#/components/schemas/Proxy'
+          readOnly: true
+        step_up:
+          $ref: '#/components/schemas/StepUp'
+          readOnly: true
+        pending_approvals:
+          type: integer
+          readOnly: true
+        reveal_count:
+          type: integer
+          readOnly: true
+        refusal_count:
+          type: integer
+          readOnly: true
+        values:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: string
+          description: 'With `include=values`: values functions stored, keyed by adapter id then key'
+          readOnly: true
+    ProxyCaAttributes:
+      type: object
+      properties:
+        host:
+          type: string
+        scheme:
+          type: string
+        port:
+          type: integer
+        ca_bundle:
+          type: string
+    ApprovalAttributes:
+      type: object
+      properties:
+        reveal_session_id:
+          type: string
+          readOnly: true
+        host:
+          type: string
+          readOnly: true
+        method:
+          type: string
+          readOnly: true
+        path:
+          type: string
+          readOnly: true
+        state:
+          type: string
+          enum:
+          - pending
+          - approved
+          - denied
+          - expired
+          description: 'PATCH: `approved` or `denied`'
+        scope:
+          type: string
+          enum:
+          - request
+          - session
+          default: request
+        requested_at:
+          type: string
+          format: date-time
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+        decided_at:
+          type: string
+          format: date-time
+          readOnly: true
+    DestinationAttributes:
+      type: object
+      properties:
+        host_pattern:
+          type: string
+          description: Exact host or `*.` pattern; immutable after create
+        action:
+          type: string
+          enum:
+          - trust
+          - guarded
+          - block
+        origin:
+          type: string
+          enum:
+          - manual
+          - auto
+          readOnly: true
+        route_id:
+          type: string
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        promoted_by:
+          type: string
+          readOnly: true
+        promoted_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    RegistryEntryAttributes:
+      type: object
+      properties:
+        host_pattern:
+          type: string
+        action:
+          type: string
+          enum:
+          - trust
+          - guarded
+    InvocationAttributes:
+      type: object
+      properties:
+        input:
+          type: string
+          description: '`invoke` functions only'
+          writeOnly: true
+        request:
+          type: object
+          properties:
+            method:
+              type: string
+            url:
+              type: string
+              format: uri
+            headers:
+              type: object
+              additionalProperties:
+                type: string
+            body:
+              type: string
+              description: <= 1 MiB
+          writeOnly: true
+        response:
+          type: object
+          properties:
+            status:
+              type: integer
+              minimum: 100
+              maximum: 599
+            headers:
+              type: object
+              additionalProperties:
+                type: string
+            body:
+              type: string
+              description: <= 1 MiB
+          writeOnly: true
+        destination:
+          type: string
+          description: AX id whose bindings supply the inputs; not with `inputs`
+          writeOnly: true
+        inputs:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 4096
+          writeOnly: true
+        session:
+          type: object
+          properties:
+            values:
+              type: object
+              additionalProperties:
+                type: string
+            context:
+              type: object
+              additionalProperties:
+                type: string
+          writeOnly: true
+        function:
+          type: string
+          readOnly: true
+        source:
+          type: string
+          enum:
+          - api
+          - test
+          readOnly: true
+        dry_run:
+          type: boolean
+          readOnly: true
+        status:
+          type: string
+          enum:
+          - succeeded
+          - failed
+          readOnly: true
+        error:
+          type: string
+          readOnly: true
+        duration_ms:
+          type: integer
+          readOnly: true
+        result:
+          type: object
+          description: Create response only
+          properties:
+            output:
+              type: string
+            request:
+              type: object
+              additionalProperties: true
+            response:
+              type: object
+              additionalProperties: true
+            session:
+              type: object
+              properties:
+                values:
+                  type: object
+                  additionalProperties:
+                    type: string
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    InputSource:
+      type: object
+      required:
+      - from
+      properties:
+        from:
+          type: string
+          enum:
+          - constant
+          - request.body
+          - response.body
+          - request.header
+          - response.header
+          - request.query
+          - session.value
+        value:
+          type: string
+          description: '`constant`: <= 4096 characters, no `${`'
+        path:
+          type: string
+          description: '`*.body`: JSONPath (`$`, `.key`, `[''key'']`, `[index]`)'
+        name:
+          type: string
+          description: '`*.header` / `request.query`'
+        key:
+          type: string
+          description: '`session.value` (behind a feature flag)'
+    AdapterDestinationAttributes:
+      type: object
+      properties:
+        adapter:
+          type: string
+          description: AD id or name on input; AD id on output; immutable
+        adapter_version:
+          type: integer
+        enabled:
+          type: boolean
+          default: true
+        when:
+          type: object
+          required:
+          - host
+          properties:
+            host:
+              type: string
+              description: One of the vault's agent destinations, not blocked
+            method:
+              type: string
+              enum:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - HEAD
+              - OPTIONS
+            path:
+              type: string
+              maxLength: 1024
+              description: Starts with `/`; `*` matches any characters
+        functions:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items:
+            type: object
+            required:
+            - id
+            properties:
+              id:
+                type: string
+              inputs:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/InputSource'
+              extension_point:
+                type: string
+                enum:
+                - route.request
+                - route.response
+                readOnly: true
+        revision:
+          type: integer
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        updated_by:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    FunctionInput:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+        required:
+          type: boolean
+          default: false
+    FunctionAttributes:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        language:
+          type: string
+          enum:
+          - larky
+          default: larky
+        source:
+          type: string
+          description: Larky source, <= 262144 UTF-8 bytes, no `${`, must parse; `vault` only via `load("@vgs//vault", "vault")`
+        extension_point:
+          type: string
+          enum:
+          - route.request
+          - route.response
+          - invoke
+        inputs:
+          type: array
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/FunctionInput'
+        previous_version:
+          type: string
+          description: FN id of an earlier version owned by the same owner
+        sha256:
+          type: string
+          description: Hex SHA-256 of `source`
+          readOnly: true
+        owner:
+          type: string
+          enum:
+          - tenant
+          - vgs
+          readOnly: true
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DISABLED
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_by:
+          type: string
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    AdapterAttributes:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        functions:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            description: FN id
+          description: 'On create and new version: the version''s functions. In responses: the functions of the version shown'
+        publish_at:
+          type: string
+          description: 'PATCH only: `now`, or an ISO-8601 date-time with offset'
+          writeOnly: true
+        version:
+          type: integer
+          readOnly: true
+        latest_version:
+          type: integer
+          readOnly: true
+        published_version:
+          type: integer
+          readOnly: true
+        scheduled_version:
+          type: integer
+          readOnly: true
+        scheduled_at:
+          type: string
+          format: date-time
+          readOnly: true
+        owner:
+          type: string
+          enum:
+          - tenant
+          - vgs
+          readOnly: true
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DISABLED
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_by:
+          type: string
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    RevealSessionResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - reveal-sessions
+        id:
+          type: string
+          example: RSxxxxxxxxxxxxxxxxxxxxxx
+        attributes:
+          $ref: '#/components/schemas/RevealSessionAttributes'
+    RevealSessionDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/RevealSessionResource'
+    RevealSessionListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RevealSessionResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    RevealSessionRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - reveal-sessions
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/RevealSessionAttributes'
+    ProxyCaResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - reveal-session-proxy-ca
+        id:
+          type: string
+          example: proxy-ca
+        attributes:
+          $ref: '#/components/schemas/ProxyCaAttributes'
+    ProxyCaDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/ProxyCaResource'
+    ProxyCaListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProxyCaResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    ProxyCaRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - reveal-session-proxy-ca
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/ProxyCaAttributes'
+    ApprovalResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - reveal-session-approvals
+        id:
+          type: string
+          example: APxxxxxxxxxxxxxxxxxxxxxx
+        attributes:
+          $ref: '#/components/schemas/ApprovalAttributes'
+    ApprovalDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/ApprovalResource'
+    ApprovalListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApprovalResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    ApprovalRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - reveal-session-approvals
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/ApprovalAttributes'
+    DestinationResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - agent-gateway-destinations
+        id:
+          type: string
+          example: AGDxxxxxxxxxxxxxxxxxxxxxx
+        attributes:
+          $ref: '#/components/schemas/DestinationAttributes'
+    DestinationDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/DestinationResource'
+    DestinationListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DestinationResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    DestinationRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - agent-gateway-destinations
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/DestinationAttributes'
+    RegistryEntryResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - agent-gateway-registry-entries
+        id:
+          type: string
+        attributes:
+          $ref: '#/components/schemas/RegistryEntryAttributes'
+    RegistryEntryDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/RegistryEntryResource'
+    RegistryEntryListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegistryEntryResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    RegistryEntryRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - agent-gateway-registry-entries
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/RegistryEntryAttributes'
+    FunctionResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - functions
+        id:
+          type: string
+          example: FNxxxxxxxxxxxxxxxxxxxxxx
+        attributes:
+          $ref: '#/components/schemas/FunctionAttributes'
+    FunctionDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/FunctionResource'
+    FunctionListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FunctionResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    FunctionRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - functions
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/FunctionAttributes'
+    InvocationResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - function-invocations
+        id:
+          type: string
+          example: FIxxxxxxxxxxxxxxxxxxxxxx
+        attributes:
+          $ref: '#/components/schemas/InvocationAttributes'
+    InvocationDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/InvocationResource'
+    InvocationListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvocationResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    InvocationRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - function-invocations
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/InvocationAttributes'
+    AdapterResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - agent-gateway-adapters
+        id:
+          type: string
+          example: ADxxxxxxxxxxxxxxxxxxxxxx
+        attributes:
+          $ref: '#/components/schemas/AdapterAttributes'
+    AdapterDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/AdapterResource'
+    AdapterListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdapterResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    AdapterRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - agent-gateway-adapters
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/AdapterAttributes'
+    AdapterDestinationResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - agent-gateway-adapter-destinations
+        id:
+          type: string
+          example: AXxxxxxxxxxxxxxxxxxxxxxx
+        attributes:
+          $ref: '#/components/schemas/AdapterDestinationAttributes'
+    AdapterDestinationDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/AdapterDestinationResource'
+    AdapterDestinationListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdapterDestinationResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    AdapterDestinationRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - agent-gateway-adapter-destinations
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/AdapterDestinationAttributes'
+  responses:
+    E400:
+      description: Validation error; `errors[].code` names the rule
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E403:
+      description: Missing scope or role
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E404:
+      description: Not found (unknown, deleted, malformed or another tenant's id)
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E409:
+      description: Conflict; `errors[].code` names it
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E500:
+      description: Server error; `reveal_session_proxy_host_unusable` when the proxy host cannot be built for the tenant
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E503:
+      description: Unavailable; `errors[].code` names it
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'

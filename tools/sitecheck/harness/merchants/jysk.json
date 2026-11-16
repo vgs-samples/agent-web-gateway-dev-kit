@@ -1,0 +1,31 @@
+{
+  "name": "JYSK (jysk.co.uk)",
+  "adapter": "ADNepZjV7BxFSWYttAmh4afX",
+  "capture": {
+    "binding": "AXQvNGzQwPnwwdbDwuHxuz1c",
+    "response": {"status": 200, "headers": {"Content-Type": "text/html; charset=utf-8"},
+                 "body_file": "fixtures/adyen-securedfields-hm.html"}
+  },
+  "checkout": {
+    "binding": "AXSdNMN2rE9DRpzrqwR9Hdnx",
+    "method": "POST",
+    "url": "https://jysk.co.uk/api/checkout/payments/invoke-custom-handler",
+    "headers": {"Content-Type": "application/json"},
+    "body": {
+      "invokeCustomHandlerBody": {
+        "$json_string": {
+          "data": {
+            "paymentMethod": {
+              "type": "scheme",
+              "encryptedCardNumber": "browser-jwe-number",
+              "encryptedExpiryMonth": "browser-jwe-expiryMonth",
+              "encryptedExpiryYear": "browser-jwe-expiryYear",
+              "encryptedSecurityCode": "browser-jwe-cvc"
+            }
+          }
+        }
+      }
+    }
+  },
+  "context": {"adyen_expiry_month": "03", "adyen_expiry_year": "2030"}
+}

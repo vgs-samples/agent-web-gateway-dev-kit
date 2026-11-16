@@ -1,0 +1,31 @@
+{
+ "_comment": "Expiry fields only: a dry run has no card, so number/CVC reveals are tested with a real session (level 2). destination=$binding:checkout makes the function read adyen_form from the request body as the live binding does.",
+ "request": {
+  "method": "POST",
+  "url": "https://www2.hm.com/en_us/v2/checkout/proceed",
+  "headers": {
+   "Content-Type": "application/json"
+  },
+  "body": {
+   "adyenData": {
+    "encryptedAdyenForm": {
+     "encryptedAdyenExpiryMonth": "browser-jwe",
+     "encryptedAdyenExpiryYear": "browser-jwe"
+    },
+    "cardPaymentId": ""
+   },
+   "firstName": "Test"
+  }
+ },
+ "session": {
+  "values": {
+   "adyen_public_key": "10001|ACBF0DCA657A68E32889BD3799D36D58E1D48E2C4F2CC5E40811932821ECB2BC36C7D4D557156507BDEE91C974499EC7236E43AD4695EF81E05EC2A5451A92D75CC2FB730DB7C3DE921920344DA7C917B5907935663CDF2150959B9A7DE27DD3D9EC3CA155525A1589B50AE4FF293BF255577384611D8C8746F707C049987DEFBF54DB7773C2CB3D9AF9A5EE24D827B3225D91FBE49DB06D4D8FB9BA5802D59425E5876A91CC4B1CE047A71E4AEE109C0ABA7F3948689D979C3691CE423D97D7F9DDA9EBDD7C05DF44420F2417636DCCEA55FBFBEC2DE906E0BC0A92AE33EC08AB9B34D2C561D0D420676498A9EDA59E6B827D6600F58E72B1A846175F7E4073",
+   "adyen_generationtime": "2026-11-12T10:25:28Z"
+  },
+  "context": {
+   "adyen_expiry_month": "10",
+   "adyen_expiry_year": "2030"
+  }
+ },
+ "destination": "$binding:checkout"
+}

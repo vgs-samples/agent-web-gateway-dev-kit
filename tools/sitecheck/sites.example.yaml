@@ -1,0 +1,47 @@
+# Copy to sites.yaml. Secrets never go in this file: see README.md "Credentials".
+defaults:
+  env: prod-sandbox            # prod-sandbox | dev
+  tenant: tntXXXXXXXX          # your sandbox vault (or VGS_TENANT)
+  # keychain: claude/vgs::prod-sandbox::tntXXXXXXXX   # macOS Keychain service with the VGS client (account = client id)
+  egress: soax-us              # default egress profile below; "none" to go out from VGS directly
+  card: card.json              # session card (aliases only), see card.example.json
+  context: {expiry_month: "10", expiry_year: "2030", adyen_expiry_month: "10", adyen_expiry_year: "2030"}
+  # cookie_reject: ["#onetrust-reject-all-handler"]   # extra cookie-banner reject buttons (defaults cover most)
+  contact:                     # the shopper; used by recipes. Use test identities where the site allows it.
+    email: you+awg@example.com
+    first_name: Test
+    last_name: Shopper
+    phone: "+1 415 555 0100"
+    billing:  {line1: "1 Market St", line2: "", city: "San Francisco", postal_code: "94105", state: CA, state_name: California, country: US}
+    shipping: {line1: "1 Market St", line2: "", city: "San Francisco", postal_code: "94105", state: CA, state_name: California, country: US}
+
+egress:
+  soax-us:
+    scheme: https
+    hostname: YOUR_EGRESS_PROXY_HOST
+    port: 1337
+    username: country-us-network-res_mob
+    password_env: SOAX_PASSWORD            # or password_keychain: <Keychain service>
+    sticky_suffix: "-session-{id}"         # one exit IP per run; rotating IPs break Akamai-style cookies
+  soax-gb:
+    scheme: https
+    hostname: YOUR_EGRESS_PROXY_HOST
+    port: 1337
+    username: country-gb-network-res_mob
+    password_env: SOAX_PASSWORD
+    sticky_suffix: "-session-{id}"
+
+sites:
+  - id: hm-us
+    name: H&M US
+    urls: ["https://www2.hm.com/en_us/productpage.1342310004.html"]
+    allowed_hosts: [www2.hm.com, checkoutshopper-live.adyen.com]
+    psp: adyen
+    adapter: ADxxxxxxxxxxxxxxxxxxxxxx      # from `awg-sitecheck adapter apply adapters/adyen-cse/hm-us.yaml`
+    recipe: recipes/hm_us.py
+    contact: {size: "6-8Y"}                # merged over defaults.contact (site keys win)
+    notes: "Needs agentGatewayBrowserEmulation=true on the vault."
+
+  - id: example-new-site                   # level 1 needs only id, name and urls
+    name: Example shop
+    urls: ["https://www.example-shop.com/", "https://www.example-shop.com/p/some-product"]

@@ -1,0 +1,9 @@
+{
+  "data": {
+    "type": "agent-gateway-destinations",
+    "attributes": {
+      "host_pattern": "payments.example",
+      "action": "guarded"
+    }
+  }
+}

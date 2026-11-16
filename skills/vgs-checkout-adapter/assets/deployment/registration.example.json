@@ -1,0 +1,11 @@
+{
+  "tenant": "REPLACE_WITH_TARGET_TENANT",
+  "api": "REPLACE_WITH_TARGET_API",
+  "adapterId": "AD_REPLACE_WITH_READBACK_ID",
+  "version": 1,
+  "functions": [],
+  "connections": [],
+  "harSha256": "REPLACE_WITH_ORIGINAL_SHA256",
+  "localReports": [],
+  "readbackVerified": false
+}

@@ -1,0 +1,850 @@
+openapi: 3.1.0
+info:
+  title: VGS Agent Web Gateway Admin API (internal)
+  version: '2026-11-12'
+  description: 'VGS-only: the trusted-destination registry and VGS-owned functions and adapters. Requires a client role of
+    Keycloak client `vault-mgmt-http-api` (listed per operation in `x-vgs-required-scope`) and OPA; without OPA every call
+    answers 503. Generated from vault-management awg/stack-top d37e6452.'
+servers:
+- url: https://{host}
+  variables:
+    host:
+      default: vault-management.example.internal
+      description: The vault-management host for the environment
+security:
+- bearerAuth: []
+tags:
+- name: Registry destinations
+- name: VGS functions
+- name: VGS adapters
+paths:
+  /admin/agent-destinations:
+    get:
+      operationId: adminListAgentDestinations
+      summary: List registry destinations
+      tags:
+      - Registry destinations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AgentDestinationListDocument'
+        '403':
+          $ref: '#/components/responses/E403'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:read | admin/agent-destinations:read
+      description: Requires `admin/agent-gateway:read | admin/agent-destinations:read`.
+    post:
+      operationId: adminCreateAgentDestination
+      summary: Add a registry destination (applies to every tenant)
+      tags:
+      - Registry destinations
+      responses:
+        '201':
+          description: Created
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AgentDestinationDocument'
+          headers:
+            Location:
+              description: URL of the created resource
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '409':
+          $ref: '#/components/responses/E409'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:write | admin/agent-destinations:write
+      description: 'Error codes: `missing_attributes`, `invalid_host_pattern`, `never_host`, `invalid_mode`, `invalid_status`,
+        `destination_exists`, `agent_destinations_admin_disabled`.
+
+
+        Requires `admin/agent-gateway:write | admin/agent-destinations:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/AgentDestinationRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentDestinationRequest'
+  /admin/agent-destinations/{id}:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      operationId: adminGetAgentDestination
+      summary: Read a registry destination
+      tags:
+      - Registry destinations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AgentDestinationDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:read | admin/agent-destinations:read
+      description: Requires `admin/agent-gateway:read | admin/agent-destinations:read`.
+    patch:
+      operationId: adminUpdateAgentDestination
+      summary: Change mode or status
+      tags:
+      - Registry destinations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AgentDestinationDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:write | admin/agent-destinations:write
+      description: 'Error codes: `host_pattern_immutable`, `missing_attributes`, `invalid_mode`, `invalid_status`.
+
+
+        Requires `admin/agent-gateway:write | admin/agent-destinations:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/AgentDestinationRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentDestinationRequest'
+    delete:
+      operationId: adminDeleteAgentDestination
+      summary: Delete a registry destination (hard delete)
+      tags:
+      - Registry destinations
+      responses:
+        '204':
+          description: Deleted
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:write | admin/agent-destinations:write
+      description: Requires `admin/agent-gateway:write | admin/agent-destinations:write`.
+  /admin/functions:
+    get:
+      operationId: adminListFunctions
+      summary: List VGS functions
+      tags:
+      - VGS functions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/FunctionListDocument'
+        '403':
+          $ref: '#/components/responses/E403'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:read
+      description: Requires `admin/agent-gateway:read`.
+      parameters:
+      - name: filter[name]
+        in: query
+        required: false
+        description: Exact name
+        schema:
+          type: string
+    post:
+      operationId: adminCreateFunction
+      summary: Create a VGS function (readable by every vault)
+      tags:
+      - VGS functions
+      responses:
+        '201':
+          description: Created
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/FunctionDocument'
+          headers:
+            Location:
+              description: URL of the created resource
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:write
+      description: 'Error codes: `missing_attributes`, `invalid_name`, `invalid_extension_point`, `invalid_source`, `source_too_large`,
+        `invalid_inputs`, `invalid_previous_version`, `agent_gateway_admin_disabled`.
+
+
+        Requires `admin/agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/FunctionRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunctionRequest'
+  /admin/functions/{id}:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      description: Function id
+      schema:
+        type: string
+        example: FNxxxxxxxxxxxxxxxxxxxxxx
+    get:
+      operationId: adminGetFunction
+      summary: Read a VGS function
+      tags:
+      - VGS functions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/FunctionDocument'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:read
+      description: Requires `admin/agent-gateway:read`.
+    delete:
+      operationId: adminDeleteFunction
+      summary: Soft-delete a VGS function
+      tags:
+      - VGS functions
+      responses:
+        '204':
+          description: Deleted
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:write
+      description: '409 while an adapter of any owner bundles it.
+
+
+        Error codes: `function_in_use`.
+
+
+        Requires `admin/agent-gateway:write`.'
+  /admin/agent-gateway-adapters:
+    get:
+      operationId: adminListAdapters
+      summary: List VGS adapters (all versions, schedules and drafts)
+      tags:
+      - VGS adapters
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterListDocument'
+        '403':
+          $ref: '#/components/responses/E403'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:read
+      description: Requires `admin/agent-gateway:read`.
+    post:
+      operationId: adminCreateAdapter
+      summary: Create a VGS adapter
+      tags:
+      - VGS adapters
+      responses:
+        '201':
+          description: Created
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDocument'
+          headers:
+            Location:
+              description: URL of the created resource
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '409':
+          $ref: '#/components/responses/E409'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:write
+      description: 'Its functions must be VGS functions.
+
+
+        Error codes: `missing_attributes`, `invalid_name`, `invalid_functions`, `adapter_exists`.
+
+
+        Requires `admin/agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+  /admin/agent-gateway-adapters/{id}:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      description: Adapter id
+      schema:
+        type: string
+        example: ADxxxxxxxxxxxxxxxxxxxxxx
+    get:
+      operationId: adminGetAdapter
+      summary: Read a VGS adapter
+      tags:
+      - VGS adapters
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDocument'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:read
+      description: Requires `admin/agent-gateway:read`.
+    post:
+      operationId: adminCreateAdapterVersion
+      summary: Add a version
+      tags:
+      - VGS adapters
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '409':
+          $ref: '#/components/responses/E409'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:write
+      description: 'Error codes: `name_immutable`, `adapter_not_found`, `invalid_functions`, `adapter_version_conflict`.
+
+
+        Requires `admin/agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+    patch:
+      operationId: adminPublishAdapter
+      summary: Publish the latest version to every vault, now or at a time
+      tags:
+      - VGS adapters
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/AdapterDocument'
+        '400':
+          $ref: '#/components/responses/E400'
+        '403':
+          $ref: '#/components/responses/E403'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:write
+      description: 'Error codes: `invalid_attributes`, `invalid_publish_at`, `adapter_not_found`.
+
+
+        Requires `admin/agent-gateway:write`.'
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdapterRequest'
+    delete:
+      operationId: adminDeleteAdapter
+      summary: Soft-delete a VGS adapter
+      tags:
+      - VGS adapters
+      responses:
+        '204':
+          description: Deleted; the name is free again
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '503':
+          $ref: '#/components/responses/E503'
+      x-vgs-required-scope: admin/agent-gateway:write
+      description: '409 while an adapter destination of any vault uses it.
+
+
+        Error codes: `adapter_in_use`.
+
+
+        Requires `admin/agent-gateway:write`.'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: integer
+              code:
+                type: string
+                description: Present on 400, 409 and 503 errors
+              title:
+                type: string
+              detail:
+                type: string
+              href:
+                type: string
+                description: The request URL
+    PageMeta:
+      type: object
+      properties:
+        total_pages:
+          type: integer
+        total_elements:
+          type: integer
+    PageLinks:
+      type: object
+      additionalProperties:
+        type: string
+    FunctionInput:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+        required:
+          type: boolean
+          default: false
+    FunctionAttributes:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        language:
+          type: string
+          enum:
+          - larky
+          default: larky
+        source:
+          type: string
+          description: Larky source, <= 262144 UTF-8 bytes, no `${`, must parse; `vault` only via `load("@vgs//vault", "vault")`
+        extension_point:
+          type: string
+          enum:
+          - route.request
+          - route.response
+          - invoke
+        inputs:
+          type: array
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/FunctionInput'
+        previous_version:
+          type: string
+          description: FN id of an earlier version owned by the same owner
+        sha256:
+          type: string
+          description: Hex SHA-256 of `source`
+          readOnly: true
+        owner:
+          type: string
+          enum:
+          - tenant
+          - vgs
+          readOnly: true
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DISABLED
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_by:
+          type: string
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    AdapterAttributes:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        functions:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            description: FN id
+          description: 'On create and new version: the version''s functions. In responses: the functions of the version shown'
+        publish_at:
+          type: string
+          description: 'PATCH only: `now`, or an ISO-8601 date-time with offset'
+          writeOnly: true
+        version:
+          type: integer
+          readOnly: true
+        latest_version:
+          type: integer
+          readOnly: true
+        published_version:
+          type: integer
+          readOnly: true
+        scheduled_version:
+          type: integer
+          readOnly: true
+        scheduled_at:
+          type: string
+          format: date-time
+          readOnly: true
+        owner:
+          type: string
+          enum:
+          - tenant
+          - vgs
+          readOnly: true
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DISABLED
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_by:
+          type: string
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    AgentDestinationAttributes:
+      type: object
+      properties:
+        host_pattern:
+          type: string
+          description: Immutable after create
+        mode:
+          type: string
+          enum:
+          - trusted
+          - guarded
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+          default: active
+        created_by:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    AgentDestinationResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - agent-destinations
+        id:
+          type: string
+          format: uuid
+        attributes:
+          $ref: '#/components/schemas/AgentDestinationAttributes'
+    AgentDestinationDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/AgentDestinationResource'
+    AgentDestinationListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentDestinationResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    AgentDestinationRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - agent-destinations
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/AgentDestinationAttributes'
+    FunctionResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - functions
+        id:
+          type: string
+          example: FNxxxxxxxxxxxxxxxxxxxxxx
+        attributes:
+          $ref: '#/components/schemas/FunctionAttributes'
+    FunctionDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/FunctionResource'
+    FunctionListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FunctionResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    FunctionRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - functions
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/FunctionAttributes'
+    AdapterResource:
+      type: object
+      required:
+      - type
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - agent-gateway-adapters
+        id:
+          type: string
+          example: ADxxxxxxxxxxxxxxxxxxxxxx
+        attributes:
+          $ref: '#/components/schemas/AdapterAttributes'
+    AdapterDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/AdapterResource'
+    AdapterListDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdapterResource'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        links:
+          $ref: '#/components/schemas/PageLinks'
+    AdapterRequest:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - attributes
+          properties:
+            type:
+              type: string
+              enum:
+              - agent-gateway-adapters
+            id:
+              type: string
+            attributes:
+              $ref: '#/components/schemas/AdapterAttributes'
+  responses:
+    E400:
+      description: Validation error; `errors[].code` names the rule
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E403:
+      description: Missing scope or role
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E404:
+      description: Not found (unknown, deleted, malformed or another tenant's id)
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E409:
+      description: Conflict; `errors[].code` names it
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E500:
+      description: Server error; `reveal_session_proxy_host_unusable` when the proxy host cannot be built for the tenant
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    E503:
+      description: Unavailable; `errors[].code` names it
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/Error'

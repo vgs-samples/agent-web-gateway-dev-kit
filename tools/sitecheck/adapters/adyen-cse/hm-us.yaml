@@ -1,0 +1,28 @@
+# Adyen client-side encryption for H&M US: the reference spec.
+# Apply:    awg-sitecheck adapter apply adapters/adyen-cse/hm-us.yaml
+# Dry run:  awg-sitecheck adapter dry-run adapters/adyen-cse/hm-us.yaml capture adapters/adyen-cse/fixtures/capture.json
+#           awg-sitecheck adapter dry-run adapters/adyen-cse/hm-us.yaml encrypt adapters/adyen-cse/fixtures/encrypt-hm.json
+# Verify:   awg-sitecheck verify harness/merchants/hm-us-prod-sandbox.json --card card.json   (level 2)
+name: hm-us-adyen
+hosts: [www2.hm.com, checkoutshopper-live.adyen.com]
+functions:
+  capture:
+    file: capture.star
+    extension_point: route.response
+    name: "Adyen: capture public key and genTime from Secured Fields"
+  encrypt:
+    file: encrypt.star
+    extension_point: route.request
+    name: "Adyen: re-encrypt card form from the session card (H&M wrapper)"
+    inputs: [{name: adyen_form, required: true}, {name: card_label, required: false}]
+bindings:
+  # One capture binding per vault: every Adyen merchant shares checkoutshopper-live.adyen.com. If another adapter in the
+  # vault already captures there, `apply` stops with destination_overlap; drop this binding and reuse that one
+  # (same session value names), or give each merchant its own vault.
+  - key: capture
+    function: capture
+    when: {host: checkoutshopper-live.adyen.com, method: GET, path: "/checkoutshopper/securedfields/*/*/securedFields*html"}
+  - key: checkout
+    function: encrypt
+    when: {host: www2.hm.com, method: POST, path: "/*/v2/checkout/proceed"}
+    inputs: {adyen_form: {from: request.body, path: "$.adyenData.encryptedAdyenForm"}}

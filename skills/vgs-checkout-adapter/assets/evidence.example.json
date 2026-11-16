@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "merchant": "merchant.example",
+  "market": "REPLACE_WITH_CAPTURE_MARKET",
+  "har": {
+    "sha256": "REPLACE_WITH_ORIGINAL_SHA256",
+    "route": "unknown",
+    "source": "user-supplied or new direct capture"
+  },
+  "decisiveEntries": [
+    {
+      "index": 0,
+      "phase": "route.request",
+      "host": "payments.example",
+      "method": "POST",
+      "path": "/checkout/example",
+      "contentType": "application/json",
+      "requestBody": "present",
+      "responseBody": "missing",
+      "fieldPaths": [
+        "$.card.number"
+      ],
+      "operationGuard": null,
+      "conclusion": "REPLACE_WITH_OBSERVED_EVIDENCE"
+    }
+  ],
+  "fixtures": [],
+  "functionSources": [],
+  "localReports": [],
+  "status": {
+    "captureComplete": false,
+    "nativeLocalPassed": false,
+    "registered": false,
+    "gatewayVerified": false,
+    "merchantAcceptanceVerified": false
+  },
+  "remainingGates": [
+    "Populate from actual evidence; this template establishes no compatibility."
+  ]
+}

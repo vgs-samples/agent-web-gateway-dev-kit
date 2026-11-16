@@ -1,0 +1,4 @@
+interface:
+  display_name: "VGS Checkout Adapter"
+  short_description: "Fresh sessions, HAR review, Larky tests, and adapters"
+  default_prompt: "Use $vgs-checkout-adapter to review a checkout HAR, test the transformation locally, and prepare its adapter."

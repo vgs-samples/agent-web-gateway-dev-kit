@@ -1,0 +1,28 @@
+{
+  "name": "H&M (www2.hm.com)",
+  "adapter": "ADNepZjV7BxFSWYttAmh4afX",
+  "capture": {
+    "binding": "AXQvNGzQwPnwwdbDwuHxuz1c",
+    "response": {"status": 200, "headers": {"Content-Type": "text/html; charset=utf-8"},
+                 "body_file": "fixtures/adyen-securedfields-hm.html"}
+  },
+  "checkout": {
+    "binding": "AXEEbdqSU4T5xonrqfy7Sth2",
+    "method": "POST",
+    "url": "https://www2.hm.com/en_us/v2/checkout/proceed",
+    "headers": {"Content-Type": "application/json"},
+    "body": {
+      "adyenData": {
+        "encryptedAdyenForm": {
+          "encryptedAdyenCardNumber": "browser-jwe-number",
+          "encryptedAdyenExpiryMonth": "browser-jwe-expiryMonth",
+          "encryptedAdyenExpiryYear": "browser-jwe-expiryYear",
+          "encryptedAdyenSecurityCode": "browser-jwe-cvc"
+        },
+        "cardPaymentId": ""
+      },
+      "firstName": "Test"
+    }
+  },
+  "context": {"adyen_expiry_month": "03", "adyen_expiry_year": "2030"}
+}
