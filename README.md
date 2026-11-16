@@ -14,11 +14,36 @@ The Agent Web Gateway lets an AI agent pay on a merchant's website with a card s
 4. On the way to an allowed host, VGS puts the real card into the request. Where the payment provider encrypts the card in the browser (for example Adyen), an **adapter** made of small **functions** rebuilds the encrypted fields from the real card.
 5. The merchant receives a normal payment request. If a function cannot run, the request fails rather than sending the stand-in or the card anywhere else.
 
-### The request path
+### How a checkout flows
+
+The first two pictures are slides from VGS's "Agent Web Gateway" deck (November 2026), unchanged. The deck is marked confidential, like this repository.
+
+![Slide: the end-user card is stored as aliases on the agent platform; the platform creates a session and gets proxy settings and session tokens; the agent's browser types the session tokens at checkout; the Agent Web Gateway session swaps them for the real card on the way to the merchant](docs/images/awg-flow-token-swap.png)
+
+Reading the numbers on the slide:
+
+1. The end user's card.
+2. The agent platform holds only aliases for it.
+3. The platform creates a session.
+4. The response returns the proxy settings and the session tokens. Here the card-number token keeps the first six and last four digits.
+5. The agent's browser types the session tokens into the merchant's checkout form.
+6. The purchase request, carrying the session tokens, goes to the session proxy.
+7. The Agent Web Gateway session swaps the tokens for the real values.
+8. The merchant receives the real card number and CVV.
+
+The numbered reading is this page's; the slide itself has no legend.
+
+### When the payment provider encrypts in the browser
+
+![Slide: the checkout page's load-form response passes through the Agent Web Gateway session, which identifies the encryption key and stores it on the session; on purchase, the session reveals the card and replaces the encrypted token fields with fields encrypted from the original data](docs/images/awg-flow-client-side-encryption.png)
+
+Here the browser encrypts what the agent typed before sending it, so a plain swap cannot work. The session does two things: when the payment form loads, it identifies the encryption key and stores it on the session; on purchase, it reveals the card and replaces the encrypted fields with fields built from the original data.
+
+### The engineering view
 
 ![AWG request path for Adyen client-side encryption: the agent's browser holds aliases only; the VGS session proxy runs a capture function and a re-encrypt function, and only the re-encrypt function reveals the card from the vault; every other host goes direct](docs/reference/request-path.svg)
 
-This is VGS's own diagram, taken unchanged from the engineering spec of 2026-11-12. It shows the Adyen client-side-encryption flow, which is the reference integration:
+This diagram is taken unchanged from the engineering spec of 2026-11-12. It shows the same client-side-encryption flow for Adyen, the reference integration, with the parts named as they are in the API:
 
 - The agent's browser holds stand-in values only, and reaches the payment hosts through the session proxy by way of the PAC file.
 - The **capture function** reads the merchant's key and Adyen's `genTime` from the Adyen page and stores them as session values.
@@ -50,6 +75,7 @@ Read these in order. Budget about two hours for reading and half a day for the l
 | Path | What it is |
 |---|---|
 | `docs/training/` | The training pages above |
+| `docs/images/` | Two flow slides from VGS's "Agent Web Gateway" deck (November 2026) |
 | `docs/comparison-evervault-browser-tokens.md` | AWG next to Evervault's Browser Tokens, row by row, from each side's own documents |
 | `docs/reference/` | The engineering docs bundle of 2026-11-12, copied unchanged except for its README, which was rewritten: engineering spec, API detail, support runbook, customer developer guide, full API inventory |
 | `openapi/` | OpenAPI 3.1 specs: 34 tenant operations and 15 admin operations |

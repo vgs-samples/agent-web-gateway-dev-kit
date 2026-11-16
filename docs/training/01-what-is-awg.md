@@ -40,6 +40,14 @@ Which one a merchant needs depends on how its payment provider takes the card.
 | Plain card fields posted to the provider's API | Replaces the session tokens in the request with the real values, for allowed hosts | No. Put the provider's API host in `allowed_hosts` |
 | Client-side encryption: the browser encrypts the card with the provider's public key | Runs two functions: one stores the provider's key in the session, one replaces the browser's ciphertext with fields encrypted from the real card | Yes |
 
+The plain case, from VGS's "Agent Web Gateway" deck (November 2026):
+
+![The agent's browser types session tokens at checkout and the Agent Web Gateway session swaps them for the real card on the way to the merchant](../images/awg-flow-token-swap.png)
+
+The client-side-encryption case, from the same deck:
+
+![The session stores the encryption key when the payment form loads, then replaces the encrypted token fields with fields built from the real card](../images/awg-flow-client-side-encryption.png)
+
 The Adyen client-side-encryption flow is the reference integration:
 
 1. The browser loads the merchant's Adyen secured-fields page through the session proxy. A **capture function** reads the merchant's public key and Adyen's `genTime` from the page and stores them in the session.

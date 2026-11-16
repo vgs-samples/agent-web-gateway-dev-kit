@@ -64,7 +64,7 @@ cdp.on('Fetch.authRequired', e => cdp.send('Fetch.continueWithAuth', {
 
 ## What the sources do not cover
 
-- No AWG source in this repository makes a statement about PCI DSS scope. Do not make one to a customer on the strength of this training; ask the compliance team.
+- No AWG document in this repository explains PCI DSS scope. VGS's "Agent Web Gateway" deck (November 2026) describes the product as transferring card data in a headless browser session "without PCI exposure", but gives no detail. Do not make a scope statement to a customer on the strength of this training; ask the compliance team.
 - No AWG source names the hosted browser platforms AWG has been tested with.
 - 3-D Secure through AWG was listed as untested on 2026-11-12.
 

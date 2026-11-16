@@ -32,7 +32,7 @@ How to read it:
 | Values other than cards | Passwords and other credentials are covered: "This applies to credentials as well as card data." | Sessions accept loose `aliases` with format `text` as well as card number and CVC. No AWG source describes a login flow |
 | Seeing what happened | Guidance to "log which token categories were revealed and to which destinations"; each value's `id` is "reflected in the Evervault logs". No per-request decision record is described | `reveal_count` and `refusal_count` on the session; per-request access, operation and reveal-decision logs by `vgs-request-id` |
 | Browser platforms named | Browserbase, Browserless, Kernel, Steel, local Chromium and Playwright | A Playwright example in the developer guide. No hosted platform is named in the sources here |
-| PCI scope | A "PCI scope reduction" section with a production checklist | Not stated in any AWG source here |
+| PCI scope | A "PCI scope reduction" section with a production checklist | VGS's "Agent Web Gateway" deck (November 2026) says "without PCI exposure"; no AWG document here explains the scope |
 | Spending limits | Not provided: "transaction authorization stays with the issuer or payment processor" | Not stated. The only amount cap in this repository is the test tool's `--max-total`, which is a guard in the CLI, not a gateway feature |
 
 ## What this means when you explain AWG
