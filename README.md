@@ -14,6 +14,19 @@ The Agent Web Gateway lets an AI agent pay on a merchant's website with a card s
 4. On the way to an allowed host, VGS puts the real card into the request. Where the payment provider encrypts the card in the browser (for example Adyen), an **adapter** made of small **functions** rebuilds the encrypted fields from the real card.
 5. The merchant receives a normal payment request. If a function cannot run, the request fails rather than sending the stand-in or the card anywhere else.
 
+### The request path
+
+![AWG request path for Adyen client-side encryption: the agent's browser holds aliases only; the VGS session proxy runs a capture function and a re-encrypt function, and only the re-encrypt function reveals the card from the vault; every other host goes direct](docs/reference/request-path.svg)
+
+This is VGS's own diagram, taken unchanged from the engineering spec of 2026-11-12. It shows the Adyen client-side-encryption flow, which is the reference integration:
+
+- The agent's browser holds stand-in values only, and reaches the payment hosts through the session proxy by way of the PAC file.
+- The **capture function** reads the merchant's key and Adyen's `genTime` from the Adyen page and stores them as session values.
+- The **re-encrypt function** is the only part that asks the vault for the card. It writes the encrypted fields into the checkout request.
+- Every other host goes direct, per the PAC file, or through the session's egress proxy when one is set.
+
+For merchants whose payment provider takes plain card fields, there are no functions: VGS swaps the session tokens for the real values on requests to allowed hosts. Page 1 explains both cases.
+
 ## Learning path
 
 Read these in order. Budget about two hours for reading and half a day for the labs.
