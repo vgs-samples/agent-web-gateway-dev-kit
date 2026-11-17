@@ -73,15 +73,6 @@ The PAC file sends the session's `allowed_hosts`, and the `when.host` of every e
 
 A PAC file cannot carry credentials. The proxy asks for them with `407`; the username is the session id and the password is the one in `proxy.url`.
 
-## Things that surprise people
-
-- **Write scopes do not include read.** A token with `reveal-sessions:write` alone cannot `GET` a session.
-- **Secrets are returned once.** `proxy.url`, the PAC link and the session tokens come only in the create response (an endpoint that reissues the proxy password exists but is off by default). The CA bundle can also be read from `GET /reveal-sessions/proxy-ca`.
-- **A function that does nothing raises no error.** If it returns its input unchanged, the request goes out as the browser sent it. Check `reveal_count`.
-- **A binding pins one adapter version** and runs only functions of that version.
-- **Two enabled bindings may not run functions in the same phase on traffic both could match** (`409 destination_overlap`).
-- **Delete order:** bindings, then adapters, then functions.
-
 ---
 
 Sources: `docs/reference/01-internal-engineering-spec.md` (Concepts and data model, Tenant API reference for session limits, Proxy behavior), `docs/reference/04-developer-guide.md` (Reveal sessions, Destinations, PAC), `docs/reference/api-inventory-full.md` (`tokens`), `skills/vgs-checkout-adapter/references/fresh-session.md` (role-based cards, type tokens not aliases), the test kit README of 2026-11-07 (one-hour sessions; not in this repository).
