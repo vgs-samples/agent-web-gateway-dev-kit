@@ -168,6 +168,15 @@ here for extension setup and additional browser compatibility checks; they are
 not a replacement for that environment. Record the browser/version alongside the
 session and route when comparing results.
 
+### What about Kitesurf?
+
+[Kitesurf](https://developers.cloudflare.com/browser-run/kitesurf/) is a different,
+experimental engine running on Cloudflare Workers. Cloudflare explicitly leaves
+out extensions and lists long-running authenticated sessions with persistent
+state as a current limitation. Its Chrome DevTools Protocol support does not make
+it a Chromium extension host. It cannot run this control-panel extension; treat a
+future AWG integration as separate work, not another launch option in this lab.
+
 ### Chrome for Testing: CLI-first path
 
 With the tool copied to the location used in step 1:
