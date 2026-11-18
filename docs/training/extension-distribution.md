@@ -115,6 +115,13 @@ reference documents, slides or training archive. Select a version, license and
 release owner for that package before publishing it. No public download or store
 listing is created by this proposal.
 
+CloakBrowser's wrapper source is MIT-licensed, but its distributed browser binary
+uses a separate proprietary license. The
+[vendor's binary license](https://github.com/CloakHQ/CloakBrowser/blob/main/BINARY-LICENSE.md)
+restricts redistribution and bundling. An optional CloakBrowser setup should send
+learners to the vendor's distribution instead of including that binary in the
+extension kit. Do not describe the whole CloakBrowser distribution as open source.
+
 ## Work needed for the store experience
 
 | Current behavior | Change for a store release |

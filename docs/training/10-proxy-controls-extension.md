@@ -108,6 +108,19 @@ through the workflow that created it when the lab is finished.
 
 ## Browser launch examples
 
+**Recommended for the introductory lab: Chrome for Testing.**
+[Chromium](https://www.chromium.org/chromium-projects/) is the open-source browser
+project underlying Chrome. [Chrome for Testing](https://developer.chrome.com/docs/automation-and-testing/chrome-for-testing)
+is Google's Chrome build for testing, with versioned downloads aligned to Chrome
+releases and no automatic browser updates. It can open an ordinary visible window;
+it is not an anonymity mode. Pin a maintained build for each cohort and update it
+deliberately. Regular Chrome is the everyday, auto-updating product.
+
+Chromium also works as a launch target, but choosing a specific Chrome for Testing
+release gives the course a clearer reproducible baseline. Brave remains an
+optional privacy-oriented browser compatibility target. For an existing merchant
+test, preserve the browser originally used, as explained below.
+
 Run the helper from step 4 first and leave it running. Use a second terminal for
 the browser. The examples assume macOS applications installed in `/Applications`;
 change the executable path if yours is elsewhere. They launch the browser, but do
