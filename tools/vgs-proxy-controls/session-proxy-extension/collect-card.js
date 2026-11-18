@@ -11,6 +11,7 @@ const collectCard = (() => {
     const method = account => !account?.connected ? null : account.scopes?.some(s => s.name === 'aliases:write' && s.granted) ? 'aliases'
         : account.cardsWriteGranted || account.scopes?.some(s => s.name === 'cards:create' && s.granted) ? 'card' : null;
     const allowed = account => !!method(account);
+    const aliasPattern = environment => 'tok_' + {dev:'(?:dev|sandbox)',sandbox:'sandbox',live:'live'}[environment] + '_[A-Za-z0-9_]{8,200}';
     const valid = () => loaded && metadata.panValid && metadata.cvcValid && (context?.method !== 'card' || metadata.expiryValid) && /^\d{6}(?:\d{2})?$/.test(metadata.bin || '');
     function render() {
         node('collect-status').textContent = notice;
@@ -132,7 +133,7 @@ const collectCard = (() => {
             });
             authorization = null;
             if (current !== generation) throw new Error('The selected account changed. Add the card again.');
-            const pattern = new RegExp('^' + (selected.environment === 'live' ? 'tok_live_' : 'tok_sandbox_') + '[A-Za-z0-9_]{8,200}$');
+            const pattern = new RegExp('^' + aliasPattern(selected.environment) + '$');
             const attributes = selected.method === 'card' ? response?.data?.attributes : null;
             const panAlias = attributes ? attributes.pan_alias : response?.card_number;
             const cvcAlias = attributes ? attributes.cvc_alias : response?.card_cvc;
@@ -140,7 +141,7 @@ const collectCard = (() => {
             if (returnedTenant && returnedTenant !== selected.tenantId) throw new Error('VGS returned a different vault. The card was not added.');
             if (selected.method === 'card' && attributes?.pan_alias && !attributes.cvc_alias)
                 throw new Error('VGS returned an existing card without a fresh security-code alias. Connect an account with aliases:write to create both aliases.');
-            if (!pattern.test(panAlias) || !pattern.test(cvcAlias) || panAlias === cvcAlias)
+            if (typeof panAlias !== 'string' || typeof cvcAlias !== 'string' || !pattern.test(panAlias) || !pattern.test(cvcAlias) || panAlias === cvcAlias)
                 throw new Error('VGS did not return both expected aliases. The card was not added.');
             return {environment:selected.environment, tenantId:selected.tenantId, aliases:[
                 {alias:panAlias,format:'card_number',storage:'PERSISTENT',bin,length:panLength},
@@ -153,5 +154,5 @@ const collectCard = (() => {
         if (!loaded || submitting || !['dev','sandbox'].includes(context?.environment)) return;
         void open(context.environment,cardAccount,changed,button.dataset.testCard);
     });
-    return {open, reset, submit, allowed, get ready(){return valid();}, get submitting(){return submitting;}, render};
+    return {open, reset, submit, allowed, aliasPattern, get ready(){return valid();}, get submitting(){return submitting;}, render};
 })();

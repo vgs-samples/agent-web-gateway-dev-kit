@@ -7,8 +7,8 @@ import unittest
 import uuid
 from pathlib import Path
 from unittest.mock import patch
-from session_operations import Operations, private_json, validated_options
-from session_form import validate_dashboard_options
+from session_operations import Operations, private_json, validated_options, validate_card
+from session_form import validate_dashboard_options, validate_aliases
 
 class DashboardFormTests(unittest.TestCase):
     def setUp(self):
@@ -44,6 +44,27 @@ class DashboardFormTests(unittest.TestCase):
         self.assertEqual(attrs['allowed_client_cidrs'],['203.0.113.0/24','2001:db8::1/128'])
         self.assertEqual(attrs['egress_proxy_settings']['password'],'fixture-secret')
         self.operations.create(self.value);self.assertEqual(len([c for c in self.calls if c[0]=='POST']),1)
+    def test_alias_namespaces_match_environment_for_both_creation_paths(self):
+        for environment, accepted in [('dev', {'dev','sandbox'}), ('sandbox', {'sandbox'}), ('live', {'live'})]:
+            for namespace in ['dev','sandbox','live']:
+                with self.subTest(environment=environment, namespace=namespace):
+                    rows=copy.deepcopy(self.aliases)
+                    for row in rows: row['alias']=row['alias'].replace('tok_sandbox_',f'tok_{namespace}_')
+                    card={key:{k:v for k,v in row.items() if k!='format'} for key,row in zip(['number','cvc'],rows)}
+                    if namespace in accepted:
+                        self.assertEqual(validate_aliases(rows,environment),rows)
+                        self.assertEqual(list(validate_card(card,environment).values()),rows)
+                    else:
+                        with self.assertRaises(ValueError):validate_aliases(rows,environment)
+                        with self.assertRaises(ValueError):validate_card(card,environment)
+        for alias in ['4111111111111111','123','tok_dev_short','tok_dev_fixture/invalid',None,123]:
+            rows=copy.deepcopy(self.aliases);rows[0]['alias']=alias
+            with self.subTest(alias=alias),self.assertRaises(ValueError):validate_aliases(rows,'dev')
+    def test_native_aliases_survive_session_submission(self):
+        for row in self.aliases: row['alias']=row['alias'].replace('tok_sandbox_','tok_dev_')
+        self.operations.create(self.value)
+        self.assertEqual(self.finish(self.value['requestId'])['status'],'complete')
+        self.assertEqual(self.calls[-1][2]['aliases'],self.aliases)
     def test_unpublished_adapter_never_submits(self):
         self.value['adapter']='ADPRIVATE';self.operations.create(self.value)
         self.assertEqual(self.finish(self.value['requestId'])['status'],'failed')

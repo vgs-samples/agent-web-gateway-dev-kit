@@ -152,7 +152,7 @@ class BrowserCapture:
                 'unredacted': True, 'maxEntries': max_entries, 'maxBodyBytes': max_body_bytes,
                 'maxTotalBodyBytes': max_total_body_bytes, 'capturedBodyBytes': 0,
                 'omittedRequests': 0, 'bodyErrors': 0}
-        har = {'log': {'version': '1.2', 'creator': {'name': 'Agent Web Gateway Testing', 'version': '1.8.0'},
+        har = {'log': {'version': '1.2', 'creator': {'name': 'Agent Web Gateway Testing', 'version': '1.8.1'},
                        'pages': [], 'entries': [], '_capture': meta}}
         record = {'id': capture_id, 'har': har, 'requests': {}, 'tasks': set(), 'page': page, 'listeners': {}}
         self.recording = record

@@ -171,11 +171,12 @@ def main():
                     if(options[0].tokenization.storage!=='PERSISTENT'||options[1].tokenization.storage!=='VOLATILE'||options.some(o=>o.tokenization.format!=='UUID'))throw Error('wrong alias policy');
                     if(globalThis.collectFixtureMode==='error')error({secret:'DO_NOT_REFLECT_THIS'});
                     else if(globalThis.collectFixtureMode==='invalid')success(201,{card_number:'4111111111111111',card_cvc:'123'});
-                    else success(201,{card_number:'tok_sandbox_panfixture123',card_cvc:'tok_sandbox_cvcfixture123'});
+                    else if(globalThis.collectFixtureMode==='wrong-environment')success(201,{card_number:'tok_live_panfixture123',card_cvc:'tok_live_cvcfixture123'});
+                    else success(201,{card_number:'tok_dev_panfixture123',card_cvc:'tok_dev_cvcfixture123'});
                 },createCard(auth,success,error){
                     if(auth.auth!=='fixture-transient-token'||JSON.stringify(auth.data)!=='{"cardholder":{}}')throw Error('wrong card authorization');
                     if(options.map(o=>o.name).join(',')!=='pan,cvc,exp-date')throw Error('wrong card field names');
-                    const attributes={pan_alias:'tok_sandbox_panfixture123',cvc_alias:globalThis.collectFixtureMode==='missing-cvc'?null:'tok_sandbox_cvcfixture123'};
+                    const attributes={pan_alias:'tok_dev_panfixture123',cvc_alias:globalThis.collectFixtureMode==='missing-cvc'?null:'tok_dev_cvcfixture123'};
                     success(201,{metadata:{observability:{vault_id:'tntTrainingDemo'}},data:{attributes}});
                 },unmount(){nodes.forEach(n=>n.remove());callback({});}};
             }};'''
@@ -321,7 +322,7 @@ def main():
                 assert controls.locator('#alias-rows').inner_text() == ''
                 assert controls.locator('#adapter-select').input_value() == ''
                 assert controls.locator('#adapter-search').input_value() == 'Automatic'
-                for mode, message in [('invalid','did not return both expected aliases'),('error','could not create aliases')]:
+                for mode, message in [('invalid','did not return both expected aliases'),('wrong-environment','did not return both expected aliases'),('error','could not create aliases')]:
                     controls.evaluate('(mode)=>globalThis.collectFixtureMode=mode',mode)
                     controls.locator('#add-card').click()
                     controls.locator('#create-aliases').click()
@@ -348,6 +349,8 @@ def main():
                 controls.locator('#create-aliases').click()
                 controls.locator('#card-notice').filter(has_text='Aliases ready').wait_for()
                 assert controls.locator('.alias-row').count()==2
+                assert controls.input_value('#alias-0-alias')=='tok_dev_panfixture123'
+                assert controls.input_value('#alias-1-alias')=='tok_dev_cvcfixture123'
                 assert controls.input_value('#alias-0-length')=='16'
                 assert controls.input_value('#alias-1-length')=='3'
                 assert controls.locator('.collect-field iframe').count()==0

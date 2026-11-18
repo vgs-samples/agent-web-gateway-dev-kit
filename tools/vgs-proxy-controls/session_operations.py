@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 from awg_dev_api import TENANT, ApiError
 from environments import domains
-from session_form import validate_dashboard_options
+from session_form import validate_dashboard_options, valid_alias
 
 REQUIRED_SCOPES = ('cards:create', 'aliases:write', 'reveal-sessions:write', 'reveal-sessions:read')
 
@@ -75,7 +75,6 @@ def validated_options(value, environment="dev"):
 
 
 def validate_card(card, environment="dev"):
-    prefix = "tok_live_" if environment == "live" else "tok_sandbox_"
     if not isinstance(card, dict) or set(card) != {'number', 'cvc'}:
         raise ValueError('Both PAN and CVC aliases are required')
     out = {}
@@ -84,8 +83,8 @@ def validate_card(card, environment="dev"):
         if not isinstance(a, dict) or set(a) - {'alias', 'bin', 'length', 'storage'}:
             raise ValueError('Unsupported alias fields')
         # Browser form accepts unmistakable aliases for this environment, never raw/FPE cards.
-        if not isinstance(a.get('alias'), str) or not re.fullmatch(prefix + r'[A-Za-z0-9_]{8,200}', a['alias']):
-            raise ValueError('Use a ' + prefix + ' alias, never a card number or CVC')
+        if not valid_alias(a.get('alias'), environment):
+            raise ValueError('Use an alias for the selected environment, never a card number or CVC')
         if a.get('storage') != storage:
             raise ValueError('PAN must use PERSISTENT and CVC VOLATILE storage')
         if type(a.get('length')) is not int or a['length'] not in (range(13, 20) if key == 'number' else (3, 4)):

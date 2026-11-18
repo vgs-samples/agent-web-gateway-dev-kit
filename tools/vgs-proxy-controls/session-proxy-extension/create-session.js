@@ -30,7 +30,7 @@ function resetCreation() {
 
 function renderAliases(focusKey) {
     const container = el('alias-rows'); container.replaceChildren();
-    const prefix = (state.environment === 'live' ? 'tok_live_' : 'tok_sandbox_');
+    const prefix = {dev:'tok_dev_',sandbox:'tok_sandbox_',live:'tok_live_'}[state.environment];
     for (const [index, row] of aliasRows.entries()) {
         const line = document.createElement('div'); line.className = 'alias-row';
         line.dataset.key = String(row.key);
@@ -56,7 +56,7 @@ function renderAliases(focusKey) {
             });
         }
         const alias = line.querySelector('[data-field=alias]');
-        alias.placeholder = prefix + '…'; alias.pattern = prefix + '[A-Za-z0-9_]{8,200}'; alias.required = true;
+        alias.placeholder = prefix + '…'; alias.pattern = collectCard.aliasPattern(state.environment); alias.required = true;
         line.querySelector('.alias-bin').hidden = row.format !== 'card_number';
         line.querySelector('.alias-length').hidden = row.format === 'text';
         line.querySelector('[data-field=bin]').required = row.format === 'card_number';

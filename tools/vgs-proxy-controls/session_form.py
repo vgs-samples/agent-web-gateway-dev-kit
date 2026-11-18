@@ -3,6 +3,17 @@ import ipaddress
 import re
 
 
+def alias_prefixes(environment):
+    # The internal API can return its native namespace or legacy sandbox aliases.
+    return {'dev': ('tok_dev_', 'tok_sandbox_'), 'sandbox': ('tok_sandbox_',),
+            'live': ('tok_live_',)}[environment]
+
+
+def valid_alias(alias, environment):
+    prefixes = '|'.join(re.escape(prefix) for prefix in alias_prefixes(environment))
+    return isinstance(alias, str) and re.fullmatch('(?:' + prefixes + r')[A-Za-z0-9_]{8,200}', alias) is not None
+
+
 def validate_egress(value):
     if not isinstance(value, dict) or set(value) - {'type','scheme','hostname','port','username','password'}:
         raise ValueError('Invalid egress fields')
@@ -22,14 +33,13 @@ def validate_egress(value):
 def validate_aliases(rows, environment):
     if not isinstance(rows, list) or not 1 <= len(rows) <= 20:
         raise ValueError('Add between 1 and 20 aliases')
-    prefix = 'tok_live_' if environment == 'live' else 'tok_sandbox_'
     result = []
     for row in rows:
         if not isinstance(row, dict) or set(row) - {'alias','format','bin','length','storage'}:
             raise ValueError('Unsupported alias fields')
         alias, fmt, storage = row.get('alias'), row.get('format'), row.get('storage')
-        if not isinstance(alias, str) or not re.fullmatch(prefix + r'[A-Za-z0-9_]{8,200}', alias):
-            raise ValueError('Enter a ' + prefix + ' alias, never a raw card value')
+        if not valid_alias(alias, environment):
+            raise ValueError('Enter an alias for the selected environment, never a raw card value')
         if fmt not in ('card_number','card_cvc','text') or storage not in ('PERSISTENT','VOLATILE'):
             raise ValueError('Choose an alias format and storage')
         out = {'alias':alias, 'format':fmt, 'storage':storage}

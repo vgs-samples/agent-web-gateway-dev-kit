@@ -13,7 +13,7 @@ In **Add card**, Sandbox offers the same **Test cards** shortcuts as the dashboa
 
 Contextual documentation links open the official reveal-session, PAC, Collect, adapter, and service-account references in a new tab, keeping your form open.
 
-Version 1.8.0. Choose Sandbox or Live in **Settings → Environment**. Each environment
+Version 1.8.1. Choose Sandbox or Live in **Settings → Environment**. Each environment
 uses its own service-account credentials and saved session directory. New tabs
 default to Sandbox. The screenshots below use synthetic data from local fixtures;
 actual service availability and permissions depend on your account.
@@ -309,7 +309,7 @@ to narrow windows.
 
 ## Share this package
 
-Share the original `vgs-agent-web-gateway-control-panel-1.8.0.zip`, or rebuild it using the included
+Share the original `vgs-agent-web-gateway-control-panel-1.8.1.zip`, or rebuild it using the included
 `build-package.py`. The builder uses a fixed allowlist and produces a clean ZIP.
 
 **Never share `.private-extension`, a loaded browser profile, your environment

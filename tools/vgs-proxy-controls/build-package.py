@@ -32,9 +32,9 @@ FILES = [
 
 def build(root=None, output=None):
     root = Path(root or Path(__file__).resolve().parent)
-    output = Path(output or root / 'dist/vgs-agent-web-gateway-control-panel-1.8.0.zip')
+    output = Path(output or root / 'dist/vgs-agent-web-gateway-control-panel-1.8.1.zip')
     output.parent.mkdir(parents=True, exist_ok=True)
-    prefix = 'vgs-agent-web-gateway-control-panel-1.8.0/'
+    prefix = 'vgs-agent-web-gateway-control-panel-1.8.1/'
     checksums = []
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
         for name in FILES:
