@@ -37,6 +37,13 @@ Work through the pages in order. Reading takes about two hours; the two labs tak
 
 Then take the [self-check](docs/training/self-check.md). The [glossary](docs/training/glossary.md) defines every term.
 
+For a CLI-first extension lab, page 10 includes
+[launch examples for Chrome for Testing, Chromium, Chrome, Edge and Brave](docs/training/10-proxy-controls-extension.md#browser-launch-examples).
+The [packaging and publishing proposal](docs/training/extension-distribution.md)
+compares a downloadable training kit with browser-store distribution and shows
+the proposed first-run experience. The bundled extension remains version 1.3.0;
+the proposal does not add a store release or update the tool.
+
 ## What you need before the labs
 
 Ask the AWG team for these. None of them are in this repository.

@@ -58,4 +58,11 @@ Local changes in `tools/sitecheck/` relative to the 2026-11-14 release:
 
 ## Keeping this accurate
 
+The extension launch examples and distribution proposal added on 2026-11-18 use
+the unchanged 1.3.0 tool plus the Chrome, Edge and Brave documentation linked in
+those pages. They distinguish executable setup examples from proposed store
+onboarding. Shell syntax and repository links were checked locally; no browser or
+live account was used for that documentation change. The newer Agent Web Gateway
+Control Panel is not bundled by the proposal.
+
 When the product changes, update `docs/reference/` from the new bundle first, then fix the training pages that cite the changed section, then update the dates in `README.md` and this file.

@@ -6,6 +6,13 @@
 
 > **DEV only.** The extension works with the DEV environment (`sandbox.vgsapi.io`) and the DEV tenant `tntmdki2teh`. Production is deliberately unsupported.
 
+For the CLI-first training path, start the helper below, then use **Chrome for
+Testing** from the [browser launch examples](#browser-launch-examples). Regular
+Chrome, Edge and Brave have a one-time manual installation step. These examples
+target the **1.3.0 tool bundled in this repository**, not the newer Agent Web
+Gateway Control Panel. The [distribution proposal](extension-distribution.md)
+describes how the newer panel could become an installable training tool.
+
 ## What it does
 
 VGS Proxy Controls is a Chromium extension with a small helper program that runs on your computer. It lets you choose one of your existing reveal sessions and one of four routes for the browser's traffic:
@@ -69,12 +76,20 @@ Run the same command without `--check`, and leave that terminal open.
 
 ### 5. Load the extension
 
+For Chrome for Testing or Chromium, you can use the CLI examples below instead.
+For a manual install, open a **dedicated training profile**, not your everyday
+browser profile, then:
+
 1. In the test browser, open `chrome://extensions`.
 2. Turn on **Developer mode**.
 3. Click **Load unpacked** and choose the `.private-extension` folder from step 4.
 4. Pin **VGS Proxy Controls** from the extensions menu, and open it.
 
 **Success:** the extension opens in **Reveal Session PAC** mode and lists your sessions under **Available DEV sessions**.
+
+The current helper needs an **active session before it can generate the
+extension**. Installation is not a way to create your first session. Stopping the
+helper does not turn off proxying; choose **No Proxy** when you want to turn it off.
 
 ### 6. Pick a session and a route
 
@@ -86,7 +101,135 @@ After you switch sessions, type the **new** session's tokens into any checkout f
 
 ### 7. Stop
 
-Press Ctrl-C in the helper's terminal. A route you already selected keeps working; refreshing the list and changing sessions need the helper running.
+Choose **No Proxy**, close the training browser, then press Ctrl-C in the helper's
+terminal. Stopping the helper alone keeps the selected route working; refreshing
+the list and changing sessions need the helper running. End the reveal session
+through the workflow that created it when the lab is finished.
+
+## Browser launch examples
+
+Run the helper from step 4 first and leave it running. Use a second terminal for
+the browser. The examples assume macOS applications installed in `/Applications`;
+change the executable path if yours is elsewhere. They launch the browser, but do
+not install a browser or configure its CA trust.
+
+Use a separate profile for each browser. Close that training browser before
+launching again: an existing process may ignore new command-line flags. Keep the
+same profile and generated extension directory for subsequent launches. Proxy
+settings affect every tab in that profile.
+
+| Browser | First installation | Later launches |
+|---|---|---|
+| Chrome for Testing | Load the generated directory with `--load-extension` | Repeat the command with the same profile |
+| Chromium | Load the generated directory with `--load-extension` | Repeat the command with the same profile |
+| Google Chrome | Developer mode → **Load unpacked** | Launch the same profile |
+| Microsoft Edge | Developer mode → **Load unpacked** at `edge://extensions` | Launch the same profile |
+| Brave | Developer mode → **Load unpacked** at `brave://extensions` | Launch the same profile |
+
+**These are source-checked launch recipes, not a tested browser compatibility
+matrix.** The four routing modes, proxy authentication and helper connection
+still need a smoke test on each browser/version selected for a training cohort.
+
+### Chrome for Testing: CLI-first path
+
+With the tool copied to the location used in step 1:
+
+```bash
+AWG_EXTENSION_DIR="$HOME/vgs-proxy-controls/.private-extension"
+"/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing" \
+  --user-data-dir="$HOME/Library/Application Support/AWG Training/chrome-for-testing" \
+  --load-extension="$AWG_EXTENSION_DIR" \
+  --no-first-run
+```
+
+Open **VGS Proxy Controls** from the extensions menu. The bundled version opens
+as a toolbar popup; it does not open a full control-panel tab automatically.
+
+### Chromium
+
+```bash
+AWG_EXTENSION_DIR="$HOME/vgs-proxy-controls/.private-extension"
+"/Applications/Chromium.app/Contents/MacOS/Chromium" \
+  --user-data-dir="$HOME/Library/Application Support/AWG Training/chromium" \
+  --load-extension="$AWG_EXTENSION_DIR" \
+  --no-first-run
+```
+
+### Google Chrome, Edge and Brave
+
+Run **one** command for your chosen browser. In the extensions page it opens,
+enable Developer mode, choose **Load unpacked**, and select
+`~/vgs-proxy-controls/.private-extension`. On macOS, **Cmd+Shift+G** in the folder
+chooser lets you enter the hidden folder's full path. Keep the folder in place.
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --user-data-dir="$HOME/Library/Application Support/AWG Training/chrome" \
+  --no-first-run "chrome://extensions"
+```
+
+```bash
+"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \
+  --user-data-dir="$HOME/Library/Application Support/AWG Training/edge" \
+  --no-first-run "edge://extensions"
+```
+
+```bash
+"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \
+  --user-data-dir="$HOME/Library/Application Support/AWG Training/brave" \
+  --no-first-run "brave://extensions"
+```
+
+Regular Google Chrome removed `--load-extension` in version 137. Chromium and
+Chrome for Testing retain it, according to the
+[Chrome team's announcement](https://groups.google.com/a/chromium.org/g/chromium-extensions/c/1-g8EFx2BBY/m/S0ET5wPjCAAJ).
+Do not assume every Chromium-derived browser accepts the same extension-loading
+flags. The Edge example follows Microsoft's
+[documented sideloading path](https://learn.microsoft.com/en-us/microsoft-edge/extensions/getting-started/extension-sideloading).
+Managed browser policy may disable developer-mode installation.
+
+### Linux and Windows
+
+For Chromium or Chrome for Testing on Linux, use the executable you installed:
+
+```bash
+AWG_BROWSER_BIN="/absolute/path/to/browser-executable"
+AWG_EXTENSION_DIR="$HOME/vgs-proxy-controls/.private-extension"
+"$AWG_BROWSER_BIN" \
+  --user-data-dir="$HOME/.local/share/awg-training/chromium" \
+  --load-extension="$AWG_EXTENSION_DIR" \
+  --no-first-run
+```
+
+For Chrome for Testing on Windows, after preparing the helper and extension with
+your own Windows paths, the corresponding PowerShell launch is:
+
+```powershell
+$AwgBrowser = 'C:\path\to\chrome-win64\chrome.exe'
+$AwgExtension = Join-Path $HOME 'vgs-proxy-controls\.private-extension'
+$AwgProfile = Join-Path $env:LOCALAPPDATA 'AWG Training\chrome-for-testing'
+& $AwgBrowser "--user-data-dir=$AwgProfile" "--load-extension=$AwgExtension" --no-first-run
+```
+
+Use the extension-management UI for regular Chrome on these platforms too.
+The macOS/Linux copy and permission commands earlier in this page are not a
+Windows setup walkthrough. Windows launch syntax is provided as a sample and
+has not been executed here.
+
+### Check the installation and restart it
+
+1. The extension-management page shows **VGS Proxy Controls** enabled.
+2. The panel shows the intended session. **Refresh** works while the helper runs.
+3. Choose **No Proxy** to confirm the off control is available. Before selecting a
+   VGS route, configure the dedicated browser to trust the session's CA through
+   the approved setup from your team. A fresh profile does not establish trust.
+4. For the route check, follow [lab 4's verification steps](04-lab-browser-checkout.md#5-check-it-worked)
+   on an authorized test destination. An installed extension alone does not prove
+   traffic passed through VGS.
+
+After restarting the helper, click **Reload** on the extension-management page
+before using it. Its local connection details change on restart. This step is
+needed even when the browser profile and generated extension path stayed the same.
 
 ## A useful pattern
 
@@ -109,6 +252,11 @@ The PAC file routes by host, so it cannot send only the checkout step through VG
 
 To give the tool to a teammate, point them at `tools/vgs-proxy-controls/` in this repository. Each person generates their own private extension with the steps above.
 
+For a versioned training download or a future store listing, see
+[Packaging and publishing the control panel](extension-distribution.md). The
+repository is marked internal; a public release should contain the separately
+reviewed tool package, not an archive of this training repository.
+
 ---
 
 ## Details and sources
@@ -119,5 +267,8 @@ To give the tool to a teammate, point them at `tools/vgs-proxy-controls/` in thi
 - **Expiry and CVC.** A session that has not expired can still have a CVC alias that is no longer available. Use fresh aliases for new checkout tests.
 - **The files are unchanged** from the `vgs-proxy-controls-1.3.0.zip` package; `SHA256SUMS` in that folder verifies them.
 - **Lab 4's file locations** come from the session kit's code (`lib.sh`, `create-session.sh`), not from the extension's README.
+- **Browser examples added 2026-11-18.** Arguments were checked against the bundled
+  helper and the browser sources linked above. No browser, account or merchant
+  session was started to validate this documentation change.
 
 Sources: `tools/vgs-proxy-controls/README.md`, `dev.env.example`, `start-proxy-controls.py`, `session_catalog.py` and `session-proxy-extension/background.js` in the same folder; `skills/vgs-checkout-adapter/scripts/session-kit/lib.sh` and `create-session.sh`.
