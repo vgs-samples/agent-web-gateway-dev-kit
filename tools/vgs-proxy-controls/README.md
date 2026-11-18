@@ -13,7 +13,7 @@ In **Add card**, Sandbox offers the same **Test cards** shortcuts as the dashboa
 
 Contextual documentation links open the official reveal-session, PAC, Collect, adapter, and service-account references in a new tab, keeping your form open.
 
-Version 1.7.7. Choose Sandbox or Live in **Settings → Environment**. Each environment
+Version 1.8.0. Choose Sandbox or Live in **Settings → Environment**. Each environment
 uses its own service-account credentials and saved session directory. New tabs
 default to Sandbox. The screenshots below use synthetic data from local fixtures;
 actual service availability and permissions depend on your account.
@@ -22,7 +22,9 @@ actual service availability and permissions depend on your account.
 
 Requires Python 3.10+ and a Chromium browser that supports unpacked Manifest V3
 extensions (for example, your existing CloakBrowser or Chrome for Testing).
-The helper uses Python's standard library; no Python packages are needed.
+The base helper uses Python's standard library; no Python packages are needed.
+The optional [MCP companion](MCP.md) adds selected-tab recording, full HAR access
+and gateway authoring tools for a connected assistant, with its own dependencies.
 In **Settings → Service account**, use **Browse…** to choose a local credentials
 file, or enter its path. Selection fills the path; **Connect account** loads it.
 Cancelling leaves the current path unchanged. The native file explorer runs on
@@ -122,11 +124,18 @@ real credentials, a live session or merchant traffic.
 
 ![Create reveal session with example aliases](screenshots/create-session.png)
 
-**Diagnostics:** inspect the actual PAC script and sensitive-HAR export setting.
+**Diagnostics:** inspect the actual PAC script and sensitive-HAR export setting,
+or expand **Connect an assistant with MCP** for its local client configuration.
 
 ![PAC file and HAR export details](screenshots/diagnostics.png)
 
 ## Use
+
+To record a selected tab for Claude or another assistant, follow [MCP setup](MCP.md).
+Start the helper with `--enable-mcp` and launch the dedicated browser with local
+debugging. This exposes unredacted captured headers/bodies through explicit MCP
+tools. Optional gateway writes require `--mcp-write` and the configured account's
+permissions. MCP does not switch proxy routes or submit a checkout automatically.
 
 **Available sessions** lists active sessions from the account. Click **Refresh**
 to include sessions created after opening the browser. Entries without locally
@@ -300,7 +309,7 @@ to narrow windows.
 
 ## Share this package
 
-Share the original `vgs-agent-web-gateway-control-panel-1.7.7.zip`, or rebuild it using the included
+Share the original `vgs-agent-web-gateway-control-panel-1.8.0.zip`, or rebuild it using the included
 `build-package.py`. The builder uses a fixed allowlist and produces a clean ZIP.
 
 **Never share `.private-extension`, a loaded browser profile, your environment

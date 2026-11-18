@@ -3,7 +3,12 @@
 **When you finish this page you can** load the extension, connect a service account,
 create or select reveal sessions, inspect the PAC file and switch browser routes.
 
-The repository includes the full **1.7.7** control-panel source and local helper.
+The repository includes the full **1.8.0** control-panel source and local helper.
+
+An optional [MCP companion](../../tools/vgs-proxy-controls/MCP.md) lets an assistant
+record one selected tab, inspect unredacted HAR data and use the configured
+account for gateway authoring. Its guide includes Claude Code setup and browser
+debugging commands. MCP is separate from the ordinary extension installation.
 The package is built by **Actions → Build control panel**; see
 [download and build instructions](extension-distribution.md#download-or-build-the-kit).
 The screenshots below use synthetic local fixtures, not a live account.
@@ -340,7 +345,7 @@ HAR export behavior, manual egress settings and the supported credentials format
 
 ## Details and sources
 
-The bundled source was imported from the clean 1.7.6 package and updated to 1.7.7
+The bundled source was imported from the clean 1.7.6 package and updated to 1.8.0
 for this repository, including corrected CLI permission text, a tenant placeholder
 in the example configuration, screenshots and documentation. Source checksums
 are included. The helper and worker have offline tests; the browser harness uses

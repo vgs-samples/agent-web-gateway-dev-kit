@@ -29,12 +29,19 @@ def main():
     parser.add_argument('--tokenizer-socket', type=Path, help='Private card tokenizer Unix socket')
     parser.add_argument('--capture-profile', type=Path, help='Browser profile used to report sensitive-HAR preference status')
     parser.add_argument('--slot-file', type=Path, help='Optional shared session-work lock file')
+    parser.add_argument('--enable-mcp', action='store_true', help='Enable the local MCP companion; see MCP.md')
+    parser.add_argument('--mcp-browser-url', default='http://127.0.0.1:9222', help='Dedicated browser local debugging URL')
+    parser.add_argument('--mcp-directory', type=Path, default=Path(__file__).resolve().parent / '.private-mcp', help='Private MCP configuration, operation journal and captures')
+    parser.add_argument('--mcp-write', action='store_true', help='Allow explicit MCP gateway writes using this account')
     parser.add_argument('--check', action='store_true', help='Validate local inputs without starting a server or contacting VGS')
     args = parser.parse_args()
     os.umask(0o077)
     session_path = args.session.expanduser().resolve()
     output = args.output.expanduser().resolve()
     server = None
+    mcp_server = None
+    mcp_lock = None
+    connection_file = None
     try:
         document = json.loads(session_path.read_text())
         if not alive(document['data']['attributes']):
@@ -42,6 +49,15 @@ def main():
         client = EnvironmentClient(args.credentials_file.expanduser().resolve(), args.environment)
         config = session_config(session_path, document['data']['attributes']['proxy']['ca_bundle'], args.environment, client.tenant)
         profiles = json.loads(args.profiles_file.read_text()) if args.profiles_file else None
+        if args.mcp_write and not args.enable_mcp:
+            raise ValueError('--mcp-write requires --enable-mcp')
+        if args.enable_mcp:
+            from mcp_gateway import GatewayBridge, McpGatewayServer, loopback_url, runtime_lock
+            from session_operations import private_json
+            browser_url = loopback_url(args.mcp_browser_url)
+            # Check optional dependencies before generating runtime configuration.
+            from mcp.server.mcpserver import MCPServer
+            import playwright.async_api
         if args.check:
             print('Local inputs valid. No network requests made.')
             return 0
@@ -50,6 +66,20 @@ def main():
         catalog = Catalog(session_path, client=client, sessions_directory=args.sessions_dir or session_path.parent, egress_file=args.egress_profile,
                           tokenizer_socket=args.tokenizer_socket, capture_profile=args.capture_profile, slot_file=args.slot_file)
         server = CatalogServer(session_path, catalog=catalog, profiles=profiles)
+        if args.enable_mcp:
+            directory = args.mcp_directory.expanduser().resolve()
+            directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+            directory.chmod(0o700)
+            mcp_lock = runtime_lock(directory)
+            mcp_server = McpGatewayServer(GatewayBridge(server.registry, args.environment, directory, args.mcp_write))
+            connection_file = directory / 'connection.json'
+            private_json(connection_file, {**mcp_server.config, 'browserUrl': browser_url,
+                         'capturesDirectory': str(directory / 'captures')})
+            client_config = {'mcpServers': {'awg-testing': {'command': sys.executable,
+                'args': [str(Path(__file__).resolve().parent / 'awg_mcp.py'), '--connection', str(connection_file)]}}}
+            private_json(directory / 'mcp-client.json', client_config)
+            server.mcp_status = {'enabled': True, 'environment': args.environment,
+                'writesEnabled': args.mcp_write, 'clientConfig': client_config}
         write_extension(output, config['pacUrl'], config['credentials'], config['proxies']['session'],
                         config['proxies']['egress'], session_id=config['sessionId'],
                         expires_at=config['expiresAt'], catalog=server.config)
@@ -61,14 +91,23 @@ def main():
         print('Select this private directory: ' + str(output), flush=True)
         print('If already loaded, click Reload for Agent Web Gateway Control Panel.', flush=True)
         print('Open Agent Web Gateway Control Panel from the extensions menu. Ctrl-C stops the local helper.', flush=True)
+        if args.enable_mcp:
+            print('MCP client configuration: ' + str(directory / 'mcp-client.json'), flush=True)
+            print('MCP capture is available for a selected tab. See Diagnostics and MCP.md.', flush=True)
         threading.Event().wait()
     except KeyboardInterrupt:
         print('\nLocal session helper stopped. Restart this command and reload the extension to reconnect.')
     except Exception:
         # Session JSON, API errors and URLs can contain secrets. Never print them.
-        print('Setup could not complete. Check Python version, active session, credentials file, matching egress request file, and output directory. See README.md.', file=sys.stderr)
+        print('Setup could not complete. Check Python version, active session, credentials file, matching egress request file, and output directory. For MCP, install requirements-mcp.txt and use a separate directory for each helper. See README.md and MCP.md.', file=sys.stderr)
         return 1
     finally:
+        if mcp_server is not None:
+            mcp_server.close()
+        if connection_file is not None:
+            connection_file.unlink(missing_ok=True)
+        if mcp_lock is not None:
+            mcp_lock.close()
         if server is not None:
             server.close()
     return 0

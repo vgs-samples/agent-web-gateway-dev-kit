@@ -43,3 +43,5 @@
 .doc-link:focus-visible { outline:2px solid #8755ff;outline-offset:4px;border-radius:2px; }
 .dashboard-form .doc-links { font-size:12px; }
 .account-setup .setup-steps{padding-left:22px;margin:20px 0 0}.setup-steps>li{padding-left:6px;margin-bottom:24px}.setup-steps h3{font-size:14px;margin-bottom:8px}.setup-steps p{font-size:12px;color:var(--muted);margin:8px 0 12px;line-height:1.6}.setup-command{position:relative;min-width:0}.setup-command button{position:absolute;right:8px;top:8px}.setup-command pre{padding:48px 14px 14px;margin:10px 0 12px;max-height:none;white-space:pre-wrap;overflow-wrap:anywhere;user-select:all}.setup-file{display:block;white-space:normal}.account-setup #account-copy-status:empty{display:none}
+
+#mcp-client-config{white-space:pre-wrap;overflow-wrap:anywhere;max-height:none;user-select:all}

@@ -39,7 +39,7 @@ def write_extension(directory: Path, pac_url: str, credentials: dict,
     manifest = {
         "manifest_version": 3,
         "name": "Agent Web Gateway Control Panel",
-        "version": "1.7.7",
+        "version": "1.8.0",
         "permissions": ["proxy", "webRequest", "webRequestAuthProvider", "storage", "browsingData"],
         "host_permissions": ["<all_urls>"],
         "icons": {str(n): f"assets/icon-{n}.png" for n in (16, 32, 48)},

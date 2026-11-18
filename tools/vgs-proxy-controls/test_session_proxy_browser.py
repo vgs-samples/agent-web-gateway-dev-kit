@@ -140,6 +140,10 @@ def main():
                 def close(self): pass
             fixture_catalog = FixtureCatalog()
             catalog = CatalogServer(None, catalog=fixture_catalog, file_picker=FixturePicker())
+            if args.walkthrough:
+                catalog.mcp_status = {'enabled': True, 'environment': 'sandbox', 'writesEnabled': False,
+                    'clientConfig': {'mcpServers': {'awg-testing': {'command': '/path/to/.venv-mcp/bin/python',
+                        'args': ['/path/to/awg_mcp.py', '--connection', '/path/to/.private-mcp/connection.json']}}}}
             write_extension(extension, pac_url, credentials,
                             {'scheme': 'http', 'host': '127.0.0.1', 'port': vgs.server_port},
                             {'scheme': 'http', 'host': '127.0.0.1', 'port': egress.server_port},
@@ -212,6 +216,9 @@ def main():
                     controls.screenshot(path=str(args.screenshot.with_name('create-session.png')), full_page=True)
                     controls.locator('#cancel-create').click()
                     controls.locator('button[data-view=diagnostics]').click()
+                    controls.locator('summary').filter(has_text='Connect an assistant with MCP').click()
+                    assert controls.locator('#mcp-status').inner_text() == 'MCP enabled for Sandbox. Gateway writes disabled.'
+                    assert 'token' not in controls.locator('#mcp-client-config').inner_text()
                     controls.locator('#pac-script-details summary').click()
                     controls.locator('#load-pac').click()
                     controls.locator('#pac-script').filter(has_text='FindProxyForURL').wait_for()

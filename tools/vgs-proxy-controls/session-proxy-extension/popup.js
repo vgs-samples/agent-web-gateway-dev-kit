@@ -133,6 +133,13 @@ document.addEventListener("DOMContentLoaded", () => request({type: "refreshSessi
 
 function renderAccount() {
     const account = state.account;
+    const mcp = account?.mcp;
+    document.getElementById('mcp-status').textContent = mcp?.enabled
+        ? `MCP enabled for ${environmentLabel(mcp.environment)}. Gateway writes ${mcp.writesEnabled ? 'enabled' : 'disabled'}.`
+        : 'Start the helper with --enable-mcp to connect an assistant. See MCP.md in the downloaded kit.';
+    const mcpConfig = document.getElementById('mcp-client-config');
+    mcpConfig.hidden = !mcp?.enabled;
+    mcpConfig.textContent = mcp?.enabled ? JSON.stringify(mcp.clientConfig, null, 2) : '';
     const env = state.environment || "sandbox";
     document.getElementById("environment-select").value = env;
     document.getElementById("environment-select").disabled = busy || creationRunning() || !!accountPicker;

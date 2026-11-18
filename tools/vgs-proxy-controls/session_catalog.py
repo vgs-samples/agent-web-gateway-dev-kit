@@ -233,7 +233,9 @@ class CatalogServer:
         if profiles is None:
             settings = KIT / ".proxy-controls.json"
             profiles = json.loads(settings.read_text()).get("environments", {}) if settings.exists() else {}
-        registry = CatalogRegistry(initial, profiles)
+        self.registry = registry = CatalogRegistry(initial, profiles)
+        self.mcp_status = {'enabled': False}
+        owner = self
         self.file_picker = picker = file_picker or CredentialFilePicker()
         token = secrets.token_urlsafe(32)
 
@@ -261,7 +263,7 @@ class CatalogServer:
                         environment, route = match.groups()
                     catalog = registry.get(environment) if route not in ('/account', '/credentials') and not route.startswith('/credentials/picker') else None
                     if route == '/account' and not write:
-                        data = registry.account(environment)
+                        data = {**registry.account(environment), 'mcp': owner.mcp_status}
                     elif route == '/credentials' and write:
                         length = int(self.headers.get('Content-Length', '0'))
                         if not 0 < length <= 8192 or self.headers.get('Content-Type') != 'application/json':

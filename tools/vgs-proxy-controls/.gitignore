@@ -10,3 +10,7 @@ dist/
 
 .proxy-controls-accounts.json
 control-panel-sessions/
+
+.venv-mcp/
+.private-mcp/
+sandbox.env

@@ -106,8 +106,8 @@ session separately when ready.
 ![Create reveal session with synthetic aliases](tools/vgs-proxy-controls/screenshots/create-session.png)
 
 **4. Diagnostics:** inspect the actual PAC script and the HAR export setting.
-Enabling sensitive-HAR export does not start a recording. The panel does not yet
-provide an MCP server or automatic HAR access to an assistant.
+Enabling sensitive-HAR export does not start a recording. The optional MCP setup
+appears under **Connect an assistant with MCP**.
 
 ![Diagnostics: PAC script and HAR export information](tools/vgs-proxy-controls/screenshots/diagnostics.png)
 
@@ -127,6 +127,21 @@ Give your assistant this repository and the following setup request:
 
 The assistant needs access to your computer to execute those steps. The repository
 and extension alone do not grant it browser control or access to HAR recordings.
+
+### Connect Claude to captures and gateway tools
+
+The optional [MCP companion](tools/vgs-proxy-controls/MCP.md) connects to the
+dedicated browser and the panel's local helper. It can record one selected tab,
+read unredacted HAR headers and bodies, and inspect functions, adapters,
+destinations and bindings using the account configured in Settings. Gateway
+authoring and route-function dry-runs are available with `--mcp-write`.
+
+The [setup guide](tools/vgs-proxy-controls/MCP.md) includes the helper command,
+browser debugging flags, Claude Code registration command and a sample recording
+prompt. Start with capture/read access, then enable writes when ready to author
+configuration. Service-account credentials stay in the helper; captured traffic
+is intentionally available to the connected assistant. Browser captures precede
+VGS transformations and need separate gateway or echo evidence to verify reveal.
 
 ## Start here
 

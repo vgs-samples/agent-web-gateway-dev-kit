@@ -5,6 +5,8 @@ import hashlib
 import zipfile
 
 FILES = [
+    'MCP.md', 'requirements-mcp.txt', 'awg_mcp.py', 'mcp_capture.py', 'mcp_gateway.py', 'gateway-api-schema.json',
+    'test_mcp_gateway.py', 'test_mcp_stdio.py', 'test_mcp_browser.py',
     'session-proxy-extension/collect-card.js', 'COLLECT-SDK.md',
     'session-proxy-extension/vendor/vgs-collect-dev-4.0.1.js',
     'session-proxy-extension/vendor/vgs-collect-4.0.1.js',
@@ -30,9 +32,9 @@ FILES = [
 
 def build(root=None, output=None):
     root = Path(root or Path(__file__).resolve().parent)
-    output = Path(output or root / 'dist/vgs-agent-web-gateway-control-panel-1.7.7.zip')
+    output = Path(output or root / 'dist/vgs-agent-web-gateway-control-panel-1.8.0.zip')
     output.parent.mkdir(parents=True, exist_ok=True)
-    prefix = 'vgs-agent-web-gateway-control-panel-1.7.7/'
+    prefix = 'vgs-agent-web-gateway-control-panel-1.8.0/'
     checksums = []
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
         for name in FILES:

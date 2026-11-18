@@ -1,7 +1,7 @@
 # Download, build and distribute the control panel
 
-This repository includes **Agent Web Gateway Control Panel 1.7.7**: the extension
-source, local helper, tests and illustrated setup guide. The **Build control panel**
+This repository includes **Agent Web Gateway Control Panel 1.8.0**: the extension
+source, local helper, optional MCP companion, tests and illustrated setup guide. The **Build control panel**
 workflow produces a versioned source/helper ZIP and a SHA-256 checksum.
 
 ## Download or build the kit
@@ -29,9 +29,9 @@ Verify and extract the kit on macOS:
 
 ```bash
 cd "$HOME/Downloads/awg-control-panel"
-shasum -a 256 -c vgs-agent-web-gateway-control-panel-1.7.7.zip.sha256
-unzip vgs-agent-web-gateway-control-panel-1.7.7.zip
-cd vgs-agent-web-gateway-control-panel-1.7.7
+shasum -a 256 -c vgs-agent-web-gateway-control-panel-1.8.0.zip.sha256
+unzip vgs-agent-web-gateway-control-panel-1.8.0.zip
+cd vgs-agent-web-gateway-control-panel-1.8.0
 shasum -a 256 -c SHA256SUMS
 ```
 
@@ -49,7 +49,7 @@ python3 build-package.py
 The ZIP is written to `dist/`. The builder includes only an explicit list of
 source files, bundled assets, screenshots and checksums. It does not recurse into
 private configuration or generated extension directories. The workflow verifies
-the source checksums, runs the helper and worker tests, builds the ZIP and checks
+the source checksums, runs the helper, worker and isolated MCP browser tests, builds the ZIP and checks
 its integrity before attaching it to the run. See the
 [workflow](../../.github/workflows/control-panel-package.yml).
 
@@ -164,7 +164,7 @@ The package does not start a merchant test or submit a payment.
 
 ## Verified scope
 
-The source is based on the clean 1.7.6 package, updated to 1.7.7 for this repository.
+The source is based on the clean 1.7.6 package, updated to 1.8.0 for this repository.
 Local verification covers helper tests, extension-worker tests, and a Chrome for
 Testing browser harness with synthetic sessions, dummy proxy credentials and
 mocked Collect. The four walkthrough screenshots are generated from Sandbox
