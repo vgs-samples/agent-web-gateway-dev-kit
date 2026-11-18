@@ -130,6 +130,31 @@ settings affect every tab in that profile.
 matrix.** The four routing modes, proxy authentication and helper connection
 still need a smoke test on each browser/version selected for a training cohort.
 
+### Is Brave equivalent to CloakBrowser?
+
+No. Both modify fingerprinting signals.
+[Brave's graphics protections](https://brave.com/privacy-updates/38-webgl-webgpu-fingerprinting-protections/)
+use generic values, remove identifying details and randomize some signals to
+reduce tracking. [CloakBrowser documents](https://github.com/CloakHQ/CloakBrowser)
+coordinated, repeatable browser-fingerprint profiles, Playwright/Puppeteer
+integration and automation-specific Chromium modifications. Those vendor
+capabilities are not effectiveness guarantees verified by this lab.
+Installing the same VGS extension does not make
+their browser behavior or fingerprints identical, and neither establishes
+complete anonymity.
+
+A separate profile isolates local cookies and browsing data. The selected proxy
+route determines the network path for traffic it carries. Those are different
+from the browser characteristics a website can observe. Even with the same
+egress, two browsers can produce different site behavior. Browser protections
+may also change which page resources load.
+
+Use the same browser build and configuration to reproduce an existing test. If
+that test used CloakBrowser, keep it as the reference environment. Use the examples
+here for extension setup and additional browser compatibility checks; they are
+not a replacement for that environment. Record the browser/version alongside the
+session and route when comparing results.
+
 ### Chrome for Testing: CLI-first path
 
 With the tool copied to the location used in step 1:

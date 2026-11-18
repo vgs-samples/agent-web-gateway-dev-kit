@@ -139,8 +139,17 @@ the browser setup route before lab 4, so learners can choose a route and see the
 PAC file without editing browser flags during checkout. Link the versioned kit
 and its browser support notes from page 10 once a release exists.
 
-For the first cohort, use one pinned Chrome for Testing build. Treat Chrome, Edge,
-Brave and other Chromium builds as additional validation targets. Check helper
+Place this under **Testing** in the proposed Agent Web Gateway Quick Start
+navigation, after the product introduction and first-session setup. The download
+entry should point to the reviewed tool release once it exists, not to the
+generated private extension directory.
+
+For the introductory extension lab, use one pinned Chrome for Testing build.
+When reproducing an existing CloakBrowser test, keep its original browser and
+configuration as the reference instead. Brave and other Chromium builds do not
+inherit CloakBrowser's fingerprint behavior by using the same extension; see
+[the browser comparison](10-proxy-controls-extension.md#is-brave-equivalent-to-cloakbrowser).
+Treat the alternative browsers as additional validation targets. Check helper
 connection and restart, session selection, all four routes, proxy authentication,
 PAC host selection, CA trust and an expired session on each supported build.
 This proposal does not start a merchant test or submit a payment.
