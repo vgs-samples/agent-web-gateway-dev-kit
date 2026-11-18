@@ -10,6 +10,7 @@ The training pages in `docs/training/` were written on 2026-11-16 from the files
 | `openapi/` | Same bundle | 2026-11-12 | No |
 | `examples/functions/` | Same bundle, `harness/examples/` | 2026-11-12 | No |
 | `docs/images/*.png` | Two slides exported from VGS's Google Slides deck "Agent Web Gateway" (dated Nov 2026, marked confidential): the token-swap flow and the client-side-encryption flow | 2026-11 | No |
+| `tools/vgs-proxy-controls/` | The `vgs-proxy-controls-1.3.0.zip` package shared by a teammate; its `SHA256SUMS` verifies every file | 2026-11 | No |
 | `tools/sitecheck/` | `awg-sitecheck` release of 2026-11-14, plus local changes made on 2026-11-15 and 2026-11-16 | 2026-11-16 | See below |
 | `skills/vgs-checkout-adapter/` | The `vgs-checkout-adapter` skill, packaged 2026-11-13; its own provenance is in `references/source-notes.md` | 2026-11-13 | No |
 

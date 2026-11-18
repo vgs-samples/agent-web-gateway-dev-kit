@@ -12,7 +12,7 @@ Answer from memory, then open the answer. Each answer names the page it comes fr
    <details><summary>Answer</summary><code>proxy.url</code>, <code>proxy.pac_url</code> and the session tokens are returned only in the create response; later reads never return secrets. Save <code>proxy.ca_bundle</code> too, although it can also be read from <code>GET /reveal-sessions/proxy-ca</code>. (Page 1)</details>
 
 4. **Can you set a session's lifetime in the create request?**
-   <details><summary>Answer</summary>No. It comes from the vault's settings: default 300 seconds, minimum 30. Trying returns <code>ttl_not_configurable</code>. (Page 2)</details>
+   <details><summary>Answer</summary>No. It comes from the tenant's settings: default 300 seconds, minimum 30. Trying returns <code>ttl_not_configurable</code>. (Page 2)</details>
 
 5. **A merchant uses Stripe Elements. Do you write an adapter?**
    <details><summary>Answer</summary>Not by default: plain card fields posted to the PSP's API are handled by the default swap once the PSP's API host is allowed. Confirm from a capture of the real card-bearing request rather than from the provider's name. (Page 5)</details>

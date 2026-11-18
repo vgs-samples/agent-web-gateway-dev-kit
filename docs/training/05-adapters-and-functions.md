@@ -1,5 +1,9 @@
 # 5. Adapters and functions
 
+**When you finish this page you can** decide whether a merchant needs an adapter, set one up, and test a function.
+
+> **Status: source-checked, not run.** The requests and code here come from the developer guide and the tool code. Nobody has run them as part of writing this page.
+
 ## Does this merchant need an adapter?
 
 It depends on how the merchant's payment provider (PSP) takes the card.
@@ -25,7 +29,7 @@ Do not decide from the provider's name alone. Look at the actual card-bearing re
 | Adapter | `/agent-gateway-adapters` | A named, versioned bundle of functions |
 | Adapter destination (binding) | `/agent-gateway-adapter-destinations` | Runs chosen functions of one adapter version on a host, method and path |
 
-All four need `agent-gateway:read` / `agent-gateway:write`. The API is JSON:API with the vault id in the `VGS-Tenant` header.
+All four need `agent-gateway:read` / `agent-gateway:write`. The API is JSON:API with the tenant id in the `VGS-Tenant` header.
 
 Setting up a merchant, in order:
 
@@ -46,14 +50,14 @@ A binding looks like this:
 
 Rules:
 
-- `when.host` must be one of the vault's agent destinations that is not blocked. `path` may use `*`.
+- `when.host` must be one of the tenant's agent destinations that is not blocked. `path` may use `*`.
 - A binding runs only functions of the adapter version it names. To roll out a new version, `PATCH` the binding's `adapter_version`.
-- Two enabled bindings cannot run functions in the same phase on traffic both could match (`409 destination_overlap`). All Adyen merchants share `checkoutshopper-live.adyen.com`, so keep one capture binding per vault and reuse it.
+- Two enabled bindings cannot run functions in the same phase on traffic both could match (`409 destination_overlap`). All Adyen merchants share `checkoutshopper-live.adyen.com`, so keep one capture binding per tenant and reuse it.
 - Input sources: `constant`, `request.body` / `response.body` (a JSONPath), `request.header` / `response.header` / `request.query`. A request function reads request sources only; a response function reads response sources only.
 - Delete in order: bindings, then adapters, then functions. Otherwise you get `409 adapter_in_use` or `409 function_in_use`.
 - New bindings take time to reach the proxy. The harness waits up to 120 seconds by default.
 
-`awg-sitecheck adapter plan|apply|dry-run|teardown` manages functions, adapters and bindings from a YAML spec (page 6). `apply` also adds any missing hosts as `guarded` agent destinations; `teardown` leaves agent destinations in place. `adapter list` shows the vault's adapters and bindings. `skills/vgs-checkout-adapter/assets/deployment/` has payload examples for each call.
+`awg-sitecheck adapter plan|apply|dry-run|teardown` manages functions, adapters and bindings from a YAML spec (page 6). `apply` also adds any missing hosts as `guarded` agent destinations; `teardown` leaves agent destinations in place. `adapter list` shows the tenant's adapters and bindings. `skills/vgs-checkout-adapter/assets/deployment/` has payload examples for each call.
 
 ## Writing a function
 
@@ -99,7 +103,7 @@ Rules that come from real integrations:
 - **No secrets in the source:** no keys, no card values, no `${`. Read the card only with `vault.reveal` on `session.card()` aliases.
 - **Functions are immutable.** Never try to edit one in place.
 
-Source limits: 256 KiB per function, 32 inputs per function, 32 functions per adapter version, 16 functions per binding, 100 bindings and 1000 agent destinations per vault.
+Source limits: 256 KiB per function, 32 inputs per function, 32 functions per adapter version, 16 functions per binding, 100 bindings and 1000 agent destinations per tenant.
 
 ## Testing a function
 

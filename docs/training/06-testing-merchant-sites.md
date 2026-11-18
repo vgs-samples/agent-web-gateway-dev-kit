@@ -1,5 +1,9 @@
 # 6. Testing merchant sites
 
+**When you finish this page you can** test a merchant site through AWG at three levels with the `awg-sitecheck` tool.
+
+> **Status: source-checked, not run.** The commands here were checked against the tool code. Nobody has run them as part of writing this page.
+
 `tools/sitecheck/` holds `awg-sitecheck`, a CLI that tests a merchant site through AWG at three levels. Start at level 1 and go up only when the level below passes.
 
 | Level | Command | Question it answers | Touches the merchant? | Card? |
@@ -32,10 +36,10 @@ Nothing secret goes in a file in that folder.
 |---|---|
 | VGS API | `VGS_CLIENT_ID` and `VGS_CLIENT_SECRET`, or `VGS_ACCESS_TOKEN`, or on macOS `VGS_KEYCHAIN=<Keychain service>` |
 | Scopes | `reveal-sessions:write`, `reveal-sessions:read`, `agent-gateway:read`, `agent-gateway:write`; `aliases:write` to create card aliases; `access-logs:read` for `vgs logs` |
-| Vault preference | `agentGatewayBrowserEmulation=true`, set once per vault. Sites behind Akamai and similar bot walls need it |
+| Tenant setting | `agentGatewayBrowserEmulation=true`, set once per tenant. Sites behind Akamai and similar bot walls need it |
 | Egress proxy password | The environment variable named by the profile's `password_env`, or its `password_keychain` |
 
-`card.json` holds vault aliases, never card data. `sites.yaml` sets the environment (`prod-sandbox` or `dev`), the vault, the egress profile, the session context and the shopper's contact details.
+`card.json` holds vault aliases, never card data. `sites.yaml` sets the environment (`prod-sandbox` or `dev`), the tenant, the egress profile, the session context and the shopper's contact details.
 
 ## Level 1: probe
 
@@ -50,7 +54,7 @@ A new site needs only `id`, `name` and `urls` in `sites.yaml`. Each run writes `
 | Verdict | Meaning | Next step |
 |---|---|---|
 | `reachable` | Every page loaded through the gateway and none was blocked | Write a recipe, then `probe --deep` |
-| `blocked-by-gateway-path` | Blocked through the gateway, fine with `--direct` | The gateway path is the cause. Check the vault has `agentGatewayBrowserEmulation=true` and the egress profile has a `sticky_suffix` |
+| `blocked-by-gateway-path` | Blocked through the gateway, fine with `--direct` | The gateway path is the cause. Check the tenant has `agentGatewayBrowserEmulation=true` and the egress profile has a `sticky_suffix` |
 | `blocked-even-direct` | Blocked through the gateway, and a direct page was also blocked, failed to load, or returned a status outside 200–399 | Check `direct_pages[].error` first: `--direct` needs an egress profile. If the direct page really was blocked, the site blocks the exit IP or region; try another egress profile. Not a gateway bug |
 | `blocked` | Blocked through the gateway, and no direct comparison was run | Run again with `--direct` |
 | `errors` | A page errored, or returned a status outside 200–399 that is not a recognised bot-wall block (a `404` or `500`, for example) | Look at `pages[].error` and the video |
@@ -62,7 +66,7 @@ A new site needs only `id`, `name` and `urls` in `sites.yaml`. Each run writes `
 
 ## Level 2: verify
 
-For Adyen adapters today. The files in `harness/merchants/` hold one vault's binding ids: the `*-prod-sandbox.json` files name a prod sandbox vault, and `hm.json`, `jysk.json`, `dunelm.json` and `alza.json` are the bindings the engineering spec and the harness README describe on the dev vault. For each merchant file you pass, the harness:
+For Adyen adapters today. The files in `harness/merchants/` hold one tenant's binding ids: the `*-prod-sandbox.json` files name a prod sandbox tenant, and `hm.json`, `jysk.json`, `dunelm.json` and `alza.json` are the bindings the engineering spec and the harness README describe on the dev tenant. For each merchant file you pass, the harness:
 
 1. dry-runs the capture binding's function on a saved payment page and checks that the merchant's public key is what ends up in the session;
 2. copies the merchant's checkout binding onto a unique path on an echo host, opens a session, plants a key **the harness owns** through the capture function, sends the merchant's checkout body with placeholders where the browser's ciphertext would be, and decrypts what comes back.
@@ -124,7 +128,7 @@ From the H&M US purchase of 2026-11-14 (`tools/sitecheck/docs/lessons.md`):
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `403`, `Server: AkamaiGHost`, on every page through the gateway while direct is `200` | The site sees the gateway's TLS fingerprint and a `Via` header instead of Chrome's | Vault preference `agentGatewayBrowserEmulation=true` |
+| `403`, `Server: AkamaiGHost`, on every page through the gateway while direct is `200` | The site sees the gateway's TLS fingerprint and a `Via` header instead of Chrome's | Tenant setting `agentGatewayBrowserEmulation=true` |
 | Pages `200` but the cart POST answers `403` | The egress proxy rotates the exit IP per connection, and Akamai binds its cookies to the client | A sticky egress session (`sticky_suffix` in `sites.yaml`) |
 | Cart POST `403` now and then | Akamai's sensor had not validated the session yet | `run.browse()` before cart and checkout POSTs |
 | Email lookup POST `403` every time, even without the gateway | The site rate-limits lookups of one email address | A fresh contact email for the run |

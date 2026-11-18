@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VGS Proxy Controls</title>
+  <link rel="stylesheet" href="popup.css">
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">THIS BROWSER</p>
+    <h1>Proxy controls</h1>
+    <div class="session-picker">
+      <label class="detail-label" for="session-select">Available DEV sessions</label>
+      <select id="session-select" disabled><option>Loading sessions…</option></select>
+      <div class="session-actions"><button id="use-session" type="button" disabled>Use selected session</button><button id="refresh-sessions" type="button" disabled>Refresh</button></div>
+      <p id="catalog-status" class="private-note" role="status"></p>
+    </div>
+    <div class="session-details">
+      <span class="detail-label">Reveal session ID</span>
+      <code id="session-id">Loading…</code>
+      <span id="session-expiry" class="private-note"></span>
+    </div>
+    <section aria-live="polite" aria-atomic="true">
+      <p id="state" class="state" data-mode="unavailable">Checking…</p>
+      <p id="description">Reading this browser’s proxy setting.</p>
+    </section>
+    <div class="routes" role="group" aria-label="Proxy route">
+      <button data-mode="pac" type="button" aria-pressed="false" disabled><span>1. Use Reveal Session PAC</span><small>Let the session choose which hosts use VGS.</small></button>
+      <button data-mode="session" type="button" aria-pressed="false" disabled><span>2. Use Reveal Session Proxy</span><small>Send browser traffic through VGS.</small></button>
+      <button data-mode="egress" type="button" aria-pressed="false" disabled><span>3. Use Egress Proxy</span><small id="egress-note">Use the session’s egress directly, without VGS.</small></button>
+      <button data-mode="direct" type="button" aria-pressed="false" disabled><span>4. No Proxy</span><small>Connect directly from this computer.</small></button>
+    </div>
+    <p id="error" role="alert" hidden></p>
+    <details class="pac-details" id="pac-script-details">
+      <summary>View actual PAC file</summary>
+      <button id="load-pac" type="button">Load PAC script</button>
+      <p id="pac-status" class="private-note"></p>
+      <pre id="pac-script">Load the selected session’s routing script.</pre>
+    </details>
+    <details class="pac-details">
+      <summary>What is the PAC file?</summary>
+      <p><strong>PAC</strong> means <strong>Proxy Auto-Configuration</strong>. It is a small routing script supplied by this reveal session. The browser uses it to decide which website hosts go through VGS and which use the session’s egress route.</p>
+      <p>It does not detect checkout automatically. To use VGS only at checkout, start with <strong>Egress Proxy</strong>, then select <strong>Reveal Session Proxy</strong> before opening checkout.</p>
+      <span class="detail-label">PAC source</span>
+      <code id="pac-source">Loading…</code>
+      <p class="private-note">Address shown without its private signature.</p>
+    </details>
+    <p class="note">Switching sessions keeps the selected route. Re-enter the new session’s stand-in values in checkout forms. Reload pages after switching. Requests already in progress may finish on their previous route.</p>
+    <p class="hint">These controls open on every launch. You can also pin <strong>VGS Proxy Controls</strong> in the extensions menu.</p>
+  </main>
+</body>
+</html>

@@ -1,5 +1,7 @@
 # 8. Rules
 
+**When you finish this page you can** work with AWG without exposing card data, secrets or other people's money.
+
 These apply to everyone working with AWG, and to any AI agent you run against it.
 
 ## Card data
@@ -27,7 +29,7 @@ These apply to everyone working with AWG, and to any AI agent you run against it
 ## Other people's configuration
 
 - Do not change a customer's functions, adapters or bindings for them. Read and advise.
-- Admin API writes reach every vault. Publishing a VGS adapter version or editing the registry is for AWG engineering.
+- Admin API writes reach every tenant. Publishing a VGS adapter version or editing the registry is for AWG engineering.
 - Revoking a session is safe and immediate.
 - Remove only what your run created. Do not delete a shared provider adapter as cleanup.
 

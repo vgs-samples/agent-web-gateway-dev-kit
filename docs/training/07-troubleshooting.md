@@ -1,5 +1,7 @@
 # 7. Troubleshooting
 
+**When you finish this page you can** go from what the agent saw to a likely cause, and collect what an escalation needs.
+
 Start from what the agent saw, then check the session before anything else. Most cases are an expired session or a host that did not go through VGS.
 
 ## First three checks
@@ -9,7 +11,7 @@ Start from what the agent saw, then check the session before anything else. Most
 
 ```bash
 curl -sS "$VGS_API/reveal-sessions/$SESSION_ID?include=values" \
-  -H "Authorization: Bearer $TOKEN" -H "VGS-Tenant: $VAULT_ID" -H 'Accept: application/vnd.api+json' \
+  -H "Authorization: Bearer $TOKEN" -H "VGS-Tenant: $TENANT_ID" -H 'Accept: application/vnd.api+json' \
   | jq '.data.attributes | {state, expires_at, allowed_hosts, adapter, unlisted_host_mode, reveal_count, refusal_count, values}'
 ```
 
@@ -19,12 +21,12 @@ curl -sS "$VGS_API/reveal-sessions/$SESSION_ID?include=values" \
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `407 Proxy Authentication Required` | Session expired or revoked; wrong password; or the vault is not enabled for the AWG cell, so its proxy host reaches the shared proxy, which refuses session logins | Create a new session. If a fresh session also gets `407`, escalate (cell enablement) |
+| `407 Proxy Authentication Required` | Session expired or revoked; wrong password; or the tenant is not enabled for the AWG cell, so its proxy host reaches the shared proxy, which refuses session logins | Create a new session. If a fresh session also gets `407`, escalate (cell enablement) |
 | `422 Request processing error. Request id: …` | A function stopped the request: `fail()`, a missing session value, or a reveal of an alias the card does not have, such as a CVC | Look up the request id in the operation logs; dry-run the function on the same body |
 | `403` with `"error": "reveal_refused"` | VGS refused to reveal. The `reason` says why; see the table below | Depends on the reason |
 | Checkout went out with the stand-in card; `reveal_count` is `0` | The function ran but did not match the body (different field names or nesting), or no binding matched the request's host, method and path | Compare the binding's `when` and the function's expected body shape with the real request; reproduce with `awg-sitecheck verify` |
 | Session `values` empty | The payment page did not go through VGS, so the capture function never ran | Put the PSP's page host (for Adyen, `checkoutshopper-live.adyen.com`) in `allowed_hosts` or a binding; check the browser used the PAC file |
-| `403` from the merchant, `server: AkamaiGHost` | The merchant's bot protection, not VGS | A real browser through the PAC file; `agentGatewayBrowserEmulation=true` on the vault; a residential, sticky egress proxy |
+| `403` from the merchant, `server: AkamaiGHost` | The merchant's bot protection, not VGS | A real browser through the PAC file; `agentGatewayBrowserEmulation=true` on the tenant; a residential, sticky egress proxy |
 | Browser ignores the PAC file | Playwright's default headless shell, or a new browser context, which does not inherit the command-line PAC | `channel: 'chromium'` or Chrome, with a persistent context |
 | `502` pages in the browser | VGS could not use the session's egress proxy. It does not fall back to its own addresses | Check the egress host, port and login |
 | Pages on the merchant's site are slow | The PAC file routes by host, so every page on the checkout host goes through VGS | Expected |
@@ -58,8 +60,8 @@ Every request through VGS gets a `vgs-request-id`; a `422` body contains it too.
 
 ```bash
 vgs logs access -R <request id>                                 # the request as VGS saw it
-vgs logs operations -V <vault id> -R <request id>               # the functions and operations that ran
-vgs logs reveal-decisions -V <vault id> -R <request id>         # each reveal allowed or refused
+vgs logs operations -V <tenant id> -R <request id>               # the functions and operations that ran
+vgs logs reveal-decisions -V <tenant id> -R <request id>         # each reveal allowed or refused
 ```
 
 Without that scope these answer `403`. Proxy application logs, including Larky stack traces, are in Grafana Cloud and are for VGS engineers only.
@@ -68,15 +70,15 @@ Other evidence: `GET /reveal-sessions/{id}?include=values` (counters and what fu
 
 ## API errors
 
-API errors use one envelope: `{"errors": [{"status", "code", "title", "detail", "href"}]}`. `400` and `409` carry a `code`; `403` means a missing scope and `404` an unknown, deleted or another vault's id. The full code table is in [the support runbook](../reference/03-support-runbook.md#reference-error-codes).
+API errors use one envelope: `{"errors": [{"status", "code", "title", "detail", "href"}]}`. `400` and `409` carry a `code`; `403` means a missing scope and `404` an unknown, deleted or another tenant's id. The full code table is in [the support runbook](../reference/03-support-runbook.md#reference-error-codes).
 
 ## Escalating
 
-Escalate to AWG engineering (Jira AR-193) when the cause is on VGS's side: a `5xx` from the API, a `407` for a vault that should be enabled, a `422` whose operation logs show no customer-function error, or proxy behavior that contradicts the runbook.
+Escalate to AWG engineering (Jira AR-193) when the cause is on VGS's side: a `5xx` from the API, a `407` for a tenant that should be enabled, a `422` whose operation logs show no customer-function error, or proxy behavior that contradicts the runbook.
 
 Collect first:
 
-- [ ] Vault id and environment
+- [ ] Tenant id and environment
 - [ ] Request id(s), from the `vgs-request-id` header or the `422` body
 - [ ] Session id (`RS…`), its `state`, `expires_at`, `adapter` and `unlisted_host_mode`
 - [ ] The binding (`AX…`) and function (`FN…`) ids involved, with the adapter version

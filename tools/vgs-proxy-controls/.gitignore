@@ -1,0 +1,7 @@
+.private-extension/
+.env*
+dev.env
+*.request.json
+RS*.json
+__pycache__/
+dist/

@@ -1,33 +1,35 @@
 # 3. Lab: your first session
 
-You will create a reveal session, send one request through it, inspect it and end it, using only `curl` and `jq`. No browser, no merchant checkout and no adapter.
+**When you finish this lab you will have** created a reveal session, sent a request through it, read it back and ended it, using only `curl` and `jq`. No browser, no checkout and no adapter.
 
-## You need
+> **Status: source-checked, not run.** Every command here was checked against the API documents and the session kit's code, but nobody has run this lab end to end as written. Tell the AWG team what breaks.
 
-- A service account on a sandbox vault enabled for AWG, with `reveal-sessions:write` and `reveal-sessions:read`. Write does not include read; you need both for this lab.
-- The vault id (`tnt…`).
-- The aliases of a **test card** already stored in that vault (number, and CVC if it has one), with the card's BIN and length. Use a test card such as `4111111111111111`. Lab 4 shows a script that stores one.
-- A terminal running `bash` (type `bash` first on macOS, where the default shell is zsh).
-- A host to call. Use a site you would be content to load in a browser, and add it to `allowed_hosts`. The developer guide's quickstart also asks for the host to be added as an agent destination; this lab relies on `allowed_hosts` alone, so if the request is refused, add the destination. Public echo and request-bin services such as `httpbin.org` are refused with `never_host`.
+## What you need
 
-The commands below use prod sandbox (`.com`). On dev, the API is `https://sandbox.vgsapi.io` and the token URL is on `auth.verygoodsecurity.io`.
+1. A service account on a sandbox tenant enabled for AWG, with the scopes `reveal-sessions:write` and `reveal-sessions:read`. You need both: write does not include read.
+2. Your tenant id. It starts with `tnt`.
+3. The aliases of a **test card** already stored in that tenant, with the card's first six digits (BIN) and its length. Lab 4's script stores one.
+4. A website to call. Pick any site you would be happy to load in a browser.
+5. A terminal running `bash`, with `curl` and `jq`. On macOS, type `bash` first.
+
+These commands use prod sandbox. For dev, see "Details" at the end.
 
 ## Steps
 
-1. Work in a private folder outside this repository, and put your credentials in the shell without writing them to a file. `read -s` keeps the secret off the screen and out of shell history.
+### 1. Set up your shell
 
 ```bash
 mkdir -p ~/awg-lab && cd ~/awg-lab
 export VGS_API=https://sandbox.vgsapi.com
 export VGS_AUTH_URL=https://auth.verygoodsecurity.com/auth/realms/vgs/protocol/openid-connect/token
-export VAULT_ID=tnt...
+export TENANT_ID=tnt...
 read -r  VGS_CLIENT_ID
 read -rs VGS_CLIENT_SECRET
 ```
 
-Replace `tnt...` with your vault id. Each `read` waits for you to paste a value and press Enter; the secret is not shown.
+Replace `tnt...` with your tenant id. Each `read` waits for you to paste a value and press Enter. The secret is not shown and is not saved to a file.
 
-2. Get an access token (client-credentials grant).
+### 2. Get an access token
 
 ```bash
 TOKEN=$(curl -sS -X POST "$VGS_AUTH_URL" \
@@ -37,12 +39,16 @@ TOKEN=$(curl -sS -X POST "$VGS_AUTH_URL" \
 [ -n "$TOKEN" ] && echo "token ok"
 ```
 
-3. Create the session. Replace the aliases and the host. Save the response to a private file, because it is the only response that contains the proxy login.
+**Success:** it prints `token ok`. If it prints nothing, the client id or secret is wrong.
+
+### 3. Create the session
+
+You send VGS the card's aliases and the host the session may reach. Replace the two aliases and the host.
 
 ```bash
 umask 077
 curl -sS "$VGS_API/reveal-sessions" \
-  -H "Authorization: Bearer $TOKEN" -H "VGS-Tenant: $VAULT_ID" \
+  -H "Authorization: Bearer $TOKEN" -H "VGS-Tenant: $TENANT_ID" \
   -H 'Content-Type: application/vnd.api+json' \
   -o session.json -w '%{http_code}\n' \
   -d '{"data": {"type": "reveal-sessions", "attributes": {
@@ -52,11 +58,14 @@ curl -sS "$VGS_API/reveal-sessions" \
                    "cvc": {"alias": "tok_sandbox_...", "length": 3}}]}}}'
 ```
 
-If the card was stored with `POST /cards`, as lab 4's script does, its CVC alias is volatile: add `"storage": "VOLATILE"` to the `cvc` part.
+**Success:** it prints `201`. The response is saved to `session.json`, which only you can read. It holds the session's proxy login, and VGS returns that only this once.
 
-Expect `201`. A `400` carries a `code` that names the problem, for example `invalid_host`, `never_host` or `missing_aliases`. A `403` means a missing scope.
+| If you get | It means |
+|---|---|
+| `400` | The response's `code` names the problem, for example `invalid_host`, `never_host` or `missing_aliases` |
+| `403` | The service account is missing a scope |
 
-4. Take what you need from the response.
+### 4. Pull out what you need
 
 ```bash
 SESSION_ID=$(jq -r .data.id session.json)
@@ -65,9 +74,11 @@ jq -r .data.attributes.proxy.ca_bundle session.json > vgs-session-ca.pem
 jq '.data | {id, expires_at: .attributes.expires_at, mode: .attributes.unlisted_host_mode}' session.json
 ```
 
-Do not print `PROXY_URL`: it contains the session's password.
+**Success:** it prints the session id (starting `RS`), when the session expires, and the tenant's unlisted-host mode.
 
-5. Send a request through the session.
+Do not print `PROXY_URL`. It contains the session's password.
+
+### 5. Send a request through the session
 
 ```bash
 curl -sS -o /dev/null -D - \
@@ -75,42 +86,63 @@ curl -sS -o /dev/null -D - \
   https://www.example-shop.com/ | grep -i -E '^HTTP|vgs-request-id'
 ```
 
-A response with a `vgs-request-id` header went through VGS. Keep that id: it is how every request is traced.
+**Success:** the output includes a `vgs-request-id` line. That header means the request went through VGS. Every request is traced by that id.
 
-6. Read the session back. Later reads never return secrets.
+| If you get | It means |
+|---|---|
+| `407` | The proxy did not accept the session's login. If the session is new, the tenant may not be enabled for AWG; escalate to the AWG team |
+| The request is refused by VGS | The host may also need to be an agent destination. See "Details" |
+
+### 6. Read the session back
 
 ```bash
 curl -sS "$VGS_API/reveal-sessions/$SESSION_ID" \
-  -H "Authorization: Bearer $TOKEN" -H "VGS-Tenant: $VAULT_ID" \
+  -H "Authorization: Bearer $TOKEN" -H "VGS-Tenant: $TENANT_ID" \
   -H 'Accept: application/vnd.api+json' \
   | jq '.data.attributes | {state, expires_at, allowed_hosts, reveal_count, refusal_count, unlisted_host_mode}'
 ```
 
-Expect `reveal_count` to be `0`: you loaded a page and sent no session token.
+**Success:** `state` is `active`. Expect `reveal_count` to be `0`, because you loaded a page and sent no session token. Notice there is no proxy login in this response.
 
-7. End the session.
+### 7. End the session
 
 ```bash
 curl -sS -o /dev/null -w '%{http_code}\n' -X DELETE "$VGS_API/reveal-sessions/$SESSION_ID" \
-  -H "Authorization: Bearer $TOKEN" -H "VGS-Tenant: $VAULT_ID"
+  -H "Authorization: Bearer $TOKEN" -H "VGS-Tenant: $TENANT_ID"
 ```
 
-Expect `204`. The runbook says a repeat is also `204`.
+**Success:** it prints `204`.
 
-8. Run step 5 again. The proxy now answers `407`: it no longer accepts the session's login.
+### 8. Prove it ended
 
-9. Remove the files and the secrets from your shell.
+Run the command from step 5 again.
+
+**Success:** the proxy now answers `407`. The session's login no longer works.
+
+### 9. Clean up
 
 ```bash
 rm -f session.json vgs-session-ca.pem
 unset TOKEN PROXY_URL VGS_CLIENT_SECRET
 ```
 
-## Things to know
+## What you just saw
 
-- The default lifetime is 5 minutes unless the vault's setting says otherwise. After `expires_at` the proxy answers `407`. The API defines an `expired` state, but the sources do not settle whether a read after expiry returns `state: expired` or `404`; the session kit treats `404` as "already ended or expired".
-- If step 5 returns `407` on a brand-new session, the vault may not be enabled for the AWG cell. That is an escalation, not something you can fix.
+- You sent VGS aliases and a host. You got back a proxy login and session tokens.
+- A request through the session carries a `vgs-request-id`.
+- Reading a session never returns its secrets.
+- Ending a session stops its login at once.
+
+Next: [lab 4](04-lab-browser-checkout.md) does the same with a real browser.
 
 ---
 
-Sources: `docs/reference/04-developer-guide.md` (Quickstart, Reveal sessions, Errors and limits), `skills/vgs-checkout-adapter/scripts/session-kit/lib.sh` (token request), `end-session.sh` (`404`) and `create-session.sh` (CVC storage), `tools/sitecheck/awg_sitecheck/config.py` (environment URLs), `docs/reference/03-support-runbook.md` (`407`, repeat delete).
+## Details and sources
+
+- **Dev environment.** The API is `https://sandbox.vgsapi.io` and the token URL is on `auth.verygoodsecurity.io`.
+- **CVC storage.** If the card was stored with `POST /cards`, as lab 4's script does, its CVC alias is volatile: add `"storage": "VOLATILE"` to the `cvc` part in step 3.
+- **Hosts.** The developer guide's quickstart asks for the host to be added as an agent destination as well as listed in `allowed_hosts`. This lab relies on `allowed_hosts` alone; if the request is refused, add the destination (`POST /agent-gateway-destinations`, which needs `agent-gateway:write`). Public echo and request-bin services such as `httpbin.org` are refused with `never_host`.
+- **Lifetime.** Sessions last 5 minutes unless the tenant's setting says otherwise. After `expires_at` the proxy answers `407`. The documents do not settle whether reading a session after it expires returns `state: expired` or `404`; the session kit treats `404` as "already ended or expired".
+- **Deleting twice.** The runbook says a repeated delete also returns `204`.
+
+Sources: `docs/reference/04-developer-guide.md` (Quickstart, Reveal sessions, Errors and limits, API reference), `docs/reference/03-support-runbook.md` (`407`, repeat delete), `skills/vgs-checkout-adapter/scripts/session-kit/lib.sh` (token request), `end-session.sh` (`404`) and `create-session.sh` (CVC storage), `tools/sitecheck/awg_sitecheck/config.py` (environment URLs).

@@ -1,13 +1,15 @@
 # 9. Integration checklist
 
+**When you finish this page you can** review a customer's integration before it goes live.
+
 Use this when you design or review a customer's integration. Each item is drawn from the sources in this repository; the source is named at the end of the line. Items marked "recommendation" are this page's advice, not a statement from a source.
 
 ## Before the first session
 
 - [ ] The card is stored in the vault, and the customer's systems keep only its aliases. (Developer guide, Overview)
 - [ ] The service account has the scopes the integration uses. Write scopes do not include read. (Developer guide, API reference) Give it no more than that. (Recommendation)
-- [ ] The vault is enabled for AWG. If a fresh session gets `407` with the correct password, and other sessions of the vault fail the same way, the vault may not be enabled; escalate. (Runbook)
-- [ ] You know the vault's unlisted-host mode (`strict`, `guarded` or `step_up`) and its session lifetime. Neither can be set per session. (Developer guide, Reveal sessions)
+- [ ] The tenant is enabled for AWG. If a fresh session gets `407` with the correct password, and other sessions of the tenant fail the same way, the tenant may not be enabled; escalate. (Runbook)
+- [ ] You know the tenant's unlisted-host mode (`strict`, `guarded` or `step_up`) and its session lifetime. Neither can be set per session. (Developer guide, Reveal sessions)
 - [ ] For each merchant, you know from a capture of the real checkout which host receives the card and whether the card is sent plain or encrypted in the browser. (Skill, `har-review.md`)
 - [ ] If the card is encrypted in the browser, an adapter exists and has passed a dry run and, for Adyen, the level 2 harness. The harness covers Adyen only today. (Page 5; `adapters/README.md`)
 

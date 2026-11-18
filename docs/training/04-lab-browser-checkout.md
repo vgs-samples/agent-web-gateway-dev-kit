@@ -1,18 +1,22 @@
 # 4. Lab: a browser checkout
 
-You will store a test card, create a session, and open a Chromium window that uses the session's PAC file. The hosts in the PAC file go through VGS; on a build without the PAC split, all traffic does. At the payment form you type the session tokens. This lab uses the `session-kit` scripts in `skills/vgs-checkout-adapter/scripts/session-kit/`.
+**When you finish this lab you will have** stored a test card, created a session, opened a browser that goes through VGS, and typed session tokens at a checkout.
 
-**Use a test card for this lab**, such as `4111111111111111`. The test kit README of 2026-11-07 says a real merchant will decline a test card and that this is expected: what you check is that pages load through VGS, that you are not treated as a bot, and that the token is swapped on the payment request. Do not submit a payment unless someone has approved that purchase.
+> **Status: source-checked, not run.** These steps were checked against the session kit's code and notes, but nobody has run this lab end to end as written. Tell the AWG team what breaks.
 
-## You need
+**Use a test card**, such as `4111111111111111`. A real merchant will decline it, and that is expected. You are checking three things: pages load through VGS, the site does not treat you as a bot, and the token is swapped on the payment request. Do not submit a payment unless someone has approved that purchase.
 
-- macOS (Apple silicon or Intel) or Linux x86-64, with `curl`, `jq`, `openssl` and `unzip`.
-- A service account, vault id and a test card, as in lab 3. Storing the card also needs a scope that allows `POST /cards` on the vault; ask the AWG team which one.
-- An egress proxy you are authorized to use. The kit requires one: with no `EGRESS_PROXY` and no `--egress-profile` it stops, and it does not fall back to VGS's own addresses or another route. Its default is a Byteful residential endpoint. A different endpoint needs both `EGRESS_ALLOWED_HOST` and `EGRESS_ALLOWED_PORT` in `.env` plus `--egress-profile`, which `start.sh` cannot pass; see "Things to know".
+## What you need
+
+1. macOS or Linux (x86-64), with `curl`, `jq`, `openssl` and `unzip`.
+2. A service account and tenant id, as in lab 3. Storing the card needs one more scope, for `POST /cards`; ask the AWG team which.
+3. A residential egress proxy you are authorized to use. The kit will not run without one.
 
 ## Set up, once
 
-1. Copy the kit to a private folder outside this repository. It will hold credentials and session files.
+### 1. Copy the kit to a private folder
+
+The kit will hold credentials and session files, so keep it outside this repository.
 
 ```bash
 cp -R skills/vgs-checkout-adapter/scripts/session-kit ~/awg-session-kit
@@ -20,73 +24,86 @@ cd ~/awg-session-kit
 bash setup.sh
 ```
 
-`setup.sh` checks the tools, creates `.env` from `.env.example` with mode 0600, and downloads Chrome for Testing into `./browsers`.
+**Success:** it creates a `.env` file that only you can read, and downloads a test copy of Chrome into `./browsers`.
 
-2. Fill in `.env`. Use plain `KEY=value` lines, with no quotes and no `export`.
+### 2. Fill in `.env`
 
-| Key | Value |
+Use plain `KEY=value` lines, with no quotes and no `export`.
+
+| Key | What to put |
 |---|---|
-| `VGS_CLIENT_ID`, `VGS_CLIENT_SECRET`, `VGS_TENANT` | Your service account and vault id |
-| `VGS_API`, `VGS_AUTH_URL` | Preset for prod sandbox (`.com`). Dev uses the `.io` hosts |
-| `EGRESS_PROXY` | Your Byteful proxy URL. `start.sh` needs it set here or exported in the shell |
-| `ALLOWED_HOSTS` | Optional default hosts |
+| `VGS_CLIENT_ID`, `VGS_CLIENT_SECRET` | Your service account |
+| `VGS_TENANT` | Your tenant id |
+| `EGRESS_PROXY` | Your egress proxy URL |
+| `VGS_API`, `VGS_AUTH_URL` | Leave as they are for prod sandbox |
 
-For a second environment, create `.env.<name>` and prefix every command with `KIT_ENV=<name>`; its state goes to `.state-<name>/`. Variables already exported in your shell override the file, so clear stale `VGS_*` and `EGRESS_*` values before switching.
+## Run a checkout
 
-## Run a session
+### 3. Start
 
-3. Start. This stores the card, creates a fresh session and opens Chromium.
+Give the hosts that may receive the real card, then the page to open. Include the payment provider's host as well as the merchant's.
 
 ```bash
 ./start.sh www.example-shop.com,payments.example-psp.com https://www.example-shop.com/
 ```
 
-The script prompts for the card number, CVC and expiry; the number and CVC are hidden while you type. Without a terminal, supply `CARD_PAN`, `CARD_CVC` and `CARD_EXP=MM/YY` in the environment. The kit does not save the card number or CVC. `.state/` holds the aliases, the last four digits, BIN, expiry and card id, the full session response, and the session request including the egress proxy password.
+The script asks for the card number, CVC and expiry. The number and CVC are hidden as you type. It then stores the card, creates a session and opens the browser.
 
-The card step stops unless the card call returns `201` with both aliases and a card id different from the last one saved. If the vault already holds that card and answers `303`, the run stops there.
-
-4. Read the output. It prints the session id, `expires_at`, `unlisted_host_mode`, the allowed hosts, the egress proxy, and:
+**Success:** a browser window opens, and the terminal prints the session and a line like this:
 
 ```
 tokens_to_type: { "card_number": "…", "card_cvc": "…" }
 ```
 
-It also prints the card's vault aliases, the proxy username and password, and the PAC link. Treat the terminal output as secret: do not paste it into a ticket or a chat.
+The terminal also shows the card's aliases, the proxy password and the PAC link. **Treat the terminal output as secret.** Do not paste it into a ticket or a chat.
 
-5. In the browser, go to the checkout and **type the `tokens_to_type` values**, not the real card and not the vault aliases. Use the card's real expiry date unless the adapter requires an override.
+### 4. Type the session tokens at checkout
 
-## Check it works
+In the browser, go to the merchant's checkout. In the card form, type the `tokens_to_type` values: the token for the card number, and the token for the CVC. Use the card's real expiry date.
 
-- **Traffic goes through VGS.** Responses from a host that went through VGS carry a `vgs-request-id` header (DevTools → Network), and the host's certificate is issued by the session's CA. The test kit README of 2026-11-07 says the issuer shows as Very Good Security.
-- **Your egress IP.** Open `https://ipinfo.io/json` in the session browser to see the exit IP. The test kit README says that with an egress proxy it should show a consumer ISP, not a hosting company. An IP lookup does not tell you how a merchant's bot protection will rate it.
-- **The payment host.** The card form may post to a different host than the page. In DevTools → Network, find the request that carries the tokens and check its host is in `allowed_hosts`. If it is not, what happens depends on the vault's unlisted-host mode and on the PAC file:
-  - with the PAC split, the request bypasses VGS (it goes out through the session's egress proxy, which this kit always sets) and the provider receives the session tokens;
-  - in `strict` mode, a request VGS can see is refused, and an HTTPS host that no rule names is tunnelled untouched. The October 2026 doc set gives the refusal as `403 reveal_refused` with reason `session_host_not_allowed`; the 2026-11-12 bundle does not describe the body;
-  - in `guarded` mode, the card may be revealed within the reveal guard's limits;
-  - in `step_up` mode, the request is held for approval.
+Do not type the real card. Do not type the vault aliases.
 
-  In every case, start a new session that includes the payment host.
-- **The session counters.**
+### 5. Check it worked
+
+1. **Traffic goes through VGS.** Open DevTools → Network. Responses from the allowed hosts carry a `vgs-request-id` header.
+2. **The payment host is allowed.** Find the request that carries the tokens. Its host must be one you listed in step 3. If it is not, start again and add it.
+3. **A reveal happened.**
 
 ```bash
 ./session-status.sh
 ```
 
-It prints the latest session's `state`, `reveal_count` and `refusal_count`.
+**Success:** `reveal_count` has gone up. That shows VGS swapped a token. It does not show that the merchant accepted the payment.
 
-`reveal_count` going up shows a reveal happened. On its own it does not prove the merchant accepted the payment.
-
-6. End the session.
+### 6. End the session
 
 ```bash
 ./end-session.sh
 ```
 
-Ending a session does not delete the stored card or local files. Clean `.state/` when you are done with the kit.
+When you are done with the kit, delete its `.state/` folder. Ending a session does not delete the stored card or the local files.
 
-## Things to know
+## If something goes wrong
 
-- `start.sh` passes only the host list and the URL. For any other option, run `create-fresh-session.sh` with the options, then `launch-chromium.sh`:
+| What you see | What to do |
+|---|---|
+| The script stops at the card step | The kit insists on a newly stored card each time. If the tenant already holds that card, the run stops. See "Details" |
+| The script says an egress proxy is required | Set `EGRESS_PROXY` in `.env` |
+| No `vgs-request-id` on the merchant's pages | That host is not in the session. Start again with it in the host list |
+| The site blocks you (`403`) | That is the merchant's bot protection. Page 6 shows how to tell whether the gateway path caused it |
+| `reveal_count` stays `0` after you submit | The payment host was not allowed, or the provider encrypts the card in the browser and needs an adapter (page 5) |
+
+Tip: page 10 covers a browser extension that switches between sessions and routes without restarting the browser. It works on the DEV environment only.
+
+---
+
+## Details and sources
+
+- **What the kit saves.** It does not save the card number or CVC. `.state/` holds the aliases, the last four digits, BIN, expiry and card id, the full session response, and the session request including the egress proxy password.
+- **Without a terminal,** supply `CARD_PAN`, `CARD_CVC` and `CARD_EXP=MM/YY` in the environment.
+- **The card step** stops unless the card call returns `201` with both aliases and a card id different from the last one saved. If the tenant already holds the card and answers `303`, the run stops there.
+- **Egress.** With no `EGRESS_PROXY` and no `--egress-profile` the kit stops; it does not fall back to VGS's own addresses. Its default is a Byteful residential endpoint. A different endpoint needs `EGRESS_ALLOWED_HOST` and `EGRESS_ALLOWED_PORT` in `.env` plus `--egress-profile`.
+- **More options.** `start.sh` passes only the host list and the URL. For anything else, run `create-fresh-session.sh` and then the launcher:
 
 ```bash
 bash ./create-fresh-session.sh --hosts payments.example-psp.com \
@@ -94,15 +111,17 @@ bash ./create-fresh-session.sh --hosts payments.example-psp.com \
 ./launch-chromium.sh "" https://www.example-shop.com/checkout
 ```
 
-  The empty first argument means the latest session.
+  The empty first argument means the latest session. `--egress-profile` takes a private JSON file with `scheme`, `hostname`, numeric `port`, `username` and `password`.
 
-- `--egress-profile` takes a private JSON file with `scheme`, `hostname`, numeric `port`, `username` and `password`.
-- `--adapter AD…` sets the session's `adapter`, which limits the session to that adapter's bindings, and sends role-based `cards`, which functions that call `session.card()` require. The id must be registered in the vault. The named forms `--adapter adyen` and `--adapter stripe` need a registration ledger file; none is bundled.
-- The CVC alias is volatile. A new session does not bring back a CVC alias that is no longer available; store the card again.
-- `launch-chromium.sh` reopens the latest session in a new browser. `--insecure` skips all certificate checks; use it only to diagnose a CA problem.
-- The launchers do not record HAR files.
-- Do not run two fresh-session commands at once in one kit profile.
+- **`--adapter AD…`** sets the session's `adapter` and sends the card as `cards`, which functions that call `session.card()` need. The id must be registered in the tenant. The named forms `--adapter adyen` and `--adapter stripe` need a registration ledger file; none is bundled.
+- **Expiry.** Use the card's real expiry unless the adapter requires an override.
+- **A second environment.** Create `.env.<name>` and prefix every command with `KIT_ENV=<name>`; its state goes to `.state-<name>/`. Dev uses the `.io` hosts. Variables already exported in your shell override the file.
+- **Which traffic goes through VGS.** The hosts in the session's PAC file. On a build without the PAC split, all of it.
+- **If the payment host is not allowed,** what happens depends on the tenant's unlisted-host mode: the request may bypass VGS and deliver the worthless tokens, be refused (the October 2026 doc set gives `403 reveal_refused`, reason `session_host_not_allowed`), be revealed within the guard's limits, or be held for approval. Page 2 explains the modes.
+- **The CVC alias is volatile.** A new session does not bring back a CVC alias that is no longer available; store the card again.
+- **Other checks.** The host's certificate is issued by the session's CA. `https://ipinfo.io/json` in the session browser shows your exit IP; an IP lookup does not tell you how a merchant's bot protection will rate it.
+- **`launch-chromium.sh --insecure`** skips all certificate checks. Use it only to diagnose a CA problem.
+- The launchers do not record HAR files. Do not run two fresh-session commands at once in one kit profile.
+- **From the test kit README of 2026-11-07** (not in this repository): a real merchant declines a test card; what to check instead; the certificate issuer shows as Very Good Security; the exit IP should be a consumer ISP.
 
----
-
-Sources: `skills/vgs-checkout-adapter/references/fresh-session.md`, `skills/vgs-checkout-adapter/references/gateway-verification.md`, the scripts in `skills/vgs-checkout-adapter/scripts/session-kit/` (`setup.sh`, `lib.sh`, `start.sh`, `create-card.sh`, `create-fresh-session.sh`, `create-session.sh`, `launch-chromium.sh`, `session-status.sh`, `end-session.sh`, `.env.example`), `docs/reference/01-internal-engineering-spec.md` (Proxy behavior) and `docs/reference/04-developer-guide.md` for the unlisted-host cases and the `vgs-request-id` header for `reveal_refused`, and the test kit README of 2026-11-07 where the page says so (not in this repository; listed in `SOURCES.md`).
+Sources: `skills/vgs-checkout-adapter/references/fresh-session.md` and `gateway-verification.md`; the scripts in `skills/vgs-checkout-adapter/scripts/session-kit/` (`setup.sh`, `lib.sh`, `start.sh`, `create-card.sh`, `create-fresh-session.sh`, `create-session.sh`, `launch-chromium.sh`, `session-status.sh`, `end-session.sh`, `.env.example`); `docs/reference/01-internal-engineering-spec.md` (Proxy behavior) and `docs/reference/04-developer-guide.md`;.
