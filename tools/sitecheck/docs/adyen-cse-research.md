@@ -66,4 +66,4 @@ Net: the modern path needs a JWE RSA-OAEP-256/A256GCM encryptor (starlarky jose 
 
 Note: during research an earlier message was stopped by a safety classifier while I was enumerating candidate bundle paths with a fabricated clientKey; that reconnaissance-style probing looked like scanning. I stopped it and switched to reading adyen-web source plus Adyen's own docs, and deliberately did not guess/brute-force a valid clientKey (which is why the live iframe bundle crypto is corroborated by docs + the `forceCompat`/`importX509` source evidence rather than read byte-for-byte).
 
-Clone retained at `/private/tmp/claude-501/-Volumes-code-vgs-vgs2-operation-pipeline/390a165d-d680-42c3-8b07-0796a776f2c3/scratchpad/adyen-cse/src/adyen-web` (v6.47.0) if you want to verify line references.
+Verify line references against `Adyen/adyen-web` at tag `v6.47.0` and the commit cited above.

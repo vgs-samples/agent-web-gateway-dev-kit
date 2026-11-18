@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
@@ -19,7 +19,7 @@ class CatalogTests(unittest.TestCase):
         self.saved = self.kit / '.state-dev/sessions/RSFIRST.json'
         self.saved.parent.mkdir(parents=True)
         self.attributes = {'state': 'active', 'expires_at': '2099-01-01T00:00:00Z', 'allowed_hosts': ['checkout.invalid'],
-                           'proxy': {'url': 'https://fixture:dummy@tntmdki2teh.sandbox.verygoodproxy.io:3443',
+                           'proxy': {'url': 'https://fixture:dummy@tntFixture.sandbox.verygoodproxy.io:3443',
                                      'pac_url': 'https://sandbox.vgsapi.io/reveal-sessions/RSFIRST.pac?signature=private-fixture',
                                      'ca_bundle': 'fixture-ca'}}
         self.saved.write_text(json.dumps({'data': {'id': 'RSFIRST', 'attributes': self.attributes}}))
@@ -70,6 +70,48 @@ class CatalogTests(unittest.TestCase):
                 self.assertEqual(response.headers['Cache-Control'], 'no-store')
                 self.assertEqual(len(json.load(response)['sessions']), 2)
         finally: server.close()
+
+    def test_collect_token_endpoint_is_authenticated_post_only_no_store(self):
+        self.catalog.operations.collect_token = Mock(return_value={'accessToken':'fixture-transient','tenantId':'fixture','environment':'dev'})
+        server = module.CatalogServer(None,catalog=self.catalog)
+        try:
+            url=server.config['url']+'/environments/dev/collect-token'
+            headers={'Authorization':'Bearer '+server.config['token'],'Content-Type':'application/json'}
+            for extra in [{'Authorization':'Bearer wrong'},{'Origin':'https://merchant.invalid'}]:
+                with self.assertRaises(HTTPError) as error: urlopen(Request(url,data=b'{"tenantId":"fixture","method":"aliases"}',headers={**headers,**extra}))
+                self.assertEqual(error.exception.code,403)
+            self.catalog.operations.collect_token.assert_not_called()
+            with self.assertRaises(HTTPError): urlopen(Request(url,headers=headers))
+            with urlopen(Request(url,data=b'{"tenantId":"fixture","method":"aliases"}',headers=headers)) as response:
+                self.assertEqual(response.headers['Cache-Control'],'no-store')
+                self.assertEqual(json.load(response)['accessToken'],'fixture-transient')
+            self.catalog.operations.collect_token.assert_called_once_with({'tenantId':'fixture','method':'aliases'})
+        finally: server.close()
+
+    def test_file_picker_requires_auth_and_works_before_account_connection(self):
+        picker = Mock()
+        job = {'requestId':'12345678-1234-1234-1234-123456789abc', 'environment':'sandbox', 'status':'pending'}
+        picker.start.return_value = job
+        picker.status.return_value = {**job, 'status':'selected', 'credentialsFile':'/tmp/account.json'}
+        server = module.CatalogServer(None, catalog=self.catalog, file_picker=picker)
+        try:
+            url = server.config['url'] + '/environments/sandbox/credentials/picker'
+            headers = {'Authorization':'Bearer '+server.config['token'], 'Content-Type':'application/json'}
+            for extra in [{'Authorization':'Bearer wrong'}, {'Origin':'https://merchant.invalid'}]:
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(Request(url, data=b'{}', headers={**headers, **extra}))
+                self.assertEqual(error.exception.code, 403)
+            picker.start.assert_not_called()
+            with urlopen(Request(url, data=b'{}', headers=headers)) as response:
+                self.assertEqual(json.load(response), job)
+                self.assertEqual(response.headers['Cache-Control'], 'no-store')
+            picker.start.assert_called_once_with('sandbox')
+            with urlopen(Request(url+'/'+job['requestId'], headers=headers)) as response:
+                self.assertEqual(json.load(response)['credentialsFile'], '/tmp/account.json')
+            picker.status.assert_called_once_with('sandbox', job['requestId'])
+            self.assertEqual(self.calls, [])
+        finally: server.close()
+        picker.close.assert_called_once()
 
 
 if __name__ == '__main__': unittest.main()

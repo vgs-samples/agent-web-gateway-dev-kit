@@ -1,14 +1,25 @@
 // Account API credentials remain in the local companion, never in this extension.
-let current = INITIAL_SESSION;
+const environments = ["dev", "sandbox", "live"];
+function sessionEnvironment(session) {
+    if (environments.includes(session.environment)) return session.environment;
+    const host = new URL(session.pacSource || session.pacUrl).hostname;
+    return host === "vgsapi.com" ? "live" : host === "sandbox.vgsapi.com" ? "sandbox" : "dev";
+}
+let current = {...INITIAL_SESSION, environment: sessionEnvironment(INITIAL_SESSION)};
+let environment = CATALOG?.environment || current.environment;
 let switching = false;
 let initialized = false;
 let generation = 0;
 let sessionList = [];
 let checkedAt = null;
 let catalogError = null;
+let account = null;
+let manualEgress = null;
+const egressProxy = () => manualEgress?.proxy || current.proxies.egress;
+const publicEgress = () => ({source: manualEgress ? "custom" : "session", proxy: egressProxy(), hasCredentials: !!manualEgress?.credentials});
 const blockedProxy = {mode: "fixed_servers", rules: {singleProxy: {scheme: "http", host: "127.0.0.1", port: 9}, bypassList: []}};
-const modes = () => ["pac", "session", ...(current.proxies.egress ? ["egress"] : []), "direct"];
-const publicSession = () => ({sessionId: current.sessionId, expiresAt: current.expiresAt, pacSource: current.pacSource});
+const modes = () => ["pac", "session", ...(egressProxy() ? ["egress"] : []), "direct"];
+const publicSession = () => ({sessionId: current.sessionId, expiresAt: current.expiresAt, pacSource: current.pacSource, environment: current.environment, tenantId: current.tenantId});
 const attempted = new Map();
 const requestFilter = {urls: ["<all_urls>"]};
 globalThis.proxyErrors = [];
@@ -38,10 +49,10 @@ function describe(config) {
     if (owned) {
         if (value.mode === "pac_script" && value.pacScript?.url === current.pacUrl && value.pacScript?.mandatory === true) mode = "pac";
         else if (matchesProxy(value, current.proxies.session)) mode = "session";
-        else if (matchesProxy(value, current.proxies.egress)) mode = "egress";
+        else if (matchesProxy(value, egressProxy())) mode = "egress";
         else if (value.mode === "direct") mode = "direct";
     }
-    return {mode, canControl: owned || config.levelOfControl === "controllable_by_this_extension", availableModes: modes(), session: publicSession(), sessions: sessionList, checkedAt, catalogError, catalogAvailable: !!CATALOG};
+    return {mode, canControl: owned || config.levelOfControl === "controllable_by_this_extension", availableModes: modes(), session: publicSession(), sessions: sessionList, checkedAt, catalogError, catalogAvailable: !!CATALOG, environment, account, egress: publicEgress()};
 }
 
 function showBadge(state) {
@@ -49,7 +60,7 @@ function showBadge(state) {
     const titles = {pac: "Reveal Session PAC", session: "Reveal Session Proxy", egress: "Egress Proxy", direct: "No Proxy", unavailable: "Unavailable"};
     chrome.action.setBadgeText({text: labels[state.mode]});
     chrome.action.setBadgeBackgroundColor({color: state.mode === "direct" ? "#a34b10" : state.mode === "unavailable" ? "#a12b35" : "#156b50"});
-    chrome.action.setTitle({title: titles[state.mode] + " — click for proxy controls"});
+    chrome.action.setTitle({title: titles[state.mode] + " — Agent Web Gateway Control Panel"});
     return state;
 }
 
@@ -58,20 +69,31 @@ async function getState() {
 }
 
 async function setMode(mode) {
+    const oldMode = (await getState()).mode;
     if (!modes().includes(mode)) throw new Error("Proxy mode is not available.");
     // Never clear(): that would restore the launcher's blocking bootstrap proxy.
     const value = mode === "pac" ? {mode: "pac_script", pacScript: {url: current.pacUrl, mandatory: true}}
         : mode === "direct" ? {mode: "direct"}
-        : {mode: "fixed_servers", rules: {singleProxy: current.proxies[mode], bypassList: []}};
-    await new Promise((resolve, reject) => {
-        chrome.proxy.settings.set({value, scope: "regular"}, () => {
-            if (chrome.runtime.lastError) reject(new Error("Could not change proxy routing."));
-            else resolve();
-        });
-    });
-    const state = await getState();
-    if (state.mode !== mode) throw new Error("Another browser setting controls proxy routing.");
-    return state;
+        : {mode: "fixed_servers", rules: {singleProxy: mode === "egress" ? egressProxy() : current.proxies[mode], bypassList: []}};
+    const resetAuth = !switching && manualEgress && ((oldMode === "egress") !== (mode === "egress"));
+    if (resetAuth) { switching = true; generation++; }
+    try {
+        if (resetAuth) {
+            await chrome.storage.local.set({switchInProgress: true});
+            await applySettings(blockedProxy);
+            await clearProxyAuth([current, {proxies: {custom: manualEgress.proxy}}]);
+            attempted.clear();
+        }
+        await applySettings(value);
+        const state = await getState();
+        if (state.mode !== mode) throw new Error("Another browser setting controls proxy routing.");
+        await chrome.storage.local.set({selectedMode: mode});
+        if (resetAuth) await chrome.storage.local.remove(["switchInProgress", "resumeMode"]);
+        return state;
+    } catch (error) {
+        if (resetAuth) await applySettings(blockedProxy).catch(() => {});
+        throw error;
+    } finally { if (resetAuth) switching = false; }
 }
 
 chrome.proxy.settings.onChange.addListener(config => showBadge(describe(config)));
@@ -86,34 +108,50 @@ chrome.webRequest.onAuthRequired.addListener((details, callback) => {
     if (!details.isProxy) return callback({});
     const challenger = details.challenger || {};
     const key = String(challenger.host || "").toLowerCase() + ":" + challenger.port;
-    if (!Object.hasOwn(current.credentials, key)) return callback({cancel: true});
     readSettings().then(config => {
         const mode = describe(config).mode;
-        const endpoint = current.proxies[mode];
+        const endpoint = mode === "egress" ? egressProxy() : current.proxies[mode];
+        const credential = mode === "egress" && manualEgress ? manualEgress.credentials : current.credentials[key];
         const matches = proxy => proxy && key === proxy.host + ":" + proxy.port;
         const permitted = mode === "pac" ? Object.values(current.proxies).some(matches) : matches(endpoint);
         const tried = attempted.get(details.requestId) || new Set();
-        if (switching || authGeneration !== generation || !permitted || tried.has(key)) return callback({cancel: true});
+        if (!credential || switching || authGeneration !== generation || !permitted || tried.has(key)) return callback({cancel: true});
         tried.add(key);
         attempted.set(details.requestId, tried);
-        callback({authCredentials: current.credentials[key]});
+        callback({authCredentials: credential});
     }, () => callback({cancel: true}));
 }, requestFilter, ["asyncBlocking"]);
 chrome.webRequest.onCompleted.addListener(d => attempted.delete(d.requestId), requestFilter);
 chrome.webRequest.onErrorOccurred.addListener(d => attempted.delete(d.requestId), requestFilter);
 
-async function companion(path) {
+async function companion(path, body, selected = environment) {
+    if (!environments.includes(selected)) throw new Error("Invalid environment.");
     if (!CATALOG) throw new Error("Session catalog is not connected.");
-    const response = await fetch(CATALOG.url + path, {
-        headers: {Authorization: "Bearer " + CATALOG.token}, cache: "no-store",
-        credentials: "omit", redirect: "error", signal: AbortSignal.timeout(25000)
+    if (!CATALOG.environments && selected !== (CATALOG.environment || sessionEnvironment(INITIAL_SESSION)))
+        throw new Error("This helper does not support that environment.");
+    const response = await fetch(CATALOG.url + (CATALOG.environments ? "/environments/" + selected : "") + path, {
+        method: body ? "POST" : "GET", body: body ? JSON.stringify(body) : undefined,
+        headers: {Authorization: "Bearer " + CATALOG.token, ...(body ? {"Content-Type": "application/json"} : {})}, cache: "no-store",
+        credentials: "omit", redirect: "error", signal: AbortSignal.timeout(path === "/credentials" ? 90000 : 25000)
     });
-    if (!response.ok) throw new Error("Session catalog unavailable.");
+    if (!response.ok) {
+        const error = new Error("Session catalog unavailable."); error.status = response.status;
+        if (path === "/credentials" || path.startsWith("/credentials/picker")) { const body = await response.json().catch(() => ({})); if (typeof body.accountError === "string" && body.accountError.length < 300) error.accountError = body.accountError; }
+        throw error;
+    }
     return response.json();
 }
 
 async function refreshSessions() {
     try {
+        account = null;
+        checkedAt = null;
+        account = await companion("/account");
+        if (account.configured === false) {
+            sessionList = [];
+            catalogError = "Connect a service-account file in Settings to load sessions in this environment.";
+            return getState();
+        }
         const result = await companion("/sessions");
         sessionList = result.sessions;
         checkedAt = result.checkedAt;
@@ -142,20 +180,20 @@ async function clearProxyAuth(configs) {
 
 async function selectSession(id) {
     if (!/^RS[A-Za-z0-9]+$/.test(id)) throw new Error("Invalid session.");
-    if (id === current.sessionId) return getState();
+    if (id === current.sessionId && environment === current.environment) return getState();
     const next = await companion("/sessions/" + id + "/config");
-    if (next.sessionId !== id || !(Date.parse(next.expiresAt) > Date.now())) throw new Error("Session expired.");
+    if ((next.environment || "dev") !== environment || next.sessionId !== id || !(Date.parse(next.expiresAt) > Date.now())) throw new Error("Session expired.");
     const previous = current;
     const mode = (await getState()).mode;
-    if (!modes().includes(mode) || (mode === "egress" && !next.proxies.egress)) throw new Error("Route unavailable for this session.");
+    if (!modes().includes(mode) || (mode === "egress" && !manualEgress && !next.proxies.egress)) throw new Error("Route unavailable for this session.");
     switching = true;
     generation++;
     try {
         await chrome.storage.local.set({switchInProgress: true, resumeMode: mode});
         await applySettings(blockedProxy);
-        await clearProxyAuth([previous, next]);
+        await clearProxyAuth([previous, next, {proxies: {custom: manualEgress?.proxy}}]);
         attempted.clear();
-        current = next;
+        current = {...next, environment};
         await chrome.storage.local.set({selectedSession: next});
         await setMode(mode);
         await chrome.storage.local.remove(["switchInProgress", "resumeMode"]);
@@ -170,26 +208,126 @@ async function selectSession(id) {
     return getState();
 }
 
+function validateManualEgress(settings) {
+    if (!settings || !["session", "custom"].includes(settings.source)) throw new Error("Invalid egress source.");
+    if (settings.source === "session") return null;
+    const {scheme, host, port} = settings;
+    if (!["http", "https"].includes(scheme) || typeof host !== "string" || !/^(?=.{1,253}$)[a-zA-Z0-9]+(?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$/.test(host)
+        || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid proxy endpoint.");
+    const proxy = {scheme, host: host.toLowerCase(), port};
+    if (proxy.host === current.proxies.session.host && proxy.port === current.proxies.session.port) throw new Error("Use a separate egress endpoint.");
+    let credentials = null;
+    if (settings.keepCredentials) {
+        if (!manualEgress?.credentials || JSON.stringify(proxy) !== JSON.stringify(manualEgress.proxy)) throw new Error("Re-enter credentials for this endpoint.");
+        credentials = manualEgress.credentials;
+    } else if (settings.username || settings.password) {
+        if (typeof settings.username !== "string" || typeof settings.password !== "string" || !settings.username || !settings.password
+            || settings.username.length > 1024 || settings.password.length > 4096 || /[\r\n:]/.test(settings.username) || /[\r\n]/.test(settings.password)) throw new Error("Invalid proxy credentials.");
+        credentials = {username: settings.username, password: settings.password};
+    }
+    return {proxy, credentials};
+}
+async function configureEgress(settings) {
+    const next = validateManualEgress(settings);
+    const mode = (await getState()).mode;
+    if (!modes().includes(mode) || (mode === "egress" && !next && !current.proxies.egress)) throw new Error("Choose another route first.");
+    switching = true; generation++;
+    try {
+        await chrome.storage.local.set({switchInProgress: true});
+        await applySettings(blockedProxy);
+        await clearProxyAuth([current, {proxies: {old: manualEgress?.proxy, next: next?.proxy}}]);
+        attempted.clear();
+        manualEgress = next;
+        await chrome.storage.local.set({manualEgress: next});
+        await setMode(mode);
+        await chrome.storage.local.remove(["switchInProgress", "resumeMode"]);
+        return getState();
+    } catch (error) {
+        await applySettings(blockedProxy).catch(() => {});
+        throw error;
+    } finally { switching = false; }
+}
+
 globalThis.pacReady = (async () => {
     await chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
-    const saved = await chrome.storage.local.get(["selectedSession", "switchInProgress"]);
-    if (saved.selectedSession) current = saved.selectedSession;
+    const saved = await chrome.storage.local.get(["selectedSession", "switchInProgress", "selectedMode", "selectedEnvironment", "manualEgress"]);
+    if (saved.selectedSession) current = {...saved.selectedSession, environment: sessionEnvironment(saved.selectedSession)};
+    manualEgress = saved.manualEgress || null;
+    environment = environments.includes(saved.selectedEnvironment) ? saved.selectedEnvironment : current.environment;
     if (saved.switchInProgress) await applySettings(blockedProxy);
     const state = await getState();
     // Normal worker restarts retain the selected session and route. Interrupted
     // changes stay blocked until the user explicitly chooses a route.
-    if (!saved.switchInProgress && state.mode === "unavailable" && state.canControl) await setMode("pac");
+    if (!saved.switchInProgress && state.mode === "unavailable" && state.canControl) await setMode(modes().includes(saved.selectedMode) ? saved.selectedMode : typeof INITIAL_MODE !== "undefined" ? INITIAL_MODE : "pac");
     initialized = true;
     return true;
 })();
 let pending = globalThis.pacReady.catch(() => showBadge({mode: "unavailable"}));
+function controlsPage(url) {
+    try {
+        const parsed = new URL(url), expected = new URL(chrome.runtime.getURL("popup.html"));
+        return parsed.protocol === expected.protocol && parsed.host === expected.host && parsed.pathname === expected.pathname
+            && !parsed.username && !parsed.password ? parsed : null;
+    } catch (_) { return null; }
+}
+function allowDevForPage(page) {
+    const values = page.searchParams.getAll("allow_dev_env");
+    return values.length === 1 && values[0] === "true";
+}
+async function changeEnvironment(selected) {
+    environment = selected;
+    account = null; sessionList = []; checkedAt = null; catalogError = null;
+    await chrome.storage.local.set({selectedEnvironment: environment});
+}
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
-    if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL("popup.html")) return;
-    if (!["getState", "setMode", "refreshSessions", "selectSession", "getPac"].includes(message?.type)) return;
+    const page = controlsPage(sender.url);
+    if (sender.id !== chrome.runtime.id || !page) return;
+    const allowDev = allowDevForPage(page);
+    if (!["getState", "setMode", "refreshSessions", "selectSession", "getPac", "createSession", "creationStatus", "setEnvironment", "getAdapters", "createCard", "cardStatus", "configureEgress", "connectAccount", "browseAccountFile", "accountFileSelectionStatus", "getCollectToken"].includes(message?.type)) return;
     const operation = pending.then(async () => {
+        // Gate environment management per controls URL, never by a saved opt-in.
+        // Existing routing remains visible and controllable independently.
+        if (!allowDev && environment === "dev") await changeEnvironment("sandbox");
+        if (!allowDev && message.environment === "dev") {
+            const error = new Error("Dev requires allow_dev_env=true in the control-panel URL.");
+            error.status = 403; error.devEnvironmentDisabled = true; throw error;
+        }
+        if (message.type === "configureEgress") return configureEgress(message.settings);
+        if (message.type === "setEnvironment") {
+            if (!environments.includes(message.environment) || !CATALOG?.environments) throw new Error("Environment unavailable.");
+            await changeEnvironment(message.environment);
+            return refreshSessions();
+        }
+        if (["createSession", "selectSession", "createCard", "getAdapters", "connectAccount", "browseAccountFile", "accountFileSelectionStatus", "getCollectToken"].includes(message.type) && message.environment && message.environment !== environment)
+            throw new Error("Environment changed; refresh the panel.");
+        if (message.type === "getCollectToken") return companion("/collect-token", {tenantId: message.tenantId, method: message.method});
+        if (message.type === "browseAccountFile") return {...await getState(), fileSelection: await companion("/credentials/picker", {})};
+        if (message.type === "accountFileSelectionStatus") {
+            if (!/^[a-f0-9-]{36}$/.test(message.requestId)) throw new Error("Invalid file selection");
+            return {...await getState(), fileSelection: await companion("/credentials/picker/" + message.requestId)};
+        }
+        if (message.type === "connectAccount") {
+            const result = await companion("/credentials", {credentialsFile:message.credentialsFile, tenantId:message.tenantId || ""});
+            if (result.selectionRequired) return {...await getState(), accountSelection:{tenants:result.tenants}};
+            return {...await refreshSessions(), accountConnected:true};
+        }
+        if (message.type === "getAdapters") {
+            try { return {...await getState(), ...await companion("/adapters"), adaptersLoaded: true}; }
+            catch (_) { return {...await getState(), adapters: [], adaptersLoaded: false}; }
+        }
+        if (message.type === "createCard") return {...await getState(), cardOperation: {...await companion("/cards", {requestId: message.requestId}), environment}};
+        if (message.type === "cardStatus") {
+            if (!/^[a-f0-9-]{36}$/.test(message.requestId)) throw new Error("Invalid operation");
+            return {...await getState(), cardOperation: {...await companion("/operations/" + message.requestId, undefined, message.environment || environment), environment: message.environment || environment}};
+        }
+        if (message.type === "createSession") return {...await getState(), operation: {...await companion("/sessions", message.options), environment}};
+        if (message.type === "creationStatus") {
+            if (!/^[a-f0-9-]{36}$/.test(message.requestId)) throw new Error("Invalid operation");
+            return {...await getState(), operation: {...await companion("/operations/" + message.requestId, undefined, message.environment || environment), environment: message.environment || environment}};
+        }
         if (message.type === "refreshSessions") return refreshSessions();
         if (message.type === "selectSession") return selectSession(message.sessionId);
-        if (message.type === "getPac") return {...await getState(), ...await companion("/sessions/" + current.sessionId + "/pac")};
+        if (message.type === "getPac") return {...await getState(), ...await companion("/sessions/" + current.sessionId + "/pac", undefined, current.environment)};
         if (message.type === "setMode") {
             const state = await setMode(message.mode);
             await chrome.storage.local.remove(["switchInProgress", "resumeMode"]);
@@ -198,9 +336,29 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
         return getState();
     });
     pending = operation.catch(() => {});
-    operation.then(state => respond({ok: true, ...state}), async () => {
+    operation.then(state => respond({ok: true, ...state}), async failure => {
         const state = await getState().catch(() => ({mode: "unavailable", canControl: false, availableModes: modes()}));
-        respond({ok: false, ...state, error: "Could not complete that change. Refresh the session list and check the current route."});
+        const result = {ok: false, ...state, error: "Could not complete that change. Refresh the session list and check the current route."};
+        if (failure.devEnvironmentDisabled) result.error = "Dev requires allow_dev_env=true in the control-panel URL.";
+        if (["createSession", "creationStatus", "createCard", "cardStatus"].includes(message.type)) {
+            const rejected = [400,403,404].includes(failure.status);
+            const job = {requestId: message.requestId || message.options?.requestId, environment: message.environment || environment,
+                status: rejected ? "failed" : "unknown", error: rejected ? "Check the form and local configuration. The helper rejected this request." : "The helper did not confirm the result. Check its status before starting another request."};
+            result[["createCard", "cardStatus"].includes(message.type) ? "cardOperation" : "operation"] = job;
+        }
+        if (message.type === "connectAccount") result.accountError = failure.accountError || "Connection was not confirmed. Check the file and helper, then refresh before trying again.";
+        if (["browseAccountFile", "accountFileSelectionStatus"].includes(message.type)) result.accountError = failure.accountError || "File explorer is unavailable. Enter the local file path instead.";
+        respond(result);
     });
     return true;
 });
+
+async function openControls() {
+    const url = chrome.runtime.getURL("popup.html");
+    const tabs = (await chrome.tabs.query({url: url + "*"})).filter(tab => controlsPage(tab.url));
+    if (tabs.length) {
+        await chrome.tabs.update(tabs[0].id, {active: true});
+        await chrome.windows.update(tabs[0].windowId, {focused: true});
+    } else await chrome.tabs.create({url});
+}
+chrome.action.onClicked.addListener(() => openControls());

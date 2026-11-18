@@ -1,110 +1,145 @@
-# 10. Switching routes with the VGS Proxy Controls extension
+# 10. Agent Web Gateway Control Panel
 
-**When you finish this page you can** pick a reveal session in your test browser and switch between four routes with one click, instead of relaunching the browser.
+**When you finish this page you can** load the extension, connect a service account,
+create or select reveal sessions, inspect the PAC file and switch browser routes.
 
-> **Status: source-checked, not run.** These steps follow the extension's own README (version 1.3.0) and its code. Nobody has run them as part of writing this page.
+The repository includes the full **1.7.7** control-panel source and local helper.
+The package is built by **Actions → Build control panel**; see
+[download and build instructions](extension-distribution.md#download-or-build-the-kit).
+The screenshots below use synthetic local fixtures, not a live account.
 
-> **DEV only.** The extension works with the DEV environment (`sandbox.vgsapi.io`) and the DEV tenant `tntmdki2teh`. Production is deliberately unsupported.
-
-For the CLI-first training path, start the helper below, then use **Chrome for
-Testing** from the [browser launch examples](#browser-launch-examples). Regular
-Chrome, Edge and Brave have a one-time manual installation step. These examples
-target the **1.3.0 tool bundled in this repository**, not the newer Agent Web
-Gateway Control Panel. The [distribution proposal](extension-distribution.md)
-describes how the newer panel could become an installable training tool.
+Use your own Sandbox account for this walkthrough. The panel also offers Live,
+with separate credentials; switching the setting does not grant API access.
 
 ## What it does
 
-VGS Proxy Controls is a Chromium extension with a small helper program that runs on your computer. It lets you choose one of your existing reveal sessions and one of four routes for the browser's traffic:
+| Route in Proxy Settings | Where traffic goes |
+|---|---|
+| **PAC File** | Hosts selected by the session's PAC use VGS; other traffic follows the PAC's egress or direct route |
+| **VGS Proxy** | Browser traffic uses VGS, then the session's configured egress |
+| **Egress Proxy** | Browser traffic uses the session's egress or a manually configured proxy, without VGS replacement |
+| **No Proxy** | Direct connection from this computer |
 
-| Route | Where traffic goes | Use it to |
-|---|---|---|
-| **Reveal Session PAC** | Only the session's payment hosts go through VGS, by the session's PAC file | Run a checkout the way an agent would |
-| **Reveal Session Proxy** | Everything goes through VGS, then out through the session's egress proxy | Force every request through VGS |
-| **Egress Proxy** | Everything goes straight out through the session's egress proxy. VGS swaps nothing | Check how the site behaves without VGS |
-| **No Proxy** | Direct from your computer | Compare against a plain connection |
-
-It also shows the session's actual PAC file, so you can see which hosts go through VGS.
-
-It does **not** fill forms, create sessions, store cards or submit payments. You still type the session tokens yourself.
+The panel also shows the tenant and session ID, reads the actual PAC, accepts
+local service-account exports, and creates sessions using hosted VGS Collect
+fields or existing aliases. It does not fill merchant forms or submit payments.
 
 ## What you need
 
-1. Python 3.10 or later. No extra Python packages.
-2. A Chromium test browser that can load unpacked extensions and already trusts the session's VGS CA. The extension does not install certificates.
-3. Your own DEV service account with the `reveal-sessions:read` scope on the DEV tenant.
-4. At least one reveal session you created, with its **original create response saved** as a file named `RS….json`. The proxy login is returned only when a session is created, so a session without that file cannot be used.
-5. If the session uses an egress proxy with a password, the **original create request** saved beside it as `RS….request.json`. The response hides the egress password.
-
-The session kit from lab 4 saves both files for you, under `.state-dev/sessions/` when you run it with `KIT_ENV=dev`.
+1. Python 3.10 or later and a dedicated Chromium browser profile. Chrome for
+   Testing is the recommended introductory setup.
+2. Your own Sandbox service-account credentials. Session selection needs
+   `reveal-sessions:read`; creation also needs `reveal-sessions:write`.
+   Collect tokenization uses `aliases:write`, or the card-create permission
+   (`cards:write` in the CLI template). The `agent-web-gateway-admin` template also
+   includes `agent-gateway:read` and `agent-gateway:write`; it does not require
+   preferences or vault-list permissions.
+3. An **active session's original creation response**, saved as `RS….json`.
+   The launcher currently needs this before it can generate the extension, even
+   though the panel can create later sessions. A GET/list response is insufficient.
+4. For authenticated custom egress, the original creation request saved beside it
+   as `RS….request.json`, because the response masks its password.
+5. Approved CA trust setup for that session before using VGS proxy routes. The
+   extension does not install certificates or disable TLS verification.
 
 ## Steps
 
-### 1. Copy the tool to a private folder
+### 1. Get the tool
+
+Download and extract the build artifact, or copy the source from a checkout:
 
 ```bash
-cp -R tools/vgs-proxy-controls ~/vgs-proxy-controls
-cd ~/vgs-proxy-controls
+cp -R tools/vgs-proxy-controls "$HOME/vgs-proxy-controls"
+cd "$HOME/vgs-proxy-controls"
+python3 --version
 ```
 
-### 2. Create your credentials file
+Choose a new working folder; adapt the paths if that folder already exists.
+For an artifact download, place its extracted kit at that same location instead.
+If `python3` is older than 3.10, use an installed newer Python executable throughout.
+
+### 2. Prepare your credentials
+
+The launcher accepts a CLI ServiceAccount credentials YAML/JSON with tenant
+metadata, or a private environment file. To prepare the latter:
 
 ```bash
-cp dev.env.example ~/vgs-proxy-controls-dev.env
-chmod 600 ~/vgs-proxy-controls-dev.env
+cp sandbox.env.example "$HOME/vgs-proxy-controls-sandbox.env"
+chmod 600 "$HOME/vgs-proxy-controls-sandbox.env"
 ```
 
-Open that file and replace the two placeholders with your DEV service account's id and secret. Use plain `KEY=value` lines, with no quotes and no `export`. Leave the other three lines as they are.
+Fill in your tenant ID, client ID and client secret in that private file. Keep
+its Sandbox API/authentication settings. Do not put credentials in this repository.
+A dashboard export without tenant metadata can be connected in the panel later;
+the current launcher needs a file that includes the tenant.
 
 ### 3. Check your inputs
 
 ```bash
 python3 start-proxy-controls.py \
-  --session /path/to/sessions/RS_EXAMPLE.json \
-  --credentials-file ~/vgs-proxy-controls-dev.env \
-  --sessions-dir /path/to/sessions \
+  --environment sandbox \
+  --session /absolute/private/sessions/RS_EXAMPLE.json \
+  --credentials-file "$HOME/vgs-proxy-controls-sandbox.env" \
+  --sessions-dir /absolute/private/sessions \
   --check
 ```
 
-Replace `/path/to/sessions` with your sessions folder and `RS_EXAMPLE.json` with one of your session files. `--check` validates the inputs on your computer without contacting VGS.
+Use your actual session filename and paths. This check validates local inputs
+without contacting VGS. **Success:** it prints that local inputs are valid.
 
 ### 4. Start the helper
 
-Run the same command without `--check`, and leave that terminal open.
+Run the same command without `--check`, and leave the terminal open. It prints the
+private generated extension directory. Start the browser using one of the
+[launch examples](#browser-launch-examples) below, or select that directory through
+**Extensions → Developer mode → Load unpacked** in a dedicated browser profile.
 
-**Success:** it prints the path of a `.private-extension` folder.
+The control-panel tab opens automatically. Confirm **Settings → Environment →
+Sandbox** and your tenant. Changing the environment setting alone keeps the
+browser's selected route and session.
 
-### 5. Load the extension
+![Control panel with example session and four proxy routing diagrams](../../tools/vgs-proxy-controls/screenshots/control-panel.png)
 
-For Chrome for Testing or Chromium, you can use the CLI examples below instead.
-For a manual install, open a **dedicated training profile**, not your everyday
-browser profile, then:
+### 5. Connect or check your account
 
-1. In the test browser, open `chrome://extensions`.
-2. Turn on **Developer mode**.
-3. Click **Load unpacked** and choose the `.private-extension` folder from step 4.
-4. Pin **VGS Proxy Controls** from the extensions menu, and open it.
+In **Settings**, confirm the selected environment and tenant. The launcher's
+account is already loaded. To change it, choose **Browse…**, select your local
+credentials file, then **Connect account**. File contents stay in the helper;
+the tenant comes from file metadata or the authenticated account's token metadata,
+without a tenant-list API lookup.
 
-**Success:** the extension opens in **Reveal Session PAC** mode and lists your sessions under **Available DEV sessions**.
+Expand **Create a service account with the CLI** for the login → generate → apply
+walkthrough. It requires a CLI build containing `agent-web-gateway-admin`; check
+`vgs generate service-account --help` before following it.
 
-The current helper needs an **active session before it can generate the
-extension**. Installation is not a way to create your first session. Stopping the
-helper does not turn off proxying; choose **No Proxy** when you want to turn it off.
+![Settings showing the environment and local service-account file picker with example data](../../tools/vgs-proxy-controls/screenshots/settings.png)
 
-### 6. Pick a session and a route
+### 6. Select or create a session
 
-1. Choose a session in the list and click **Use selected session**.
-2. Choose a route.
-3. Reload the page you are testing. Requests already running may finish on the old route.
+Choose an entry under **Available sessions** and click **Use selected session**.
+The current route is preserved. Reload merchant pages after switching and use the
+new session's stand-ins in any checkout fields.
 
-After you switch sessions, type the **new** session's tokens into any checkout form that is open. Session tokens work only in their own session.
+For a new session, open **New session…**. Use **Add card** for VGS Collect hosted
+fields, or **Add alias** for existing aliases. Sandbox offers public **Test cards**
+shortcuts. Creating aliases and then a session are explicit separate actions;
+neither submits a merchant payment. The new session's private creation response
+is saved locally. Select it when ready.
 
-### 7. Stop
+![Create reveal session form populated with synthetic aliases](../../tools/vgs-proxy-controls/screenshots/create-session.png)
 
-Choose **No Proxy**, close the training browser, then press Ctrl-C in the helper's
-terminal. Stopping the helper alone keeps the selected route working; refreshing
-the list and changing sessions need the helper running. End the reveal session
-through the workflow that created it when the lab is finished.
+### 7. Inspect routing and turn it off
+
+Select a route in **Proxy Settings**. **Diagnostics → View actual PAC file → Load
+PAC script** shows the script used by the current session. PAC chooses routes by
+host, not checkout stage. To proxy only the checkout portion manually, use
+**Egress Proxy** while browsing, then select **VGS Proxy** before checkout.
+
+![Diagnostics showing the actual PAC script from a local fixture](../../tools/vgs-proxy-controls/screenshots/diagnostics.png)
+
+Choose **No Proxy** to turn proxying off. When finished, close the training browser
+and press Ctrl-C in the helper terminal. Stopping the helper alone does not turn
+off the selected route. End the session through your approved session workflow.
 
 ## Browser launch examples
 
@@ -139,9 +174,10 @@ settings affect every tab in that profile.
 | Microsoft Edge | Developer mode → **Load unpacked** at `edge://extensions` | Launch the same profile |
 | Brave | Developer mode → **Load unpacked** at `brave://extensions` | Launch the same profile |
 
-**These are source-checked launch recipes, not a tested browser compatibility
-matrix.** The four routing modes, proxy authentication and helper connection
-still need a smoke test on each browser/version selected for a training cohort.
+The packaged local browser harness verifies the four routes, proxy authentication,
+session changes and helper UI using synthetic fixtures. Additional browser/version
+combinations still need their own smoke test; the launch examples are not a
+universal compatibility guarantee.
 
 ### Is Brave equivalent to CloakBrowser?
 
@@ -189,8 +225,8 @@ AWG_EXTENSION_DIR="$HOME/vgs-proxy-controls/.private-extension"
   --no-first-run
 ```
 
-Open **VGS Proxy Controls** from the extensions menu. The bundled version opens
-as a toolbar popup; it does not open a full control-panel tab automatically.
+The **Agent Web Gateway Control Panel** tab opens automatically. Its toolbar
+button returns to that tab.
 
 ### Chromium
 
@@ -265,7 +301,7 @@ has not been executed here.
 
 ### Check the installation and restart it
 
-1. The extension-management page shows **VGS Proxy Controls** enabled.
+1. The extension-management page shows **Agent Web Gateway Control Panel** enabled.
 2. The panel shows the intended session. **Refresh** works while the helper runs.
 3. Choose **No Proxy** to confirm the off control is available. Before selecting a
    VGS route, configure the dedicated browser to trust the session's CA through
@@ -278,44 +314,40 @@ After restarting the helper, click **Reload** on the extension-management page
 before using it. Its local connection details change on restart. This step is
 needed even when the browser profile and generated extension path stayed the same.
 
-## A useful pattern
-
-The PAC file routes by host, so it cannot send only the checkout step through VGS. To do that by hand: browse the site on **Egress Proxy**, then switch to **Reveal Session Proxy** just before you open the checkout.
-
 ## If something goes wrong
 
 | What you see | What to do |
 |---|---|
-| No usable sessions | Create a fresh session, save its create response (and request) in your sessions folder, then click **Refresh** |
-| "Proxy credentials not saved" | You need the original create response. Reading or listing a session later does not return its proxy login |
-| "Missing saved egress credentials" | Put the matching `RS….request.json` beside the response. Do not use a different proxy's credentials |
-| Could not refresh | Check the helper is still running and your service account has DEV access. If you restarted the helper, click **Reload** for the extension on `chrome://extensions` first |
-| Different session CA | Use a fresh browser set up for that session's CA |
-| Session expired | Pick another session. Expired and revoked sessions cannot be selected |
+| Launcher refuses to start | Check Python version, an active original session response, tenant metadata in the credentials file and matching environment |
+| No usable sessions | Create a fresh session and retain the original response; list/read responses do not include one-time proxy credentials |
+| Missing saved egress credentials | Put the matching `RS….request.json` beside the response |
+| Could not refresh after helper restart | Keep the helper running and reload the extension from the extensions-management page |
+| Different session CA | Use a browser configured for that CA |
+| Collect fields fail to load | Check the selected route/session and inspect diagnostics; an expired mandatory PAC can block requests |
 
 ## Keep these private
 
-**Never share** the `.private-extension` folder, a browser profile it was loaded into, your credentials file, or your saved session files. The generated extension contains your session's proxy login and signed PAC link. Do not use Chrome's "Pack extension" button on it.
+Keep credentials, session/egress files, generated `.private-extension` directories,
+browser profiles and HAR recordings private. The generated worker holds proxy
+credentials and a signed PAC URL. Share the source/helper artifact, not a packed
+copy of your installed extension. Each recipient generates their own private copy.
 
-To give the tool to a teammate, point them at `tools/vgs-proxy-controls/` in this repository. Each person generates their own private extension with the steps above.
-
-For a versioned training download or a future store listing, see
-[Packaging and publishing the control panel](extension-distribution.md). The
-repository is marked internal; a public release should contain the separately
-reviewed tool package, not an archive of this training repository.
-
----
+The helper binds only to loopback, requires a random access token, rejects website
+origins and exposes specific account, session, PAC and card-authorization operations.
+It is not a general-purpose API proxy. See the
+[tool README](../../tools/vgs-proxy-controls/README.md) for environment profiles,
+HAR export behavior, manual egress settings and the supported credentials formats.
 
 ## Details and sources
 
-- **What the helper exposes.** It listens only on `127.0.0.1`, requires a random access token, rejects website origins, and offers read-only session and PAC operations. Your service-account credentials stay in the helper.
-- **Switching sessions.** The current route is kept. Switching briefly blocks routing and resets cached proxy authentication so the browser uses the new session's login. Merchant cookies, tabs and history are kept. An interrupted switch stays blocked until you choose a route. Switching to a session without an egress proxy is refused while **Egress Proxy** is selected.
-- **The PAC view** omits the link's private signature.
-- **Expiry and CVC.** A session that has not expired can still have a CVC alias that is no longer available. Use fresh aliases for new checkout tests.
-- **The files are unchanged** from the `vgs-proxy-controls-1.3.0.zip` package; `SHA256SUMS` in that folder verifies them.
-- **Lab 4's file locations** come from the session kit's code (`lib.sh`, `create-session.sh`), not from the extension's README.
-- **Browser examples added 2026-11-18.** Arguments were checked against the bundled
-  helper and the browser sources linked above. No browser, account or merchant
-  session was started to validate this documentation change.
+The bundled source was imported from the clean 1.7.6 package and updated to 1.7.7
+for this repository, including corrected CLI permission text, a tenant placeholder
+in the example configuration, screenshots and documentation. Source checksums
+are included. The helper and worker have offline tests; the browser harness uses
+local fixtures, mocked Collect and no real VGS account or merchant traffic.
+Screenshots illustrate the UI, not a completed payment or live tokenization.
 
-Sources: `tools/vgs-proxy-controls/README.md`, `dev.env.example`, `start-proxy-controls.py`, `session_catalog.py` and `session-proxy-extension/background.js` in the same folder; `skills/vgs-checkout-adapter/scripts/session-kit/lib.sh` and `create-session.sh`.
+Sources: the [tool source and README](../../tools/vgs-proxy-controls/README.md),
+[package workflow](../../.github/workflows/control-panel-package.yml), and the
+browser vendor documentation linked above. All screenshots are generated from
+`test_session_proxy_browser.py` using synthetic account/session data.

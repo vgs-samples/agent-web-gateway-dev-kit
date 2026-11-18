@@ -93,7 +93,7 @@ When you are done with the kit, delete its `.state/` folder. Ending a session do
 | The site blocks you (`403`) | That is the merchant's bot protection. Page 6 shows how to tell whether the gateway path caused it |
 | `reveal_count` stays `0` after you submit | The payment host was not allowed, or the provider encrypts the card in the browser and needs an adapter (page 5) |
 
-Tip: page 10 covers a browser extension that switches between sessions and routes without restarting the browser. It works on the DEV environment only.
+Tip: page 10 covers a browser extension that switches between sessions and routes without restarting the browser. The extension walkthrough uses Sandbox.
 
 ---
 

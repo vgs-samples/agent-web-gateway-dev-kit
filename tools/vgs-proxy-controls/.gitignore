@@ -5,3 +5,8 @@ dev.env
 RS*.json
 __pycache__/
 dist/
+
+.proxy-controls.json
+
+.proxy-controls-accounts.json
+control-panel-sessions/

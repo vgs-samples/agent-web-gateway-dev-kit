@@ -1,54 +1,104 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VGS Proxy Controls</title>
-  <link rel="stylesheet" href="popup.css">
-  <script src="popup.js" defer></script>
-</head>
-<body>
-  <main>
-    <p class="eyebrow">THIS BROWSER</p>
-    <h1>Proxy controls</h1>
-    <div class="session-picker">
-      <label class="detail-label" for="session-select">Available DEV sessions</label>
-      <select id="session-select" disabled><option>Loading sessions…</option></select>
-      <div class="session-actions"><button id="use-session" type="button" disabled>Use selected session</button><button id="refresh-sessions" type="button" disabled>Refresh</button></div>
-      <p id="catalog-status" class="private-note" role="status"></p>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/icon-32.png"><title>Agent Web Gateway Control Panel</title>
+<link rel="stylesheet" href="popup.css"><script src="popup.js" defer></script><script src="collect-card.js" defer></script><script src="create-session.js" defer></script>
+</head><body><main>
+<header class="page-heading">
+  <div class="heading-title"><a class="brand" href="popup.html" aria-label="VGS control panel"><img src="assets/vgs-logo.svg" alt="VGS" width="91" height="36"></a><div><h1>Agent Web Gateway Control Panel</h1><p>Choose a session. Set the browser’s route.</p></div></div>
+</header>
+<div class="navigation"><nav aria-label="Control panel views"><button type="button" data-view="controls" aria-pressed="true">Controls</button><button type="button" data-view="diagnostics" aria-pressed="false">Diagnostics</button><button type="button" data-view="settings" aria-pressed="false">Settings</button></nav><div class="context"><button id="environment-shortcut" type="button" class="env">Sandbox</button><span>Tenant <code id="tenant-id">Connecting…</code></span></div></div>
+<p id="error" role="alert" hidden></p>
+<section id="view-controls" class="workspace" aria-label="Controls">
+  <section class="panel session-panel"><div class="section-heading"><h2>Reveal session</h2><button id="refresh-sessions" class="quiet" type="button" disabled>Refresh</button></div>
+    <div class="session-details"><div class="session-caption"><span class="detail-label">In this browser</span><span id="session-environment" class="small-label"></span></div><code id="session-id">Loading…</code><span id="session-expiry" class="private-note"></span></div>
+    <p id="environment-notice" class="note" hidden></p>
+    <label for="session-select">Available sessions</label><select id="session-select" disabled><option>Loading sessions…</option></select>
+    <button id="use-session" class="primary" type="button" disabled>Use selected session</button><p id="catalog-status" class="private-note" role="status"></p>
+    <button id="open-create" class="text-button" type="button">New session…</button><p id="creation-availability" class="private-note"></p>
+  </section>
+  <section class="panel route-panel"><div class="section-heading"><h2>Proxy Settings</h2><span id="state" class="state" data-mode="unavailable" role="status">Checking…</span></div>
+    <div class="routes flow-routes" role="group" aria-label="Proxy Settings">
+      <button data-mode="pac" type="button" aria-pressed="false" disabled aria-label="Reveal Session PAC: Browser to PAC File. Matching destinations use VGS then Egress Proxy; all other destinations use Egress Proxy.">
+        <span class="route-name">PAC File</span><span class="flow-graph pac-flow"><span class="flow-node">Browser</span><span class="flow-arrow" aria-hidden="true">→</span><span class="flow-node">PAC File</span><svg class="flow-fork" width="26" height="86" viewBox="0 0 26 86" aria-hidden="true"><path d="M0 43H8V18H24M8 43V68H24M20 14L24 18L20 22M20 64L24 68L20 72" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span class="flow-branches"><span class="flow-branch"><span class="flow-node">VGS</span><span class="flow-arrow" aria-hidden="true">→</span><span class="flow-node">Egress Proxy</span><span class="flow-arrow" aria-hidden="true">→</span><span class="flow-node">Matching destinations</span></span><span class="flow-branch"><span class="flow-node">Egress Proxy</span><span class="flow-arrow" aria-hidden="true">→</span><span class="flow-node">All other destinations</span></span></span></span>
+      </button>
+      <button data-mode="session" type="button" aria-pressed="false" disabled aria-label="Reveal Session Proxy: Browser to VGS to Egress Proxy to Destination"><span class="route-name">VGS Proxy</span><span class="flow-graph"><span class="flow-node">Browser</span><span class="flow-arrow" aria-hidden="true">→</span><span class="flow-node">VGS</span><span class="flow-arrow" aria-hidden="true">→</span><span class="flow-node">Egress Proxy</span><span class="flow-arrow" aria-hidden="true">→</span><span class="flow-node">Destination</span></span></button>
+      <button data-mode="egress" type="button" aria-pressed="false" disabled aria-label="Egress Proxy: Browser to Egress Proxy to Destination"><span class="route-name">Egress Proxy</span><span class="flow-graph"><span class="flow-node">Browser</span><span class="flow-arrow" aria-hidden="true">→</span><span class="flow-node">Egress Proxy</span><span class="flow-arrow" aria-hidden="true">→</span><span class="flow-node">Destination</span></span><small id="egress-note" hidden></small></button>
+      <button data-mode="direct" type="button" aria-pressed="false" disabled aria-label="No Proxy: Browser directly to Destination"><span class="route-name">No Proxy</span><span class="flow-graph"><span class="flow-node">Browser</span><span class="flow-arrow" aria-hidden="true">→</span><span class="flow-node">Destination</span></span></button>
     </div>
-    <div class="session-details">
-      <span class="detail-label">Reveal session ID</span>
-      <code id="session-id">Loading…</code>
-      <span id="session-expiry" class="private-note"></span>
-    </div>
-    <section aria-live="polite" aria-atomic="true">
-      <p id="state" class="state" data-mode="unavailable">Checking…</p>
-      <p id="description">Reading this browser’s proxy setting.</p>
-    </section>
-    <div class="routes" role="group" aria-label="Proxy route">
-      <button data-mode="pac" type="button" aria-pressed="false" disabled><span>1. Use Reveal Session PAC</span><small>Let the session choose which hosts use VGS.</small></button>
-      <button data-mode="session" type="button" aria-pressed="false" disabled><span>2. Use Reveal Session Proxy</span><small>Send browser traffic through VGS.</small></button>
-      <button data-mode="egress" type="button" aria-pressed="false" disabled><span>3. Use Egress Proxy</span><small id="egress-note">Use the session’s egress directly, without VGS.</small></button>
-      <button data-mode="direct" type="button" aria-pressed="false" disabled><span>4. No Proxy</span><small>Connect directly from this computer.</small></button>
-    </div>
-    <p id="error" role="alert" hidden></p>
-    <details class="pac-details" id="pac-script-details">
-      <summary>View actual PAC file</summary>
-      <button id="load-pac" type="button">Load PAC script</button>
-      <p id="pac-status" class="private-note"></p>
-      <pre id="pac-script">Load the selected session’s routing script.</pre>
+    <details id="browser-egress-settings" class="pac-details egress-editor"><summary>Egress proxy settings <span id="browser-egress-summary"></span></summary>
+      <p class="private-note">Choose the proxy used by Egress Proxy mode. PAC and VGS Proxy use the egress configured in their reveal session.</p>
+      <form id="browser-egress-form">
+        <label for="browser-egress-source">Configuration</label><select id="browser-egress-source"><option value="session">Use reveal session settings</option><option value="custom">Enter manually</option></select>
+        <div id="browser-egress-fields" hidden>
+          <div class="proxy-endpoint-fields"><div><label for="browser-egress-scheme">Scheme</label><select id="browser-egress-scheme"><option value="http">HTTP</option><option value="https">HTTPS</option></select></div><div><label for="browser-egress-host">Host</label><input id="browser-egress-host" placeholder="Proxy host name" autocomplete="off" spellcheck="false"></div><div><label for="browser-egress-port">Port</label><input id="browser-egress-port" inputmode="numeric" placeholder="8080"></div></div>
+          <label class="proxy-auth-toggle"><input id="browser-egress-auth" type="checkbox"> Proxy authentication</label>
+          <div id="browser-egress-credentials" class="proxy-credential-fields" hidden><div><label for="browser-egress-user">Username</label><input id="browser-egress-user" autocomplete="off"></div><div><label for="browser-egress-password">Password</label><input id="browser-egress-password" type="password" autocomplete="new-password"></div></div><p id="browser-egress-auth-help" class="private-note"></p>
+        </div><p id="browser-egress-error" role="alert" hidden></p><div class="proxy-save-row"><button id="save-browser-egress" type="submit" class="quiet">Save egress settings</button><span id="browser-egress-status" class="private-note" role="status"></span></div>
+      </form>
     </details>
-    <details class="pac-details">
-      <summary>What is the PAC file?</summary>
-      <p><strong>PAC</strong> means <strong>Proxy Auto-Configuration</strong>. It is a small routing script supplied by this reveal session. The browser uses it to decide which website hosts go through VGS and which use the session’s egress route.</p>
-      <p>It does not detect checkout automatically. To use VGS only at checkout, start with <strong>Egress Proxy</strong>, then select <strong>Reveal Session Proxy</strong> before opening checkout.</p>
-      <span class="detail-label">PAC source</span>
-      <code id="pac-source">Loading…</code>
-      <p class="private-note">Address shown without its private signature.</p>
-    </details>
-    <p class="note">Switching sessions keeps the selected route. Re-enter the new session’s stand-in values in checkout forms. Reload pages after switching. Requests already in progress may finish on their previous route.</p>
-    <p class="hint">These controls open on every launch. You can also pin <strong>VGS Proxy Controls</strong> in the extensions menu.</p>
-  </main>
-</body>
-</html>
+    <p id="description" class="route-description">Reading this browser’s proxy setting.</p>
+    <p class="note">Reload pages after switching routes or sessions.</p>
+  </section>
+</section>
+<section id="view-diagnostics" class="panel secondary-view" aria-label="Diagnostics" hidden><h2>Capture &amp; diagnostics</h2><div class="capture-line"><span class="status-dot"></span><strong id="capture-status">Checking sensitive HAR setting…</strong></div><p id="capture-description" class="intro">CloakBrowser launches with sensitive HAR exports enabled.</p><p class="note">In DevTools → Network, choose <strong>Export HAR (with sensitive data)</strong> to include Cookie, Set-Cookie and Authorization headers. This setting does not start recording. Launcher recordings also embed response bodies.</p>
+          <details class="pac-details" id="pac-script-details"><summary>View actual PAC file</summary><div class="pac-toolbar"><p id="pac-status" class="private-note"></p><button id="load-pac" class="quiet" type="button">Load PAC script</button></div><pre id="pac-script">Load the selected session’s routing script.</pre></details>
+          <details class="pac-details"><summary>How PAC routing works</summary><p><strong>Proxy Auto-Configuration (PAC)</strong> is a script supplied by the reveal session. It chooses which hosts use VGS and which follow the session’s egress route.</p><p>It does not detect checkout. Choose <strong>Egress Proxy</strong> while browsing, then <strong>Reveal Session Proxy</strong> before opening checkout to proxy only that part of the flow.</p><p class="doc-links"><a class="doc-link" href="https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/reveal-sessions#get-reveal-sessions-id-.pac" target="_blank" rel="noopener noreferrer" aria-label="PAC file API (opens in a new tab)">PAC file API <span aria-hidden="true">↗</span></a></p><span class="detail-label">PAC source · private signature omitted</span><code id="pac-source">Loading…</code></details></section>
+<section id="view-settings" class="panel secondary-view" aria-label="Settings" hidden>
+  <div class="settings-grid account-settings-grid"><div><h2>Environment</h2><label for="environment-select">Manage sessions in</label><select id="environment-select"><option value="sandbox">Sandbox</option><option value="live">Live</option></select><p id="environment-status" class="private-note" role="status"></p><p class="note">The browser keeps its current session until you choose another one.</p></div>
+    <section aria-labelledby="account-heading"><div class="section-heading"><h2 id="account-heading">Service account</h2><span id="account-status" class="private-note">Connecting…</span></div>
+      <form id="account-file-form"><label for="account-file">Local credentials file</label><div class="file-picker-row"><input id="account-file" placeholder="/path/to/service-account-secrets.txt" autocomplete="off" spellcheck="false" required><button id="browse-account-file" type="button" class="quiet" aria-label="Browse for a service-account file">Browse…</button></div><p class="private-note">Browse for a file or enter its path. The helper reads it locally. Use the dashboard export or CLI ServiceAccount YAML/JSON as-is.</p>
+        <div id="account-tenant-choice" hidden><label for="account-tenant-select">Choose a tenant</label><select id="account-tenant-select"></select><p class="private-note">This service account can use multiple tenants.</p></div>
+        <p id="account-file-error" role="alert" hidden></p><div class="proxy-save-row"><button id="connect-account" type="submit" class="quiet">Connect account</button><span id="account-file-status" class="private-note" role="status"></span></div>
+      </form>
+      <details id="account-setup" class="account-panel account-setup">
+        <summary>Create a service account with the CLI</summary>
+        <p id="account-setup-context" class="private-note"></p>
+        <p class="private-note">Requires a CLI build with the <code>agent-web-gateway-admin</code> template. Check <code>vgs generate service-account --help</code>; if the template is missing, use your team’s updated CLI build.</p>
+        <ol class="setup-steps">
+          <li><h3>Sign in</h3><p>Sign in with access to create service accounts in your organization. Run these commands in the same Terminal window.</p><div class="setup-command"><button type="button" class="quiet" data-copy-command="account-login-command" aria-label="Copy login command">Copy</button><pre id="account-login-command"></pre></div></li>
+          <li><h3>Generate the account configuration</h3><p>Replace the organization and tenant IDs below with the IDs from your dashboard. The tenant must belong to that organization.</p><div class="setup-command"><button type="button" class="quiet" data-copy-command="account-generate-command" aria-label="Copy generate commands">Copy</button><pre id="account-generate-command"></pre></div><p>Open <code>service-account.yaml</code> in that folder and review its tenant and permissions before continuing. Generating this file does not create an account.</p><p class="private-note">The template grants <code>cards:write</code> for card creation, <code>aliases:write</code>, read/write access to reveal sessions and gateway settings. It does not grant PAN/CVC read access. Your organization must have these product scopes enabled.</p></li>
+          <li><h3>Create the account and save its credentials</h3><p>This command creates the service account. Its one-time client secret is saved directly to a private local file. Existing files are never overwritten.</p><div class="setup-command"><button type="button" class="quiet" data-copy-command="account-apply-command" aria-label="Copy create account commands">Copy</button><pre id="account-apply-command"></pre></div><p class="private-note">If creation reports an error, stop and check the result before retrying. Keep the credentials file private.</p></li>
+          <li><h3>Connect it here</h3><p>Click <strong>Browse…</strong> above and choose this credentials file, then click <strong>Connect account</strong>:</p><code id="account-created-file" class="setup-file"></code><p>The tenant is read from the file. Use the credentials output, not the configuration file used to create it.</p></li>
+        </ol>
+        <p id="account-copy-status" class="private-note" role="status" aria-live="polite"></p>
+      </details>
+      <p class="doc-links"><a class="doc-link" href="https://docs.verygoodsecurity.com/enterprise-platform/access-management/service-accounts-for-programmatic-access" target="_blank" rel="noopener noreferrer" aria-label="Service-account setup (opens in a new tab)">Service-account setup <span aria-hidden="true">↗</span></a><a class="doc-link" href="https://docs.verygoodsecurity.com/enterprise-platform/access-management/service-accounts-for-programmatic-access/creating-service-accounts-using-the-vgs-cli" target="_blank" rel="noopener noreferrer" aria-label="Create a service account with the CLI (opens in a new tab)">Create a service account with the CLI <span aria-hidden="true">↗</span></a></p><details class="account-panel"><summary>Permissions</summary><div id="account-scopes" class="scope-list"></div><p id="account-note" class="private-note"></p></details>
+    </section></div>
+</section>
+<section id="view-create" class="dashboard-form" aria-labelledby="create-title" hidden>
+  <button id="back-create" type="button" class="text-button">Back to sessions</button>
+  <h2 id="create-title" tabindex="-1">Create reveal session</h2>
+  <p class="intro">Add a card to create its aliases, or use aliases already stored in this vault. The session inherits its lifetime and reveal settings from the dashboard’s Settings.</p>
+  <p class="doc-links"><a class="doc-link" href="https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/reveal-sessions#post-reveal-sessions" target="_blank" rel="noopener noreferrer" aria-label="Create reveal session API (opens in a new tab)">Create reveal session API <span aria-hidden="true">↗</span></a></p>
+  <p class="creation-context"><span id="creation-environment">Sandbox</span> / <span id="creation-tenant"></span></p>
+  <form id="create-form">
+    <fieldset><legend>Cards and aliases</legend>
+      <div id="alias-rows"></div><p id="aliases-empty" class="intro">Add a card or an existing alias to get started.</p>
+      <p id="card-notice" class="private-note" role="status"></p>
+      <section id="add-card-panel" class="add-card-panel" aria-label="Add card" hidden><h3>Add card</h3><p>Create card number and security code aliases in this vault, then use them in your session.</p>
+        <div id="collect-test-cards" class="test-cards" role="group" aria-label="Test cards" hidden><span>Test cards</span><button type="button" data-test-card="visa4242">Visa · 4242</button><button type="button" data-test-card="visa4111">Visa · 4111</button><button type="button" data-test-card="mastercard5454">Mastercard · 5454</button></div>
+        <div class="collect-fields"><div><label>Card number</label><div id="collect-pan" class="collect-field"></div></div><div><label>Security code</label><div id="collect-cvc" class="collect-field"></div></div><div id="collect-expiry-row" hidden><label>Expiry</label><div id="collect-expiry" class="collect-field"></div></div></div>
+        <p id="collect-status" class="private-note" role="status"></p><button id="retry-collect" type="button" class="text-button" hidden>Retry secure fields</button>
+        <details id="collect-lengths"><summary>Card lengths</summary><p class="private-note">Used for the session’s stand-ins. Adjust for cards with a different number of digits.</p><div class="collect-fields"><div><label for="collect-pan-length">Card number digits</label><select id="collect-pan-length"><option>13</option><option>14</option><option>15</option><option selected>16</option><option>17</option><option>18</option><option>19</option></select></div><div><label for="collect-cvc-length">Security code digits</label><select id="collect-cvc-length"><option selected>3</option><option>4</option></select></div></div></details>
+        <p class="private-note">VGS Collect secures these fields. Your saved service account authorizes alias creation.</p><p class="doc-links"><a class="doc-link" href="https://docs.verygoodsecurity.com/cmp/developer-resources/guides/create-a-card-using-vgs-collect" target="_blank" rel="noopener noreferrer" aria-label="Create cards with VGS Collect (opens in a new tab)">Create cards with VGS Collect <span aria-hidden="true">↗</span></a><a class="doc-link" href="https://docs.verygoodsecurity.com/vault/developer-tools/vgs-collect/js/collect-tokenization-api" target="_blank" rel="noopener noreferrer" aria-label="Create aliases with VGS Collect (opens in a new tab)">Create aliases with VGS Collect <span aria-hidden="true">↗</span></a></p><div class="form-actions"><button id="cancel-card" type="button" class="text-button">Cancel card</button><button id="create-aliases" type="button">Create aliases</button></div></section>
+      <div class="alias-actions"><button id="add-card" class="text-button" type="button">Add card</button><button id="add-alias" class="text-button" type="button">Add alias</button></div>
+    </fieldset>
+    <div class="form-field"><label for="adapter-search">Adapter</label><div id="adapter-combobox" class="adapter-combobox"><input id="adapter-search" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="adapter-options" aria-label="Adapter" autocomplete="off" value="Automatic"><span class="select-chevron" aria-hidden="true">⌄</span><input id="adapter-select" type="hidden" value=""><div id="adapter-options" class="adapter-options" role="listbox" aria-label="Adapters" hidden></div></div><p id="adapter-help" class="private-note"></p><p class="doc-links"><a class="doc-link" href="https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/adapters" target="_blank" rel="noopener noreferrer" aria-label="Adapter reference (opens in a new tab)">Adapter reference <span aria-hidden="true">↗</span></a></p><p id="adapter-error" role="status" class="field-error" hidden></p><button id="retry-adapters" class="text-button" type="button" hidden>Retry adapters</button></div>
+    <div class="form-field"><label for="allowed-hosts">Allowed hosts (optional)</label><textarea id="allowed-hosts" rows="3" placeholder="One host per line" spellcheck="false"></textarea></div>
+    <div class="form-field"><label for="allowed-client-cidrs">Allowed client addresses (optional)</label><textarea id="allowed-client-cidrs" rows="2" placeholder="203.0.113.0/24&#10;one address or range per line" spellcheck="false"></textarea></div>
+    <fieldset><legend>Egress proxy (optional)</legend><label for="egress-type" title="Send this session’s requests to the destination through your own proxy.">Type</label><select id="egress-type"><option value="none">None</option><option value="custom">Custom proxy</option><option value="profile" hidden>Saved proxy</option></select>
+      <div id="egress-fields" class="egress-fields" hidden>
+        <div><label for="egress-scheme">Scheme</label><select id="egress-scheme"><option value="https">https</option><option value="http">http</option></select></div>
+        <div class="egress-host"><label for="egress-hostname">Proxy host name</label><input id="egress-hostname" placeholder="Proxy host name" autocomplete="off" spellcheck="false"></div>
+        <div><label for="egress-port">Proxy port</label><input id="egress-port" inputmode="numeric" placeholder="8443"></div>
+        <div class="egress-user"><label for="egress-username">Proxy user name (optional)</label><input id="egress-username" autocomplete="off"></div>
+        <div class="egress-password"><label for="egress-password" title="Kept only for this session. It is never shown again.">Proxy password (optional)</label><input id="egress-password" type="password" autocomplete="new-password"></div>
+      </div><p id="egress-help" class="private-note"></p>
+    </fieldset>
+    <p id="form-error" class="field-error" role="alert" hidden></p><p id="creation-status" role="status" class="private-note"></p>
+    <div class="form-actions form-footer"><button id="cancel-create" class="text-button" type="button">Cancel</button><button id="create-session" class="primary" type="submit" disabled>Create session</button></div>
+  </form>
+  <div id="created-session" hidden><h3>Session created</h3><code id="created-session-id"></code><p class="private-note">Use this session before entering these stand-ins.</p><dl id="session-tokens"></dl><button id="created-back" class="text-button" type="button">Back to sessions</button></div>
+</section>
+<footer>The toolbar button returns to this panel.</footer></main></body></html>
