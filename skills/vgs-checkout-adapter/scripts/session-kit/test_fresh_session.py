@@ -179,27 +179,27 @@ sys.exit(int(os.environ.get('MOCK_BROWSER_CODE', '0')))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls(), [])
 
-    def test_revolut_profile_keeps_credentials_and_card_session_state_separate(self):
-        (self.root / '.env.revolut_sandbox').write_text(
-            'VGS_CLIENT_ID=revolut-offline\nVGS_CLIENT_SECRET=revolut-offline-secret\n'
-            'VGS_TENANT=tntrevolut\nVGS_API=https://sandbox.vgsapi.com\n'
+    def test_named_profile_keeps_credentials_and_card_session_state_separate(self):
+        (self.root / '.env.second').write_text(
+            'VGS_CLIENT_ID=second-offline\nVGS_CLIENT_SECRET=second-offline-secret\n'
+            'VGS_TENANT=tntsecond\nVGS_API=https://sandbox.vgsapi.com\n'
             'VGS_AUTH_URL=https://auth.verygoodsecurity.com/auth/realms/vgs/protocol/openid-connect/token\n')
-        self.env['KIT_ENV'] = 'revolut_sandbox'
+        self.env['KIT_ENV'] = 'second'
         result = self.run_script('create-fresh-session.sh', '--launch-browser')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls(), ['auth', 'card', 'auth', 'session', 'cloak'])
         calls = [json.loads(line) for line in (self.root / 'http-calls.jsonl').read_text().splitlines()]
         for call in (c for c in calls if c['kind'] == 'auth'):
             self.assertEqual(call['url'], 'https://auth.verygoodsecurity.com/auth/realms/vgs/protocol/openid-connect/token')
-            self.assertIn('client_id=revolut-offline', call['form'])
-            self.assertIn('client_secret=revolut-offline-secret', call['form'])
+            self.assertIn('client_id=second-offline', call['form'])
+            self.assertIn('client_secret=second-offline-secret', call['form'])
         card_call = next(c for c in calls if c['kind'] == 'card')
         self.assertEqual(card_call['url'], 'https://sandbox.vgsapi.com/cards')
         session_call = next(c for c in calls if c['kind'] == 'session')
         self.assertEqual(session_call['url'], 'https://sandbox.vgsapi.com/reveal-sessions')
-        self.assertIn('VGS-Tenant: tntrevolut', session_call['headers'])
+        self.assertIn('VGS-Tenant: tntsecond', session_call['headers'])
         self.assertEqual(json.loads((self.root / '.state/card.json').read_text()), self.old_card)
-        state = self.root / '.state-revolut_sandbox'
+        state = self.root / '.state-second'
         self.assertEqual(json.loads((state / 'card.json').read_text())['pan_alias'], 'fresh-pan-alias')
         self.assertTrue((state / 'latest-session.json').is_file())
         opened = json.loads((self.root / 'cloak.json').read_text())

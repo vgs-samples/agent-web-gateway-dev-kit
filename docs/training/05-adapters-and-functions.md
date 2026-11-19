@@ -2,7 +2,7 @@
 
 **When you finish this page you can** decide whether a merchant needs an adapter, and build, test and remove one.
 
-> **Status: source-checked, not run.** The commands and code here come from the developer guide and the tool code. Nobody has run them as part of writing this page.
+> **Status: preview.** These steps follow the API reference and the kit's code and have not yet been validated end to end. If a step does not behave as written, tell your VGS contact.
 
 ## What an adapter is for
 
@@ -186,7 +186,7 @@ The answer is in [the self-check](self-check.md), question 15.
 
 ---
 
-## Details and sources
+## Details
 
 - **"No adapter" is the default, not a guarantee.** The provider list comes from `tools/sitecheck/adapters/README.md`; `tools/sitecheck/AGENTS.md` marks only the Adyen adapter as tested end to end. The skill's `provider-notes.md` records a custom Stripe function, used for deliberately scoped field reveal and for card-number tokens typed with spaces. In a capture, intact token-shaped fields mean the default swap may be enough; encrypted fields plus a key exchange mean a custom function.
 - **The API under the tool.** Four endpoints, all needing `agent-gateway:read` / `agent-gateway:write`, with the tenant id in the `VGS-Tenant` header: `/agent-gateway-destinations` (hosts, marked `trust`, `guarded` or `block`), `/functions`, `/agent-gateway-adapters`, `/agent-gateway-adapter-destinations` (bindings). Order: hosts, functions, adapter, bindings. `skills/vgs-checkout-adapter/assets/deployment/` has a payload example for each. A binding sent to the API looks like this:
@@ -203,9 +203,9 @@ The answer is in [the self-check](self-check.md), question 15.
 - **What the tool does.** `apply` creates a new function when the source changes, adds an adapter version and moves the bindings to it; it adds missing hosts as `guarded` agent destinations. `teardown` leaves agent destinations in place. `adapter list` shows the tenant's adapters and bindings. Deleting by hand in the wrong order returns `409 adapter_in_use` or `409 function_in_use`.
 - **Function details.** `session.get` / `session.put` values are kept per adapter. `session.card("label")` picks one of several cards. `vault.reveal` returns values in order, and each reveal counts in `reveal_count`. With `fail()`, the client gets `422 Request processing error. Request id: <id>`; the message does not reach the client. A new function version links to the old one with `previous_version`. No `${` in the source.
 - **Time.** Adyen checks the encryption's `generationtime`. Use the payment page's own time: the capture function can store the page's `genTime` with `session.put`.
-- **The H&M example.** `examples/functions/hm_reencrypt.star` is specific to H&M's field names, and it does not check `card.cvc` before revealing it, which the engineering spec lists as a known gap. Do not copy that part.
+- **The H&M example.** `examples/functions/hm_reencrypt.star` is specific to H&M's field names, and it does not check `card.cvc` before revealing it. Do not copy that part.
 - **Limits.** 256 KiB per function, 32 inputs per function, 32 functions per adapter version, 16 functions per binding, 100 bindings and 1000 agent destinations per tenant. A dry run has a 10 second deadline and bodies up to 1 MiB.
-- **Dry runs through the API.** `POST /functions/{id}/invocations`. The response is `201` even when the run fails; read `status`. The developer guide and engineering spec say `session.card()` and aliases always fail in a dry run.
+- **Dry runs through the API.** `POST /functions/{id}/invocations`. The response is `201` even when the run fails; read `status`. `session.card()` and aliases always fail in a dry run.
 
 ```json
 {"data": {"type": "function-invocations", "attributes": {
@@ -226,4 +226,3 @@ The answer is in [the self-check](self-check.md), question 15.
 
 An HTTP 200, a loaded SDK or a rising `reveal_count` alone do not establish that a merchant accepted a payment.
 
-Sources: `tools/sitecheck/adapters/README.md` (decision table, steps, rules), `tools/sitecheck/adapters/adyen-cse/hm-us.yaml`, `tools/sitecheck/AGENTS.md` and `tools/sitecheck/README.md`, `tools/sitecheck/sites.example.yaml`, `tools/sitecheck/awg_sitecheck/adapters.py` (what `plan`, `apply`, `teardown` and `list` do), `tools/sitecheck/skills/awg-adapter-authoring/SKILL.md` (dry-run expectations), `skills/vgs-checkout-adapter/references/provider-notes.md` (Stripe), `local-larky.md`, `har-review.md` (decide from the capture) and `gateway-verification.md`, `skills/vgs-checkout-adapter/SKILL.md`, `docs/reference/04-developer-guide.md` (Destinations, adapters and functions; Writing functions; Testing and debugging; Errors and limits), `docs/reference/01-internal-engineering-spec.md` (Function runtime), `tools/sitecheck/harness/README.md` (propagation).

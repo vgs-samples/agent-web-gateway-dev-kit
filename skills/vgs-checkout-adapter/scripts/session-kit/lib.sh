@@ -7,7 +7,7 @@ if [[ -n "${KIT_ENV:-}" && ! "$KIT_ENV" =~ ^[a-zA-Z0-9_-]+$ ]]; then
   exit 1
 fi
 
-# Environment selection: KIT_ENV=dev uses .env.dev and .state-dev/ (VGS dev, .io domains).
+# Environment selection: KIT_ENV=<name> uses .env.<name> and .state-<name>/.
 # Unset = .env and .state/ (the default sandbox environment, .com domains).
 if [ -n "${KIT_ENV:-}" ]; then
   ENV_FILE="$KIT_DIR/.env.$KIT_ENV"
@@ -36,7 +36,7 @@ load_env() {
   : "${VGS_CLIENT_ID:?set VGS_CLIENT_ID in $ENV_FILE}"
   : "${VGS_CLIENT_SECRET:?set VGS_CLIENT_SECRET in $ENV_FILE}"
   : "${VGS_TENANT:?set VGS_TENANT in $ENV_FILE (vault id, tnt...)}"
-  # VGS endpoints: .com sandbox by default; an env file can set VGS_API / VGS_AUTH_URL (dev uses .io).
+  # VGS endpoints: .com sandbox by default; an env file can set VGS_API / VGS_AUTH_URL.
   VGS_API="${VGS_API:-https://sandbox.vgsapi.com}"
   VGS_AUTH_URL="${VGS_AUTH_URL:-https://auth.verygoodsecurity.com/auth/realms/vgs/protocol/openid-connect/token}"
 }

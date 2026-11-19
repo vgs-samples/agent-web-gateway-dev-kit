@@ -15,12 +15,12 @@ They are build downloads, not a Chrome Web Store installation or a GitHub Releas
 With the GitHub CLI:
 
 ```bash
-gh run list --repo shawnmadadha7/awg \
+gh run list --repo shawnmadadha7/agent-web-gateway-dev-kit \
   --workflow control-panel-package.yml --status success --limit 5
 
 # Set this to the successful run ID you chose from the list.
 AWG_RUN_ID="YOUR_RUN_ID"
-gh run download "$AWG_RUN_ID" --repo shawnmadadha7/awg \
+gh run download "$AWG_RUN_ID" --repo shawnmadadha7/agent-web-gateway-dev-kit \
   --name agent-web-gateway-control-panel \
   --dir "$HOME/Downloads/awg-control-panel"
 ```
@@ -110,7 +110,7 @@ egress requests and HAR recordings are excluded from the build. Screenshots use
 synthetic account/session data and local network fixtures. The download contains
 no Git history; the repository's commit history retains author metadata.
 
-This repository remains private and its reference material is marked internal.
+This repository is private.
 A public package or store release needs its own release decision, license review
 and public-facing documentation. Publishing this branch does not change repository
 visibility. For persistent versioned downloads, a future release workflow can

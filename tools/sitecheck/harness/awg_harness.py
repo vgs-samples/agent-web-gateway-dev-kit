@@ -2,7 +2,7 @@
 """awg-harness verify: test an adapter's capture and re-encrypt functions without touching the merchant.
 
   python3 awg_harness.py verify merchants/hm.json [merchants/jysk.json ...]
-  python3 awg_harness.py verify merchants/hm.json --function FNKmPAAB78LRi9LJmpBA1ijh=my_edit.star
+  python3 awg_harness.py verify merchants/hm.json --function FN_REPLACE_WITH_YOUR_FUNCTION_ID=my_edit.star
   python3 awg_harness.py verify merchants/*.json --card card.json
 
 For each merchant file:
@@ -25,8 +25,8 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-API = os.environ.get("VGS_API", "https://sandbox.vgsapi.io")
-AUTH = "https://auth.verygoodsecurity.io/auth/realms/vgs/protocol/openid-connect/token"
+API = os.environ.get("VGS_API", "https://sandbox.vgsapi.com")
+AUTH = os.environ.get("VGS_AUTH_URL", "https://auth.verygoodsecurity.com/auth/realms/vgs/protocol/openid-connect/token")
 ECHO = os.environ.get("HARNESS_ECHO_HOST", "echo.apps.verygood.systems")
 # the binding whose capture function plants the harness key: an Adyen secured-fields page capture
 # The binding whose capture function plants the harness key: HARNESS_PLANT_BINDING, else the merchant's own capture binding.

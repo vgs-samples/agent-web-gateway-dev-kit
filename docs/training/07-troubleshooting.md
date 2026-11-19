@@ -55,12 +55,12 @@ In order, these show the request as VGS saw it, the functions that ran, and each
 
 ## Escalate
 
-Escalate to AWG engineering (Jira AR-193) when the cause is on VGS's side:
+Contact VGS support when the cause is on VGS's side:
 
 - a `5xx` from the API;
 - a `407` for a tenant that should be enabled;
-- a `422` when the logs show no error in the customer's function;
-- anything that contradicts the runbook.
+- a `422` when the logs show no error in your function;
+- behavior that contradicts the documentation.
 
 Collect these first:
 
@@ -75,7 +75,7 @@ Collect these first:
 
 ---
 
-## Details and sources
+## Details
 
 **More symptoms**
 
@@ -90,8 +90,8 @@ Collect these first:
 - `407` can also mean a wrong password. A tenant that is not enabled reaches the shared proxy, which refuses session logins.
 - `422` causes include `fail()`, a missing session value, and revealing an alias the card does not have, such as a CVC.
 - For Adyen, the provider's page host is `checkoutshopper-live.adyen.com`.
-- For a merchant `403`, the runbook's own advice is a real browser through the PAC file, residential `egress_proxy_settings`, and that a reload often passes. The browser-emulation setting and the one-IP ("sticky") egress come from `tools/sitecheck/docs/lessons.md`.
-- Without `access-logs:read` the `vgs logs` commands answer `403`. Proxy application logs, including function stack traces, are in Grafana Cloud and are for VGS engineers only.
+- For a merchant `403`: use a real browser through the PAC file and a residential egress proxy that keeps one IP. A reload often passes.
+- Without `access-logs:read` the `vgs logs` commands answer `403`.
 - Other evidence: a dry run of the function on the same request, and the level 2 harness (page 6).
 
 **`reveal_refused` reasons**
@@ -109,11 +109,7 @@ Collect these first:
 | `destinations_unavailable` | VGS could not load the destination settings; the request fails closed | Retry, then escalate with the request id |
 | `replacement_failed` | VGS could not place the real value in the request | Escalate with the request id |
 
-**Confirm these against the running system.** They do not come from the 2026-11-12 documents:
+The refusal reasons listed here may change. Treat the `reason` in the response as authoritative.
 
-- The `reveal_refused` body, its reasons and their meanings come from the October 2026 doc set. The "what to do" column is this page's reading. Sandbox test notes of 2026-11-10 (not in this repository) record `reveal_refused` with `session_store_unavailable`, and the session kit's notes of 2026-11-13 (`skills/vgs-checkout-adapter/references/fresh-session.md`) still refer to `SESSION_STORE_UNAVAILABLE`.
-- The `502` row comes from the October 2026 doc set; its fix is this page's reading.
+**API errors** use one envelope: `{"errors": [{"status", "code", "title", "detail", "href"}]}`. `400` and `409` carry a `code`; `403` means a missing scope and `404` an unknown, deleted or another tenant's id.
 
-**API errors** use one envelope: `{"errors": [{"status", "code", "title", "detail", "href"}]}`. `400` and `409` carry a `code`; `403` means a missing scope and `404` an unknown, deleted or another tenant's id. The full code table is in [the support runbook](../reference/03-support-runbook.md#reference-error-codes).
-
-Sources: `docs/reference/03-support-runbook.md` (Troubleshooting by symptom, Escalation, error codes), `docs/reference/04-developer-guide.md` (Testing and debugging, Errors and limits), `docs/reference/01-internal-engineering-spec.md` (Observability), `tools/sitecheck/docs/lessons.md` (bot walls), `skills/vgs-checkout-adapter/references/fresh-session.md`.

@@ -47,7 +47,7 @@ failure a CVC-less card causes.
 ## Iterate on a function
 
 ```sh
-python3 awg_harness.py verify merchants/hm.json --card card.json --function FNKmPAAB78LRi9LJmpBA1ijh=hm_reencrypt.star
+python3 awg_harness.py verify merchants/hm.json --card card.json --function FN_REPLACE_WITH_YOUR_FUNCTION_ID=hm_reencrypt.star
 ```
 
 This uploads the edited source as a temporary copy of that function, under a temporary adapter of its own; the mirrored bindings use it for this run

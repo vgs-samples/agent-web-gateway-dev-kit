@@ -10,8 +10,8 @@ AWG lets the agent finish the checkout while holding only stand-in values.
 
 ## How it works
 
-1. **The card is already stored in the VGS vault.** The customer's systems keep only **aliases** for it.
-2. **The customer creates a reveal session** when the agent is about to pay. They send VGS the card's aliases and the hosts the agent may pay on.
+1. **The card is already stored in the VGS vault.** Your systems keep only **aliases** for it.
+2. **You create a reveal session** when the agent is about to pay. You send VGS the card's aliases and the hosts the agent may pay on.
 3. **VGS returns four things:**
    - a proxy URL with the session's login (`proxy.url`);
    - a link to a PAC file (`proxy.pac_url`), which tells a browser which hosts to send through VGS;
@@ -47,7 +47,7 @@ Page 5 covers adapters.
 
 ## Where the traffic goes
 
-Only the payment hosts go through VGS. With the session's PAC file, the browser sends the session's `allowed_hosts`, and the hosts its adapters are bound to, through the VGS session proxy. Every other site loads directly, or through the customer's own egress proxy if the session sets one.
+Only the payment hosts go through VGS. With the session's PAC file, the browser sends the session's `allowed_hosts`, and the hosts its adapters are bound to, through the VGS session proxy. Every other site loads directly, or through your own egress proxy if the session sets one.
 
 VGS terminates TLS for the hosts that go through it. That is why the browser must trust the session's CA, and it is what lets VGS change the request.
 
@@ -67,23 +67,11 @@ It does not:
 - Handle wallets and redirects such as PayPal, Klarna or Apple Pay.
 - Warn you when a function does nothing. A function that does not recognise a request passes it on unchanged, with no error, and the merchant receives the worthless stand-in values. This is the most common failure in testing.
 
-## Where AWG stands
-
-AWG is pre-release. Ask the AWG team which build an environment runs before you rely on a feature there.
-
-| Date | What the documents record |
-|---|---|
-| 2026-11-12 | Prod sandbox ran an older build, from 2026-11-05. |
-| 2026-11-14 | An H&M US order was placed through the gateway on prod sandbox ($29.31). |
-
 ---
 
-## Details and sources
+## Details
 
 - **Returned once.** An endpoint that reissues the proxy password exists but is off by default. The CA bundle can also be read from `GET /reveal-sessions/proxy-ca`.
-- **PAC fallback.** The PAC file sends everything through VGS for stateless sessions, lookup failures and unsafe host patterns. Builds that predate the PAC split also send everything through VGS.
-- **The Adyen flow in full.** The capture function also stores Adyen's `genTime`. Nothing decrypts what the browser produced; it is discarded. The engineering spec's diagram is [request-path.svg](../reference/request-path.svg).
-- **Prod sandbox build.** The engineering spec says the 2026-11-05 build "predates the PAC split, soft delete, session values reads and the Adyen 500 fix". The 2026-11-14 purchase used session values, so prod sandbox must have been updated in between; no document here records that.
-- **Known gaps on 2026-11-12** include: a failed function reaches the client as a bare `422` with no reason; the PAC file splits by host only, so every page on a checkout host goes through VGS and loads more slowly; 3-D Secure through AWG was untested. Full list: [engineering spec](../reference/01-internal-engineering-spec.md#known-gaps-and-open-work).
+- **PAC fallback.** The PAC file sends everything through VGS for stateless sessions, lookup failures and unsafe host patterns.
+- **The Adyen flow in full.** The capture function also stores Adyen's `genTime`. Nothing decrypts what the browser produced; it is discarded. A diagram of this flow is [request-path.svg](../reference/request-path.svg).
 
-Sources: `docs/reference/04-developer-guide.md` (Overview, How it works), `docs/reference/01-internal-engineering-spec.md` (Overview, Proxy behavior, Environments, Known gaps), `docs/reference/02-internal-api-detail.md` (credential reissue, `proxy-ca`), `tools/sitecheck/adapters/README.md`, `tools/sitecheck/docs/lessons.md`.

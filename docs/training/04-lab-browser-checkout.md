@@ -2,7 +2,7 @@
 
 **When you finish this lab you will have** stored a test card, created a session, opened a browser that goes through VGS, and typed session tokens at a checkout.
 
-> **Status: source-checked, not run.** These steps were checked against the session kit's code and notes, but nobody has run this lab end to end as written. Tell the AWG team what breaks.
+> **Status: preview.** These steps follow the API reference and the kit's code and have not yet been validated end to end. If a step does not behave as written, tell your VGS contact.
 
 For the recommended interactive workflow, follow [Browser proxying best
 practices](../../tools/vgs-proxy-controls/BROWSER-PROXY-BEST-PRACTICES.md): browse
@@ -16,7 +16,7 @@ an extended browsing task.
 ## What you need
 
 1. macOS or Linux (x86-64), with `curl`, `jq`, `openssl` and `unzip`.
-2. A service account and tenant id, as in lab 3. Storing the card needs one more scope, for `POST /cards`; ask the AWG team which.
+2. A service account and tenant id, as in lab 3. Storing the card needs one more scope, for `POST /cards`; ask your VGS contact which.
 3. A residential egress proxy you are authorized to use. The kit will not run without one.
 
 ## Set up, once
@@ -42,7 +42,7 @@ Use plain `KEY=value` lines, with no quotes and no `export`.
 | `VGS_CLIENT_ID`, `VGS_CLIENT_SECRET` | Your service account |
 | `VGS_TENANT` | Your tenant id |
 | `EGRESS_PROXY` | Your egress proxy URL |
-| `VGS_API`, `VGS_AUTH_URL` | Leave as they are for prod sandbox |
+| `VGS_API`, `VGS_AUTH_URL` | Leave as they are for Sandbox |
 
 ## Run a checkout
 
@@ -104,7 +104,7 @@ Tip: page 10 covers a browser extension that switches between sessions and route
 
 ---
 
-## Details and sources
+## Details
 
 - **What the kit saves.** It does not save the card number or CVC. `.state/` holds the aliases, the last four digits, BIN, expiry and card id, the full session response, and the session request including the egress proxy password.
 - **Without a terminal,** supply `CARD_PAN`, `CARD_CVC` and `CARD_EXP=MM/YY` in the environment.
@@ -124,11 +124,9 @@ bash ./create-fresh-session.sh --hosts payments.example-psp.com \
 - **Expiry.** Use the card's real expiry unless the adapter requires an override.
 - **A second environment.** Create `.env.<name>` and prefix every command with `KIT_ENV=<name>`; its state goes to `.state-<name>/`. Use the API and authentication endpoints for your Sandbox or Live account. Variables already exported in your shell override the file.
 - **Which traffic goes through VGS.** The hosts in the session's PAC file. On a build without the PAC split, all of it.
-- **If the payment host is not allowed,** what happens depends on the tenant's unlisted-host mode: the request may bypass VGS and deliver the worthless tokens, be refused (the October 2026 doc set gives `403 reveal_refused`, reason `session_host_not_allowed`), be revealed within the guard's limits, or be held for approval. Page 2 explains the modes.
+- **If the payment host is not allowed,** what happens depends on the tenant's unlisted-host mode: the request may bypass VGS and deliver the worthless tokens, be refused (`403 reveal_refused`, reason `session_host_not_allowed`), be revealed within the guard's limits, or be held for approval. Page 2 explains the modes.
 - **The CVC alias is volatile.** A new session does not bring back a CVC alias that is no longer available; store the card again.
 - **Other checks.** The host's certificate is issued by the session's CA. `https://ipinfo.io/json` in the session browser shows your exit IP; an IP lookup does not tell you how a merchant's bot protection will rate it.
 - **`launch-chromium.sh --insecure`** skips all certificate checks. Use it only to diagnose a CA problem.
 - The launchers do not record HAR files. Do not run two fresh-session commands at once in one kit profile.
-- **From the test kit README of 2026-11-07** (not in this repository): a real merchant declines a test card; what to check instead; the certificate issuer shows as Very Good Security; the exit IP should be a consumer ISP.
 
-Sources: `skills/vgs-checkout-adapter/references/fresh-session.md` and `gateway-verification.md`; the scripts in `skills/vgs-checkout-adapter/scripts/session-kit/` (`setup.sh`, `lib.sh`, `start.sh`, `create-card.sh`, `create-fresh-session.sh`, `create-session.sh`, `launch-chromium.sh`, `session-status.sh`, `end-session.sh`, `.env.example`); `docs/reference/01-internal-engineering-spec.md` (Proxy behavior) and `docs/reference/04-developer-guide.md`;.

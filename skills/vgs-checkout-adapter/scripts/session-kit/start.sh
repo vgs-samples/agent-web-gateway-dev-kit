@@ -8,8 +8,8 @@
 #   url            page to open; default https://<first allowed host>/, or about:blank
 #
 # Examples:
-#   ./start.sh www.doordash.com
-#   ./start.sh www.doordash.com,payments.example.com https://www.doordash.com/
+#   ./start.sh www.example-shop.com
+#   ./start.sh www.example-shop.com,payments.example.com https://www.example-shop.com/
 set -euo pipefail
 cd "$(dirname "$0")"
 

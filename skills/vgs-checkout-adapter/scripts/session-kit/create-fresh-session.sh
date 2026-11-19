@@ -3,8 +3,8 @@
 # Usage: bash ./create-fresh-session.sh [create-session.sh options]
 # Supply CARD_PAN, CARD_CVC, CARD_EXP (MM/YY), or use the hidden terminal prompts.
 # Requires a new card ID and both aliases; never substitutes cards or cached aliases.
-# Select a kit with KIT_ENV: dev or revolut_sandbox (unset = default sandbox).
-# Example: KIT_ENV=revolut_sandbox bash ./create-fresh-session.sh [session options]
+# Select a kit with KIT_ENV, for example KIT_ENV=second (unset = default sandbox).
+# Example: KIT_ENV=second bash ./create-fresh-session.sh [session options]
 # Each kit uses its own .env.<name> credentials and .state-<name>/ aliases/sessions.
 set -euo pipefail
 cd "$(dirname "$0")"
