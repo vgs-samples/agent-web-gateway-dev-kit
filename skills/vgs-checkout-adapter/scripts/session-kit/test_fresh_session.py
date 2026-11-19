@@ -77,10 +77,10 @@ sys.exit(int(os.environ.get('MOCK_BROWSER_CODE', '0')))
 """)
         self.env['CLOAK_PYTHON'] = sys.executable
         self.env['EGRESS_ALLOWED_HOST'] = 'proxy.example.invalid'
-        self.env['EGRESS_ALLOWED_PORT'] = '26320'
+        self.env['EGRESS_ALLOWED_PORT'] = '8080'
         self.env.update(PATH=str(self.root / 'bin') + os.pathsep + os.environ['PATH'],
                         MOCK_CALLS=str(self.root / 'calls'), MOCK_REQUESTS=str(self.root),
-                        EGRESS_PROXY='http://offline:offline@residential.byteful.com:8650',
+                        EGRESS_PROXY='http://offline:offline@proxy.example.invalid:8080',
                         CARD_PAN='4111111111111111', CARD_CVC='123', CARD_EXP='12/30')
 
     def run_script(self, script, *args):
@@ -96,9 +96,14 @@ sys.exit(int(os.environ.get('MOCK_BROWSER_CODE', '0')))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls(), ['auth', 'card', 'auth', 'session', 'browser'])
         request = json.loads((self.root / 'session.json').read_text())['data']['attributes']
-        self.assertEqual([a['alias'] for a in request['aliases']], ['fresh-pan-alias', 'fresh-cvc-alias'])
+        card = request['cards'][0]
+        self.assertEqual([card[k]['alias'] for k in ('number','cvc')], ['fresh-pan-alias', 'fresh-cvc-alias'])
+        self.assertNotIn('aliases', request)
+        self.assertNotIn('adapter', request)
+        self.assertEqual(card['number']['storage'], 'PERSISTENT')
+        self.assertEqual(card['cvc']['storage'], 'VOLATILE')
         self.assertEqual(request['allowed_hosts'], ['merchant.invalid'])
-        self.assertEqual(request['egress_proxy_settings']['hostname'], 'residential.byteful.com')
+        self.assertEqual(request['egress_proxy_settings']['hostname'], 'proxy.example.invalid')
         stored = json.loads((self.root / '.state/card.json').read_text())
         self.assertNotIn('pan', stored)
         self.assertNotIn('cvc', stored)
@@ -143,7 +148,8 @@ sys.exit(int(os.environ.get('MOCK_BROWSER_CODE', '0')))
         result = self.run_script('create-session.sh', '--hosts', 'merchant.invalid', '--no-cvc')
         self.assertEqual(result.returncode, 0, result.stderr)
         request = json.loads((self.root / 'session.json').read_text())['data']['attributes']
-        self.assertEqual([a['format'] for a in request['aliases']], ['card_number'])
+        self.assertEqual(request['cards'][0]['number']['format'], 'card_number')
+        self.assertNotIn('cvc', request['cards'][0])
 
     def test_session_failure_does_not_open_browser(self):
         self.env['MOCK_SESSION_CODE'] = '500'
@@ -200,7 +206,7 @@ sys.exit(int(os.environ.get('MOCK_BROWSER_CODE', '0')))
         self.assertEqual(opened['session'], str(state / 'sessions/RSoffline.json'))
 
     def write_proxy_profile(self, **changes):
-        profile = {'scheme': 'http', 'hostname': 'proxy.example.invalid', 'port': 26320,
+        profile = {'scheme': 'http', 'hostname': 'proxy.example.invalid', 'port': 8080,
                    'username': 'offline-user', 'password': 'offline-egress-password'}
         profile.update(changes)
         path = self.root / 'proxy.json'
@@ -220,7 +226,7 @@ sys.exit(int(os.environ.get('MOCK_BROWSER_CODE', '0')))
         self.assertEqual(attrs['cards'][0]['cvc']['alias'], 'fresh-cvc-alias')
         self.assertEqual(attrs['egress_proxy_settings'], {
             'type': 'custom', 'scheme': 'http', 'hostname': 'proxy.example.invalid',
-            'port': 26320, 'username': 'offline-user', 'password': 'offline-egress-password'})
+            'port': 8080, 'username': 'offline-user', 'password': 'offline-egress-password'})
         self.assertNotIn('offline-egress-password', result.stdout)
 
     def test_proxy_profile_rejects_unapproved_or_incomplete_settings(self):
@@ -239,24 +245,26 @@ sys.exit(int(os.environ.get('MOCK_BROWSER_CODE', '0')))
         self.assertEqual(self.calls(), [])
 
     def test_environment_proxy_restriction_and_no_direct_fallback_remain(self):
-        self.env['EGRESS_PROXY'] = 'http://offline:offline@proxy.example.invalid:26320'
+        self.env['EGRESS_PROXY'] = 'http://offline:offline@unapproved.invalid:8080'
         result = self.run_script('create-session.sh')
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('tests must egress through residential.byteful.com', result.stderr)
+        self.assertIn('egress must match locally configured', result.stderr)
         self.env.pop('EGRESS_PROXY')
         result = self.run_script('create-session.sh')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('direct VGS egress is disabled', result.stderr)
         self.assertEqual(self.calls(), [])
 
-    def test_alternate_profile_requires_explicit_host_and_port_configuration(self):
+    def test_proxy_requires_explicit_host_and_port_configuration(self):
         profile = self.write_proxy_profile()
-        for key in ['EGRESS_ALLOWED_HOST', 'EGRESS_ALLOWED_PORT']:
-            saved = self.env.pop(key)
-            result = self.run_script('create-session.sh', '--egress-profile', profile)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(self.calls(), [])
-            self.env[key] = saved
+        for args in [(), ('--egress-profile', profile)]:
+            for key in ['EGRESS_ALLOWED_HOST', 'EGRESS_ALLOWED_PORT']:
+                with self.subTest(args=args, missing=key):
+                    saved = self.env.pop(key)
+                    result = self.run_script('create-session.sh', *args)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(self.calls(), [])
+                    self.env[key] = saved
 
     def test_named_adyen_uses_selected_profile_ledger_and_role_context(self):
         self.env['KIT_ENV'] = 'team'
