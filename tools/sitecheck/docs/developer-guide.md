@@ -211,11 +211,10 @@ The response is `201` with `status` `succeeded` or `failed`, the `error` text if
 
 **Trace a live request.** Every request through VGS gets a `vgs-request-id` response header; a failed function's `422` body contains it too. With that id:
 
-- `vgs logs access -R <request id>`: the request as VGS saw it;
-- `vgs logs operations -V <vault id> -R <request id>`: the functions and operations that ran;
-- `vgs logs reveal-decisions -V <vault id> -R <request id>`: each reveal allowed or refused.
+- `vgs logs operations -T <vault id> -R <request id>`: the operation logs for that request;
+- `vgs logs access -T <vault id> --since=1h`: the vault's access logs. This command has no request-id option; narrow it with `--since`, `--until` or `--tail`.
 
-These need a credential with `access-logs:read`.
+These need a credential with `access-logs:read`. They are the commands in VGS CLI 1.36.0 and the public CLI reference; that release has no `vgs logs reveal-decisions` command, so ask your VGS contact how to see the reveal decisions for a request.
 
 **Check the session.** `GET /reveal-sessions/{id}?include=values` shows whether the capture function stored the payment key, and `reveal_count` / `refusal_count` show whether a reveal happened. A request that came back unchanged with `reveal_count` still `0` means your function ran but did not act on that body: compare its field names and nesting with the merchant's real request.
 

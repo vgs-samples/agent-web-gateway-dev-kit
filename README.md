@@ -41,10 +41,16 @@ Pick a session on the left and a route on the right. At a payment form, type the
 
 ![The agent platform holds aliases for the card, creates a session, and gets back proxy settings and session tokens; the agent's browser types the session tokens at checkout; the Agent Web Gateway session swaps them for the real card on the way to the merchant](docs/images/awg-flow-token-swap.png)
 
-1. **You send VGS** the card's aliases and the sites the agent may pay on. That creates a **reveal session**.
-2. **You get back** a proxy login and stand-in card values that work only in that session.
-3. **The agent types** the stand-ins into the payment form.
-4. **VGS swaps** them for the real card as the request passes through.
+The numbers match the diagram.
+
+1. **The card** is stored in the VGS vault.
+2. **Your platform keeps** only aliases for it.
+3. **You send VGS** the card's aliases and the sites the agent may pay on. That creates a **reveal session**.
+4. **You get back** proxy settings and stand-in card values that work only in that session.
+5. **The agent types** the stand-ins into the payment form.
+6. **The browser sends** the payment request, still carrying the stand-ins, through the session.
+7. **VGS swaps** them for the real card as the request passes through.
+8. **The merchant receives** the real card.
 
 ## If something goes wrong
 

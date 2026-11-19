@@ -46,12 +46,13 @@ If the same request fails on a direct connection, the cause is the merchant or t
 Every request through VGS has a `vgs-request-id`. A `422` response contains it too. With that id and the `access-logs:read` scope, run: (These use the [VGS CLI](https://docs.verygoodsecurity.com/vault/developer-tools/vgs-cli/getting-started).)
 
 ```bash
-vgs logs access -R <request id>
-vgs logs operations -V <tenant id> -R <request id>
-vgs logs reveal-decisions -V <tenant id> -R <request id>
+vgs logs operations -T <tenant id> -R <request id>
+vgs logs access -T <tenant id> --since=1h
 ```
 
-In order, these show the request as VGS saw it, the functions that ran, and each reveal that was allowed or refused.
+The first returns the operation logs for that request. The second returns the tenant's access logs; it has no request-id option, so narrow it with `--since`, `--until` or `--tail`.
+
+These are the commands in VGS CLI 1.36.0 and the public CLI reference. That release has no `vgs logs reveal-decisions` command; ask your VGS contact how to see the reveal decisions for a request.
 
 ## Escalate
 

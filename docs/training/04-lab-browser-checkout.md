@@ -16,7 +16,7 @@ an extended browsing task.
 ## What you need
 
 1. macOS (Apple silicon or Intel) or Linux on x86-64, with `curl`, `jq`, `openssl` and `unzip`.
-2. A service account and tenant id, as in lab 3. Storing the card needs one more scope, for `POST /cards`. The [control panel's README](../../tools/vgs-proxy-controls/README.md) names it as `cards:create`, or `cards:write` on older accounts; confirm with your VGS contact.
+2. A service account and tenant id, as in lab 3. Storing the card with `POST /cards` needs one more scope: `cards:create`. Existing service accounts with `cards:write` also work. See [Authentication](https://docs.verygoodsecurity.com/cmp/platform/authentication).
 3. A residential egress proxy you are authorized to use. The kit will not run without one.
 
 ## Set up, once
