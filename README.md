@@ -4,6 +4,23 @@ Customer setup uses **Sandbox** or **Live**. Start in Sandbox and validate your 
 
 Testing tools, a browser control panel and hands-on training for Agent Web Gateway.
 
+## Quick start
+
+Install one thing, [uv](https://docs.astral.sh/uv/). It supplies the right Python by itself, so the Python that ships with your system does not matter.
+
+```sh
+brew install uv
+./awg doctor
+./awg test
+```
+
+- `./awg doctor` checks this machine is ready and tells you what to install if it is not.
+- `./awg test` runs the kit's offline tests. It needs no credentials and sends nothing to VGS.
+- `./awg panel [options]` starts the control panel helper. It takes the same options as `start-proxy-controls.py`.
+- `./awg sitecheck [args]` runs the site-testing tool. It takes the same arguments as `awg-sitecheck`.
+
+Wherever this kit's pages say `python3 start-proxy-controls.py …`, you can run `./awg panel …` instead and skip installing Python.
+
 ## What AWG does
 
 AWG lets an AI agent pay on a merchant's website with a card stored in VGS, without the agent or its browser ever holding the card number.

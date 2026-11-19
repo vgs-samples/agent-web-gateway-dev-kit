@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# One entry point for the Agent Web Gateway dev kit.
+#
+#   ./awg doctor              check this machine is ready
+#   ./awg test                run the kit's offline tests (no credentials, no network to VGS)
+#   ./awg panel [options]     start the control panel helper (same options as start-proxy-controls.py)
+#   ./awg sitecheck [args]    run the awg-sitecheck tool (same arguments as awg-sitecheck)
+#
+# The only thing to install is uv (https://docs.astral.sh/uv/). It supplies the right
+# Python version by itself, so the Python that ships with your system does not matter.
+set -euo pipefail
+
+KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PANEL_DIR="$KIT_DIR/tools/vgs-proxy-controls"
+SITECHECK_DIR="$KIT_DIR/tools/sitecheck"
+PYTHON_VERSION="3.12"
+
+say()  { printf '%s\n' "$*"; }
+fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+need_uv() {
+  have uv && return
+  fail "uv is not installed. Install it with:  brew install uv
+       (or: curl -LsSf https://astral.sh/uv/install.sh | sh), then run this again."
+}
+
+# Run Python from the kit with the pinned version. uv downloads it on first use.
+kit_python() {
+  need_uv
+  PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" python "$@"
+}
+
+check() {  # check <label> <command> <hint>
+  if have "$2"; then
+    say "  ok       $1"
+  else
+    say "  MISSING  $1  ->  $3"
+    MISSING=1
+  fi
+}
+
+cmd_doctor() {
+  MISSING=0
+  say "Checking this machine:"
+  check "uv (supplies Python $PYTHON_VERSION)" uv   "brew install uv"
+  check "curl"                                 curl "install curl with your package manager"
+  check "jq (used by the labs)"                jq   "brew install jq"
+  if have node; then
+    say "  ok       node (optional: extension tests)"
+  else
+    say "  skipped  node (optional: only needed for './awg test' to run the extension tests)"
+  fi
+  if have uv; then
+    if version=$(kit_python --version 2>/dev/null); then
+      say "  ok       $version, provided by uv"
+    else
+      say "  MISSING  Python $PYTHON_VERSION  ->  uv could not provide it; check your network and run: uv python install $PYTHON_VERSION"
+      MISSING=1
+    fi
+  fi
+  if [ "$MISSING" = 0 ]; then
+    say ""
+    say "Ready. Next: ./awg test"
+  else
+    say ""
+    fail "install what is marked MISSING, then run ./awg doctor again."
+  fi
+}
+
+cmd_test() {
+  say "Control panel helper tests (Python $PYTHON_VERSION)..."
+  (cd "$PANEL_DIR" && kit_python -m unittest discover -p 'test_*.py')
+  if have node; then
+    say ""
+    say "Extension tests (node)..."
+    (cd "$PANEL_DIR" && node --test test_session_proxy_extension.mjs)
+  else
+    say ""
+    say "Skipped the extension tests: node is not installed."
+  fi
+}
+
+cmd_panel() {
+  [ -f "$PANEL_DIR/start-proxy-controls.py" ] || fail "control panel not found in $PANEL_DIR"
+  kit_python "$PANEL_DIR/start-proxy-controls.py" "$@"
+}
+
+cmd_sitecheck() {
+  need_uv
+  (cd "$SITECHECK_DIR" && uv run awg-sitecheck "$@")
+}
+
+usage() { sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+case "${1:-}" in
+  doctor)    shift; cmd_doctor "$@" ;;
+  test)      shift; cmd_test "$@" ;;
+  panel)     shift; cmd_panel "$@" ;;
+  sitecheck) shift; cmd_sitecheck "$@" ;;
+  ""|-h|--help|help) usage ;;
+  *) usage; fail "unknown command: $1" ;;
+esac
