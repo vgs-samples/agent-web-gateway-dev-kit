@@ -8,7 +8,7 @@ Copy `.env.example` to `.env`, mode 0600. For a named profile use `.env.<name>` 
 
 API/auth endpoints must belong to the selected environment. The original kit used `.com` for sandbox and `.io` for dev; verify your target. No credentials are included.
 
-Default egress is `residential.byteful.com`. A private proxy JSON has `scheme`, `hostname`, numeric `port`, `username`, `password`. `--egress-profile` overrides `EGRESS_PROXY`. An alternative approved endpoint requires both `EGRESS_ALLOWED_HOST` and `EGRESS_ALLOWED_PORT` in local configuration plus an explicit profile. Invalid/missing profiles stop without route fallback. Environment-only `EGRESS_PROXY` remains Byteful-only.
+There is no embedded egress provider or endpoint. Read the user-approved route from private local configuration. A private proxy JSON has `scheme`, `hostname`, numeric `port`, `username`, `password`. `--egress-profile` overrides `EGRESS_PROXY`. Both methods must match `EGRESS_ALLOWED_HOST` and `EGRESS_ALLOWED_PORT` configured locally. Invalid or missing configuration stops without route fallback.
 
 ## Fresh attempt
 

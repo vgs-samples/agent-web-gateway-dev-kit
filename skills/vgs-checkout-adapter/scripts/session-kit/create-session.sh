@@ -11,16 +11,16 @@
 #                destinations and the unlisted-host mode decide every host).
 #   --no-cvc     only reveal the card number.
 #   --pan-alias/--cvc-alias/--bin/--length   override what is in .state/card.json.
-#   --adapter   use role-based cards; adyen also supplies timestamp and expiry context.
+#   --adapter   select an adapter; adyen also supplies timestamp and expiry context.
 #   --exp       Adyen expiry override; otherwise use the saved card's expiry.
 #   --egress-profile FILE  read proxy settings/credentials from a JSON file.
-#                Allows Byteful, or EGRESS_ALLOWED_HOST:EGRESS_ALLOWED_PORT configured locally.
+#                Must match EGRESS_ALLOWED_HOST:EGRESS_ALLOWED_PORT configured locally.
 #
 #   --launch-browser  open CloakBrowser with the newly created session.
 #   --url URL         starting page with --launch-browser (default: https://ipinfo.io/json).
 #                    CLOAK_PYTHON optionally overrides ../CloakBrowser/.venv/bin/python.
 #
-# Otherwise, required Byteful residential egress from EGRESS_PROXY in the environment:
+# Otherwise, read the approved egress from EGRESS_PROXY in the environment:
 #   EGRESS_PROXY='http://user:pass@host:port'   (http or https; hostname, not IP; raw password)
 #
 # Prints the session summary, proxy username/password and PAC URL. The full response is saved to
@@ -107,19 +107,18 @@ fi
 EGRESS_JSON=null
 if [ -n "$EGRESS_PROFILE" ]; then
   [ -r "$EGRESS_PROFILE" ] || die "cannot read egress profile: $EGRESS_PROFILE"
-  # An explicit profile takes precedence over EGRESS_PROXY. Keep the normal Byteful
-  # restriction and permit an additional endpoint only when configured explicitly.
+  # An explicit profile takes precedence over EGRESS_PROXY.
+  # Require the same locally approved endpoint for either configuration method.
   EGRESS_JSON=$(jq -ce --arg allowed_host "${EGRESS_ALLOWED_HOST:-}" --arg allowed_port "${EGRESS_ALLOWED_PORT:-}" '
     if type == "object"
       and (.scheme == "http" or .scheme == "https")
       and (.port | type == "number" and . == floor and . >= 1 and . <= 65535)
-      and (.hostname == "residential.byteful.com"
-           or ($allowed_host != "" and .hostname == $allowed_host and (.port | tostring) == $allowed_port))
+      and ($allowed_host != "" and .hostname == $allowed_host and (.port | tostring) == $allowed_port)
       and (.username | type == "string" and length > 0)
       and (.password | type == "string" and length > 0)
     then {type:"custom",scheme,hostname,port,username,password}
     else error("invalid egress profile") end' "$EGRESS_PROFILE" 2>/dev/null) \
-    || die "egress profile must contain scheme, hostname, numeric port, username and password for Byteful or the locally configured EGRESS_ALLOWED_HOST:EGRESS_ALLOWED_PORT"
+    || die "egress profile must contain scheme, hostname, numeric port, username and password matching the locally configured EGRESS_ALLOWED_HOST:EGRESS_ALLOWED_PORT"
 else
   [ -n "${EGRESS_PROXY:-}" ] || die "EGRESS_PROXY or --egress-profile is required; direct VGS egress is disabled for these tests"
   E_SCHEME=${EGRESS_PROXY%%://*}
@@ -132,7 +131,10 @@ else
   E_HOST=${REST%:*}; E_PORT=${REST##*:}
   [[ "$E_SCHEME" =~ ^https?$ && "$E_PORT" =~ ^[0-9]+$ && -n "$E_HOST" ]] \
     || die "EGRESS_PROXY must look like http://user:pass@host:port"
-  [ "$E_HOST" = residential.byteful.com ] || die "tests must egress through residential.byteful.com"
+  [ -n "${EGRESS_ALLOWED_HOST:-}" ] && [ -n "${EGRESS_ALLOWED_PORT:-}" ] \
+    && [ "$E_HOST" = "$EGRESS_ALLOWED_HOST" ] && [ "$E_PORT" = "$EGRESS_ALLOWED_PORT" ] \
+    || die "egress must match locally configured EGRESS_ALLOWED_HOST:EGRESS_ALLOWED_PORT"
+  [ "$E_PORT" -ge 1 ] && [ "$E_PORT" -le 65535 ] || die "egress port must be 1-65535"
   EGRESS_JSON=$(jq -n --arg s "$E_SCHEME" --arg h "$E_HOST" --argjson p "$E_PORT" --arg u "$E_USER" --arg pw "$E_PASS" \
     '{type:"custom",scheme:$s,hostname:$h,port:$p} + (if $u != "" then {username:$u,password:$pw} else {} end)')
 fi
@@ -142,11 +144,10 @@ body() {  # $1 = CVC storage
     --arg cs "$1" --arg h "$HOSTS" --argjson e "$EGRESS_JSON" --arg adapter "$ADAPTER" \
     --argjson context "$CONTEXT_JSON" --arg now "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" '
     {data:{type:"reveal-sessions",attributes:(
-      (if $adapter != "" then {adapter:$adapter,cards:[
+      {cards:[
         ({number:{alias:$pa,format:"card_number",bin:$b,length:$l,storage:"PERSISTENT"}}
          + (if $ca != "" then {cvc:{alias:$ca,format:"card_cvc",storage:$cs}} else {} end))]}
-       else {aliases: ([{alias:$pa,format:"card_number",bin:$b,length:$l,storage:"PERSISTENT"}]
-                 + (if $ca != "" then [{alias:$ca,format:"card_cvc",storage:$cs}] else [] end))} end)
+      + (if $adapter != "" then {adapter:$adapter} else {} end)
       + (if $context then {context:($context + {adyen_generationtime:$now})} else {} end)
       + (($h|split(",")|map(select(. != ""))) as $hs | if ($hs|length) > 0 then {allowed_hosts:$hs} else {} end)
       + (if $e then {egress_proxy_settings:$e} else {} end))}}'
