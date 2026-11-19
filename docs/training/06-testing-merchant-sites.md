@@ -1,142 +1,203 @@
 # 6. Testing merchant sites
 
-**When you finish this page you can** test a merchant site through AWG at three levels with the `awg-sitecheck` tool.
+**When you finish this page you can** find out whether an agent can shop on a merchant's site through AWG, using the `awg-sitecheck` tool.
 
 > **Status: source-checked, not run.** The commands here were checked against the tool code. Nobody has run them as part of writing this page.
 
-`tools/sitecheck/` holds `awg-sitecheck`, a CLI that tests a merchant site through AWG at three levels. Start at level 1 and go up only when the level below passes.
+## The three levels
 
-| Level | Command | Question it answers | Touches the merchant? | Card? |
-|---|---|---|---|---|
-| 1. Probe | `awg-sitecheck probe [site...] [--deep] [--direct]` | Can an agent reach the site through the gateway? What blocks it? Which PSP? | Pages only | None typed. The session still carries the card aliases when `sites.yaml` names a card |
-| 2. Verify | `awg-sitecheck verify harness/merchants/<site>.json --card card.json` | Does the adapter's encryption produce what the PSP expects? | No (echo host) | Session card, through the proxy |
-| 3. Purchase | `awg-sitecheck purchase <site> [--purchase --max-total N]` | Does a recorded checkout work end to end? | Full checkout | Stand-ins typed; real card revealed by the gateway |
+Test in this order. Go up a level only when the one below passes.
 
-## Install
+| Level | Command | The question it answers | Does it touch the merchant? |
+|---|---|---|---|
+| 1. Probe | `probe` | Can an agent reach the site through AWG? What blocks it? Which payment provider does it use? | Loads pages only |
+| 2. Verify | `verify` | Does the adapter's encryption produce what the payment provider expects? | No |
+| 3. Purchase | `purchase` | Does a whole checkout work? | Yes, a full checkout |
 
-Needs Python 3.11 or later and [uv](https://docs.astral.sh/uv/).
+## What you need
+
+1. Python 3.11 or later, and [uv](https://docs.astral.sh/uv/).
+2. A service account on a sandbox tenant, with the scopes `reveal-sessions:write`, `reveal-sessions:read`, `agent-gateway:read` and `agent-gateway:write`.
+3. The aliases of a card stored in that tenant.
+4. A residential egress proxy you are authorized to use, and its password.
+5. The tenant setting `agentGatewayBrowserEmulation=true`. Sites with bot protection need it. Ask the AWG team whether your tenant has it.
+
+## Set up, once
+
+### 1. Install the tool
 
 ```sh
 cd tools/sitecheck
 uv sync
 uv run playwright install chromium
+```
+
+### 2. Create your two private files
+
+```sh
 cp sites.example.yaml sites.yaml
 cp harness/card.example.json card.json
 ```
 
-`sites.yaml`, `card.json` and `runs/` are git-ignored. Keep them that way.
+Git ignores both files, and the `runs/` folder the tool writes. Keep it that way.
 
-In the command blocks on this page, text after `#` is a note. Do not type it: the default macOS shell (zsh) would pass it to the command.
+### 3. Fill in `card.json`
 
-## Credentials
+Put your card's **aliases** in it, with the card's first six digits. Never put a card number in this file.
 
-Nothing secret goes in a file in that folder.
-
-| What | How |
-|---|---|
-| VGS API | `VGS_CLIENT_ID` and `VGS_CLIENT_SECRET`, or `VGS_ACCESS_TOKEN`, or on macOS `VGS_KEYCHAIN=<Keychain service>` |
-| Scopes | `reveal-sessions:write`, `reveal-sessions:read`, `agent-gateway:read`, `agent-gateway:write`; `aliases:write` to create card aliases; `access-logs:read` for `vgs logs` |
-| Tenant setting | `agentGatewayBrowserEmulation=true`, set once per tenant. Sites behind Akamai and similar bot walls need it |
-| Egress proxy password | The environment variable named by the profile's `password_env`, or its `password_keychain` |
-
-`card.json` holds vault aliases, never card data. `sites.yaml` sets the environment (`prod-sandbox` or `dev`), the tenant, the egress profile, the session context and the shopper's contact details.
-
-## Level 1: probe
-
-```sh
-uv run awg-sitecheck probe                          # every site in sites.yaml
-uv run awg-sitecheck probe hm-us --direct --deep    # one site; also without the gateway, and through the recipe to the card form
-uv run awg-sitecheck report runs/probe-<time>       # rebuild the scorecard
+```json
+{"label": "test", "number": {"alias": "tok_sandbox_…", "bin": "411111"}, "cvc": {"alias": "…", "length": 3}}
 ```
 
-A new site needs only `id`, `name` and `urls` in `sites.yaml`. Each run writes `runs/probe-<time>/` with `scorecard.md`, `scorecard.html`, and per site a `result.json`, a video and `final.png`.
+### 4. Fill in the top of `sites.yaml`
 
-| Verdict | Meaning | Next step |
+Under `defaults`, set:
+
+| Key | What to put |
+|---|---|
+| `env` | `prod-sandbox` or `dev` |
+| `tenant` | Your tenant id |
+| `egress` | The name of an egress profile further down the file |
+| `context` | The card's expiry month and year |
+| `contact` | The shopper's details the checkout will need. Use test identities where the site allows it |
+
+### 5. Put your credentials in the shell
+
+Nothing secret goes in a file in this folder.
+
+```sh
+read -r  VGS_CLIENT_ID
+read -rs VGS_CLIENT_SECRET
+read -rs SOAX_PASSWORD
+export VGS_CLIENT_ID VGS_CLIENT_SECRET SOAX_PASSWORD
+```
+
+Each `read` waits for you to paste a value and press Enter. `SOAX_PASSWORD` is the example profile's variable; use the name your egress profile's `password_env` gives.
+
+## Level 1: probe a site
+
+### 6. Add the site
+
+In `sites.yaml`, under `sites`, add an entry with three things:
+
+```yaml
+  - id: example-shop
+    name: Example shop
+    urls: ["https://www.example-shop.com/", "https://www.example-shop.com/p/some-product"]
+```
+
+### 7. Run the probe
+
+```sh
+uv run awg-sitecheck probe example-shop --direct
+```
+
+`--direct` also loads the same pages without AWG, through the egress proxy only. That is how you tell whether a block comes from the gateway path or from the site itself.
+
+**Success:** the tool writes a folder `runs/probe-<time>/` with a scorecard (`scorecard.md`, `scorecard.html`) and, for the site, a `result.json`, a video and a final screenshot.
+
+### 8. Read the verdict
+
+| Verdict | What it means | What to do next |
 |---|---|---|
-| `reachable` | Every page loaded through the gateway and none was blocked | Write a recipe, then `probe --deep` |
-| `blocked-by-gateway-path` | Blocked through the gateway, fine with `--direct` | The gateway path is the cause. Check the tenant has `agentGatewayBrowserEmulation=true` and the egress profile has a `sticky_suffix` |
-| `blocked-even-direct` | Blocked through the gateway, and a direct page was also blocked, failed to load, or returned a status outside 200–399 | Check `direct_pages[].error` first: `--direct` needs an egress profile. If the direct page really was blocked, the site blocks the exit IP or region; try another egress profile. Not a gateway bug |
-| `blocked` | Blocked through the gateway, and no direct comparison was run | Run again with `--direct` |
-| `errors` | A page errored, or returned a status outside 200–399 that is not a recognised bot-wall block (a `404` or `500`, for example) | Look at `pages[].error` and the video |
-| `error` | The run failed before any page was attempted, for example at session creation or browser launch. A page that fails to load gives `errors` | Read the error in `result.json` |
+| `reachable` | Every page loaded through AWG | Go to step 9 |
+| `blocked-by-gateway-path` | Blocked through AWG, fine without it | The gateway path is the cause. Check the tenant has `agentGatewayBrowserEmulation=true` and the egress profile has a `sticky_suffix` |
+| `blocked-even-direct` | Blocked through AWG, and the direct load also failed | Look at `direct_pages[].error` in `result.json` first. If the direct page really was blocked, the site blocks that exit IP or region: try another egress profile. This is not a gateway bug |
+| `blocked` | Blocked through AWG, with no direct comparison | Run again with `--direct` |
+| `errors` | A page errored, or returned something like a `404` or `500` | Look at `pages[].error` and the video |
+| `error` | The run failed before any page was tried | Read the error in `result.json` |
 
-`--direct` is how you tell whose problem it is: it loads the same URLs through the egress proxy only. If direct is 200 and the gateway is 403, it is the gateway path. If both are 403, it is the site or the IP.
+### 9. Find the payment provider
 
-`--deep` runs the recipe named by the site's `recipe:` field in `sites.yaml` (the clicks from product page to card form) and reports the payment frames and the PSP. Without a `recipe:` it does nothing extra. It reports whether the key was captured when the site has an `adapter:` and the recipe lists `CAPTURE_KEYS`. With `--deep` the verdict gains a suffix: `; payment-form-ok` (ready for levels 2 and 3), `; capture-missing` or `; recipe-failed`.
+A **recipe** is a short Python file with the clicks from the product page to the card form.
 
-## Level 2: verify
+1. Copy `recipes/_template.py` to `recipes/example_shop.py` and fill it in.
+2. Add `recipe: recipes/example_shop.py` to the site's entry in `sites.yaml`.
+3. Run:
 
-For Adyen adapters today. The files in `harness/merchants/` hold one tenant's binding ids: the `*-prod-sandbox.json` files name a prod sandbox tenant, and `hm.json`, `jysk.json`, `dunelm.json` and `alza.json` are the bindings the engineering spec and the harness README describe on the dev tenant. For each merchant file you pass, the harness:
+```sh
+uv run awg-sitecheck probe example-shop --deep
+```
 
-1. dry-runs the capture binding's function on a saved payment page and checks that the merchant's public key is what ends up in the session;
-2. copies the merchant's checkout binding onto a unique path on an echo host, opens a session, plants a key **the harness owns** through the capture function, sends the merchant's checkout body with placeholders where the browser's ciphertext would be, and decrypts what comes back.
+**Success:** the verdict ends in `; payment-form-ok`, and the result names the payment provider and says whether it encrypts the card in the browser.
 
-Each placeholder must have become a JWE under the planted key carrying a number that matches the card's BIN and length, the expiry from the session context, a `generationtime` from the page or the context (the report says which), and a CVC of the card's CVC length. Every other field must be unchanged. The merchant is never contacted, and the harness deletes everything it creates.
+- If it does **not** encrypt in the browser, you need no adapter. Add the provider's API host to the site's `allowed_hosts` and go to level 3.
+- If it **does**, you need an adapter. Do page 5, then level 2.
 
-| Status | Meaning |
+## Level 2: verify an adapter
+
+This level exists for Adyen adapters today. It never contacts the merchant.
+
+### 10. Run the harness
+
+```sh
+uv run awg-sitecheck verify harness/merchants/hm-us-prod-sandbox.json --card card.json
+```
+
+Always pass `--card`.
+
+The harness sends the merchant's checkout request, with placeholders where the browser's encrypted fields would be, through the real session proxy to a test host that echoes it back. It then decrypts the result with a key it owns, and checks each field. It deletes everything it creates.
+
+**Success:** every field reads `PASS`.
+
+| Status | What it means |
 |---|---|
 | `PASS` | The field decrypted to the right value |
-| `FAIL` | The field was not replaced, did not decrypt, carries the wrong value, or something else in the body changed |
-| `UNTESTED` | The harness could not test the field; today, a CVC field with a CVC-less card |
-| `NOTE` | The body came back unchanged for the whole propagation window, so the function did not act on it |
-| `INFO` | How long the bindings took to go live, and the session's `reveal_count` and `refusal_count` |
+| `FAIL` | The field was not replaced, did not decrypt, has the wrong value, or something else in the request changed |
+| `UNTESTED` | The harness could not test the field. Today that means a CVC field with a card that has no CVC alias |
+| `NOTE` | The request came back unchanged, so the function did nothing |
+| `INFO` | Timing, and the session's `reveal_count` and `refusal_count` |
 
-To iterate on a function without touching the live binding:
+To test an edited function without touching the live one, add `--function FN…=path/to/edited.star`.
 
-```sh
-uv run awg-sitecheck verify harness/merchants/hm-us-prod-sandbox.json --card card.json --function FN…=path/to/edited.star
-```
+## Level 3: a recorded checkout
 
-Always pass `--card`. The harness README says that without it the harness uses the dev smoke card, but the code loads that card through a module that is not in this repository, and exits when it cannot.
-
-Details and how to add a merchant: `tools/sitecheck/harness/README.md`.
-
-## Level 3: purchase
+### 11. Do a dry run of the checkout
 
 ```sh
-uv run awg-sitecheck purchase hm-us                                 # stops before the order
-uv run awg-sitecheck purchase hm-us --purchase --max-total 30.00    # places it
+uv run awg-sitecheck purchase example-shop
 ```
 
-Without `--purchase` the run stops before the order. With `--purchase`, `--max-total` is required, and the order is placed only if the total shown is at or below it. Nothing is retried after the order request has been sent. A human completes 3-D Secure and CAPTCHAs.
+This runs the whole checkout and **stops before placing the order**. Stand-in values are typed into the card form; AWG reveals the real card.
 
-**Place an order only when a human has approved that item and that maximum total in writing.** See page 8.
+**Success:** `runs/purchase-<time>/example-shop/` holds a video and a `result.json`. Hand both to a person to review.
 
-## Adapters as code
+### 12. Place an order, only with written approval
+
+**Place an order only when a person has approved that item and a maximum total, in writing.** See page 8.
 
 ```sh
-uv run awg-sitecheck adapter plan     adapters/adyen-cse/hm-us.yaml
-uv run awg-sitecheck adapter apply    adapters/adyen-cse/hm-us.yaml
-uv run awg-sitecheck adapter dry-run  adapters/adyen-cse/hm-us.yaml capture adapters/adyen-cse/fixtures/capture.json
-uv run awg-sitecheck adapter list
-uv run awg-sitecheck adapter teardown adapters/adyen-cse/hm-us.yaml
+uv run awg-sitecheck purchase example-shop --purchase --max-total 30.00
 ```
 
-`apply` creates a new function when the source changes, adds an adapter version and moves the bindings to it. `teardown` removes bindings, then the adapter, then the functions.
+The order is placed only if the total on screen is at or below `--max-total`. Nothing is retried once the order request has been sent. A person completes any 3-D Secure step or CAPTCHA.
 
-## Typical flow for a new site
+## If a site blocks you
 
-1. Add the site to `sites.yaml`, then run `probe <id> --direct`.
-2. If it is `reachable`, write a recipe up to the card form (copy `recipes/_template.py`), set `recipe:` on the site in `sites.yaml`, and run `probe <id> --deep`, which reports the PSP.
-3. If the PSP uses client-side encryption, write the adapter from the template, then `apply`, `dry-run` and `verify`.
-4. Run `purchase <id>`; it stops before the order. Hand the video and `result.json` to a human.
-5. Purchase only with written approval and a `--max-total`.
+These come from the H&M US purchase of 2026-11-14.
 
-## What real sites taught the team
-
-From the H&M US purchase of 2026-11-14 (`tools/sitecheck/docs/lessons.md`):
-
-| Symptom | Cause | Fix |
+| What you see | Why | Fix |
 |---|---|---|
-| `403`, `Server: AkamaiGHost`, on every page through the gateway while direct is `200` | The site sees the gateway's TLS fingerprint and a `Via` header instead of Chrome's | Tenant setting `agentGatewayBrowserEmulation=true` |
-| Pages `200` but the cart POST answers `403` | The egress proxy rotates the exit IP per connection, and Akamai binds its cookies to the client | A sticky egress session (`sticky_suffix` in `sites.yaml`) |
-| Cart POST `403` now and then | Akamai's sensor had not validated the session yet | `run.browse()` before cart and checkout POSTs |
-| Email lookup POST `403` every time, even without the gateway | The site rate-limits lookups of one email address | A fresh contact email for the run |
+| `403` on every page through AWG, while direct is `200` | The site sees the gateway's network fingerprint instead of Chrome's | The tenant setting `agentGatewayBrowserEmulation=true` |
+| Pages load, but adding to the cart answers `403` | The egress proxy changes your exit IP on each connection, and the site ties its cookies to one client | A sticky egress session: `sticky_suffix` on the egress profile in `sites.yaml` |
+| Adding to the cart answers `403` now and then | The site's bot check had not finished | Call `run.browse()` in the recipe before the cart and checkout steps |
+| The email step answers `403` every time, even without AWG | The site limits how often one email address can be looked up | A fresh contact email for the run |
 
-Keep runs few and spaced per site. Bot walls learn from repetition, and a burned egress IP or email address blocks everyone.
-
-For AI agents working in that folder, `tools/sitecheck/AGENTS.md` and the three skills under `tools/sitecheck/skills/` give the same workflow as instructions.
+Keep runs few and spaced out per site. Bot protection learns from repetition, and a burned exit IP or email address blocks everyone.
 
 ---
 
-Sources: `tools/sitecheck/README.md`, `tools/sitecheck/AGENTS.md`, `tools/sitecheck/harness/README.md`, `tools/sitecheck/adapters/README.md`, `tools/sitecheck/docs/lessons.md`, `tools/sitecheck/skills/awg-site-probe/SKILL.md`, `tools/sitecheck/skills/awg-checkout-recipe/SKILL.md` (recipes), `tools/sitecheck/sites.example.yaml`, `tools/sitecheck/.gitignore`, `tools/sitecheck/pyproject.toml`, and the code: `tools/sitecheck/awg_sitecheck/cli.py`, `probe.py` (verdicts, `--deep`, the session card), `session.py`, `purchase.py` (`--max-total`), `adapters.py` (`apply`, `teardown`), `tools/sitecheck/harness/awg_harness.py` (`--card`), `tools/sitecheck/harness/merchants/*.json`.
+## Details and sources
+
+- **Other ways to give credentials.** `VGS_ACCESS_TOKEN`, or on macOS `VGS_KEYCHAIN=<Keychain service>`; an egress profile can use `password_keychain`. Creating card aliases needs `aliases:write`; `vgs logs` needs `access-logs:read`.
+- **Probe without a site id** runs every site in `sites.yaml`. `uv run awg-sitecheck report runs/probe-<time>` rebuilds a scorecard.
+- **Level 1 and the card.** No card is typed, but the session still carries the card aliases when `sites.yaml` names a card.
+- **Verdicts in full.** `blocked-even-direct` is given when a direct page was blocked, failed to load, or returned a status outside 200–399; `--direct` needs an egress profile. `errors` covers any status outside 200–399 that is not a recognised bot-wall block. A page that fails to load gives `errors`, not `error`.
+- **`--deep` in full.** Without a `recipe:` it does nothing extra. The other suffixes are `; capture-missing` and `; recipe-failed`. It reports whether the key was captured when the site has an `adapter:` and the recipe lists `CAPTURE_KEYS`.
+- **What the harness checks.** It first dry-runs the capture function on a saved payment page and checks the merchant's public key ends up in the session. Then each placeholder must have become a JWE under the harness's key, carrying a number that matches the card's BIN and length, the expiry from the session context, a `generationtime` from the page or the context (the report says which), and a CVC of the card's CVC length. Every other field must be unchanged. New bindings take time to reach the proxy; the harness waits up to 120 seconds by default.
+- **Merchant files.** The files in `harness/merchants/` hold one tenant's binding ids. The `*-prod-sandbox.json` files name a prod sandbox tenant. `hm.json`, `jysk.json`, `dunelm.json` and `alza.json` are the bindings the engineering spec and the harness README describe on the dev tenant. To add a merchant, see `tools/sitecheck/harness/README.md`.
+- **`--card`.** The harness README says that without it the harness uses the dev smoke card, but the code loads that card through a module that is not in this repository, and exits when it cannot.
+- **Managing adapters with the tool.** `uv run awg-sitecheck adapter plan|apply|dry-run|teardown <spec.yaml>` and `adapter list`. Page 5 uses them.
+- **For AI agents** working in that folder, `tools/sitecheck/AGENTS.md` and the three skills under `tools/sitecheck/skills/` give the same workflow as instructions.
+
+Sources: `tools/sitecheck/README.md`, `tools/sitecheck/AGENTS.md`, `tools/sitecheck/harness/README.md`, `tools/sitecheck/adapters/README.md`, `tools/sitecheck/docs/lessons.md`, `tools/sitecheck/skills/awg-site-probe/SKILL.md`, `tools/sitecheck/skills/awg-checkout-recipe/SKILL.md` (recipes), `tools/sitecheck/sites.example.yaml`, `tools/sitecheck/.gitignore`, `tools/sitecheck/pyproject.toml`, and the code: `tools/sitecheck/awg_sitecheck/cli.py`, `probe.py` (verdicts, `--deep`, the session card), `session.py`, `purchase.py` (`--max-total`), `adapters.py`, `tools/sitecheck/harness/awg_harness.py` (`--card`), `tools/sitecheck/harness/merchants/*.json`.
