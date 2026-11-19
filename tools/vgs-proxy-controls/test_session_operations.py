@@ -41,7 +41,8 @@ class OperationsTests(unittest.TestCase):
         self.assertEqual(r['status'], 'complete'); self.assertEqual(len(self.calls), 1)
         attrs = self.calls[0][2]
         self.assertEqual(attrs['allowed_hosts'], ['pay.example.com'])
-        self.assertEqual([a['storage'] for a in attrs['aliases']], ['PERSISTENT', 'VOLATILE'])
+        self.assertEqual([attrs['cards'][0][role]['storage'] for role in ('number', 'cvc')], ['PERSISTENT', 'VOLATILE'])
+        self.assertNotIn('aliases', attrs)
         self.assertEqual(attrs['egress_proxy_settings']['hostname'], 'egress.fixture')
         self.operations.create(self.options)
         restarted = Operations(self.client, self.path / 'sessions', egress_file=self.egress)

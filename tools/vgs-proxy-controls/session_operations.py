@@ -98,6 +98,22 @@ def validate_card(card, environment="dev"):
     return out
 
 
+def session_parts(aliases):
+    """Retain a single card's roles independently of adapter selection."""
+    numbers = [a for a in aliases if a['format'] == 'card_number']
+    cvcs = [a for a in aliases if a['format'] == 'card_cvc']
+    if numbers or cvcs:
+        if len(numbers) != 1 or len(cvcs) != 1:
+            raise ValueError('Use one card number and one security code; multiple cards need explicit role grouping')
+        result = {'cards': [{'number': numbers[0], 'cvc': cvcs[0]}]}
+    else:
+        result = {}
+    text = [a for a in aliases if a['format'] == 'text']
+    if text:
+        result['aliases'] = text
+    return result
+
+
 class Operations:
     def __init__(self, client, directory, *, egress_file=None, tokenizer_socket=None, capture_profile=None, slot_file=None):
         self.client, self.directory = client, Path(directory)
@@ -249,7 +265,7 @@ class Operations:
             attrs = {'egress_proxy_settings': egress} if egress else {}
             if options['allowedHosts']: attrs['allowed_hosts'] = options['allowedHosts']
             if options['source'] == 'dashboard':
-                attrs['aliases'] = options['aliases']
+                attrs.update(session_parts(options['aliases']))
                 if options['allowedClientCidrs']: attrs['allowed_client_cidrs'] = options['allowedClientCidrs']
                 if options['adapter']:
                     if not any(row['id'] == options['adapter'] for row in self.adapters()['adapters']):
@@ -257,8 +273,8 @@ class Operations:
                     attrs['adapter'] = options['adapter']
             else:
                 card = self.fresh_card() if options['source'] == 'tokenizer' else validate_card({k: {p: v for p, v in a.items() if p != 'format'} for k, a in options['card'].items()}, self.environment)
-                if options['adapter']: attrs.update(adapter=options['adapter'], cards=[card])
-                else: attrs['aliases'] = list(card.values())
+                attrs['cards'] = [card]
+                if options['adapter']: attrs['adapter'] = options['adapter']
             # Journal before POST: retrying an interrupted request never duplicates it.
             submitted = True
             response = self.client.api('POST', '/reveal-sessions', attrs, 'reveal-sessions', accepted=(201,))

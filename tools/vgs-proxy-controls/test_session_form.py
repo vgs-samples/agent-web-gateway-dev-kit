@@ -39,7 +39,7 @@ class DashboardFormTests(unittest.TestCase):
         self.operations.create(self.value); self.assertEqual(self.finish(self.value['requestId'])['status'],'complete')
         self.assertEqual(self.calls[0][:2],('GET','/agent-gateway-adapters'))
         attrs=self.calls[-1][2]
-        self.assertEqual(attrs['aliases'],self.aliases);self.assertNotIn('cards',attrs)
+        self.assertEqual(attrs['cards'],[{'number':self.aliases[0],'cvc':self.aliases[1]}]);self.assertNotIn('aliases',attrs)
         self.assertEqual(attrs['adapter'],'ADGLOBAL')
         self.assertEqual(attrs['allowed_client_cidrs'],['203.0.113.0/24','2001:db8::1/128'])
         self.assertEqual(attrs['egress_proxy_settings']['password'],'fixture-secret')
@@ -64,7 +64,33 @@ class DashboardFormTests(unittest.TestCase):
         for row in self.aliases: row['alias']=row['alias'].replace('tok_sandbox_','tok_dev_')
         self.operations.create(self.value)
         self.assertEqual(self.finish(self.value['requestId'])['status'],'complete')
-        self.assertEqual(self.calls[-1][2]['aliases'],self.aliases)
+        self.assertEqual(self.calls[-1][2]['cards'],[{'number':self.aliases[0],'cvc':self.aliases[1]}])
+    def test_automatic_adapter_keeps_card_roles_and_separate_text_aliases(self):
+        text={'alias':'tok_sandbox_textfixture','format':'text','storage':'PERSISTENT'}
+        self.value.update(adapter='',aliases=[text,self.aliases[1],self.aliases[0]])
+        self.operations.create(self.value)
+        self.assertEqual(self.finish(self.value['requestId'])['status'],'complete')
+        attrs=self.calls[-1][2]
+        self.assertNotIn('adapter',attrs)
+        self.assertEqual(attrs['cards'],[{'number':self.aliases[0],'cvc':self.aliases[1]}])
+        self.assertEqual(attrs['aliases'],[text])
+    def test_multiple_cards_are_not_paired_by_list_order(self):
+        self.value['aliases']=self.aliases+[{**a,'alias':a['alias']+'second'} for a in self.aliases]
+        self.operations.create(self.value)
+        result=self.finish(self.value['requestId'])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('explicit role grouping',result['error'])
+        self.assertFalse(any(c[0]=='POST' for c in self.calls))
+    def test_tokenizer_automatic_selection_keeps_new_card_roles(self):
+        value={'requestId':str(uuid.uuid4()),'source':'tokenizer','adapter':'','allowedHosts':[]}
+        card={'number':self.aliases[0],'cvc':self.aliases[1]}
+        with patch.object(self.operations,'fresh_card',return_value=card) as tokenizer:
+            self.operations.create(value)
+            self.assertEqual(self.finish(value['requestId'])['status'],'complete')
+            tokenizer.assert_called_once()
+        self.assertEqual(self.calls[-1][2]['cards'],[card])
+        self.assertNotIn('aliases',self.calls[-1][2])
+        self.assertNotIn('adapter',self.calls[-1][2])
     def test_unpublished_adapter_never_submits(self):
         self.value['adapter']='ADPRIVATE';self.operations.create(self.value)
         self.assertEqual(self.finish(self.value['requestId'])['status'],'failed')
