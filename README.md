@@ -190,6 +190,21 @@ Ask your VGS contact for these. None of them are in this repository.
 
 Do the labs in a private folder outside this repository, and never commit credentials, card files, session files or run output.
 
+## VGS documentation
+
+The official documentation is at [docs.verygoodsecurity.com](https://docs.verygoodsecurity.com). These pages go with this kit:
+
+| Topic | Page |
+|---|---|
+| Agent Web Gateway API | [API reference](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway): [reveal sessions](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/reveal-sessions), [step-up approvals](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/step-up-approvals), [destinations](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/destinations), [functions](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/functions), [adapters](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/adapters), [adapter destinations](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/adapter-destinations) |
+| Agentic commerce | [Overview](https://docs.verygoodsecurity.com/agentic-commerce/agentic-commerce-overview), [agentic payments with a merchant user interface](https://docs.verygoodsecurity.com/agentic-commerce/agentic-payments-with-a-merchant-user-interface) |
+| Getting set up | [Create a VGS vault](https://docs.verygoodsecurity.com/agentic-commerce/create-a-vgs-vault), [collect card data from a user](https://docs.verygoodsecurity.com/agentic-commerce/collect-card-data-from-user) |
+| Service accounts and access tokens | [Authentication](https://docs.verygoodsecurity.com/cmp/platform/authentication), [service accounts](https://docs.verygoodsecurity.com/enterprise-platform/access-management/service-accounts-for-programmatic-access), [creating one with the VGS CLI](https://docs.verygoodsecurity.com/enterprise-platform/access-management/service-accounts-for-programmatic-access/creating-service-accounts-using-the-vgs-cli) |
+| Storing a card | [Cards API](https://docs.verygoodsecurity.com/cmp/developer-resources/api/cards), [create a card using VGS Collect](https://docs.verygoodsecurity.com/cmp/developer-resources/guides/create-a-card-using-vgs-collect), [aliases](https://docs.verygoodsecurity.com/vault/tokens) |
+| VGS CLI | [Getting started](https://docs.verygoodsecurity.com/vault/developer-tools/vgs-cli/getting-started), [commands](https://docs.verygoodsecurity.com/vault/developer-tools/vgs-cli/commands) |
+| Proxying a browser | [Proxying websites via browser settings](https://docs.verygoodsecurity.com/vault/example-integrations/browser-proxy) |
+| Going live | [Going live](https://docs.verygoodsecurity.com/vault/developer-tools/vault-management/going-live) |
+
 ## What is in this repository
 
 | Path | What it is |

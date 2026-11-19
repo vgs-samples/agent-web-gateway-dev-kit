@@ -43,7 +43,7 @@ If the same request fails on a direct connection, the cause is the merchant or t
 
 ## Trace one request
 
-Every request through VGS has a `vgs-request-id`. A `422` response contains it too. With that id and the `access-logs:read` scope, run:
+Every request through VGS has a `vgs-request-id`. A `422` response contains it too. With that id and the `access-logs:read` scope, run: (These use the [VGS CLI](https://docs.verygoodsecurity.com/vault/developer-tools/vgs-cli/getting-started).)
 
 ```bash
 vgs logs access -R <request id>

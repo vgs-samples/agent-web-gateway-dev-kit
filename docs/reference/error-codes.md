@@ -10,7 +10,7 @@ API errors arrive in one envelope:
 - `403` means a missing scope. It carries no code.
 - `404` means an unknown or deleted id, or one that belongs to another tenant. It carries no code.
 
-The [API specification](../../openapi/awg-tenant-api.yaml) lists the codes each operation can return, in that operation's description. This page explains the most common ones.
+The [API specification](../../openapi/awg-tenant-api.yaml) lists the codes each operation can return, in that operation's description. The same reference is published in the [VGS documentation](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway). This page explains the most common ones.
 
 ## Sessions
 

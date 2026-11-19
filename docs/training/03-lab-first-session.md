@@ -6,9 +6,9 @@
 
 ## What you need
 
-1. A service account on a sandbox tenant enabled for AWG, with the scopes `reveal-sessions:write` and `reveal-sessions:read`. You need both: write does not include read.
+1. A [service account](https://docs.verygoodsecurity.com/enterprise-platform/access-management/service-accounts-for-programmatic-access) on a sandbox tenant enabled for AWG, with the scopes `reveal-sessions:write` and `reveal-sessions:read`. You need both: write does not include read.
 2. Your tenant id. It starts with `tnt`.
-3. The aliases of a **test card** already stored in that tenant, with the card's first six digits (BIN) and its length. Lab 4's script stores one.
+3. The aliases of a **test card** already stored in that tenant, with the card's first six digits (BIN) and its length. The [Cards API](https://docs.verygoodsecurity.com/cmp/developer-resources/api/cards) stores one. Lab 4's script stores one.
 4. A website to call. Pick any site you would be happy to load in a browser.
 5. A terminal running `bash`, with `curl` and `jq`. On macOS, type `bash` first.
 
