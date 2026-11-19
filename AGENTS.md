@@ -18,6 +18,7 @@ Run these in order. Stop and tell the developer if a step fails; do not work aro
 4. `./awg start` (or `./awg start https://<the site to test>/` to allow that site and open it in a second tab)
    - Creates a reveal session for the VGS test card, starts the control panel helper, and opens CloakBrowser with the control panel in the first tab and the site in the second.
    - It runs until the browser is closed, so start it in the background or ask the developer to run it.
+   - It opens a browser window and starts a helper on a local port. If your sandbox or permission mode refuses the command or blocks either of those, do not retry or work around it: ask the developer to run `./awg start` in their own terminal (in Claude Code, by typing `! ./awg start`).
    - If it says CloakBrowser needs a license key, ask the developer to run `./awg cloak-login` in their own terminal. A free key is enough.
 
 ## What success looks like

@@ -22,6 +22,8 @@ To test a checkout, add the site's address. The session then allows that site, a
 
 **Using a coding agent?** Open this folder in Claude Code, Codex or Cursor and say "set up this dev kit". It follows [AGENTS.md](AGENTS.md).
 
+Run `./awg start` yourself, in your own terminal. It opens a browser window and starts a small helper on your machine, and a coding agent that runs commands in a sandbox or behind a permission prompt may be refused or unable to do either. In Claude Code, type `! ./awg start` to run it yourself inside the session.
+
 ## What you need
 
 - **A VGS Sandbox service account** on a tenant enabled for Agent Web Gateway: its tenant id, client id and client secret. Ask your VGS contact.
