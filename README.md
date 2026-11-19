@@ -18,8 +18,6 @@ AWG lets an AI agent pay on a merchant's website with a card stored in VGS, with
 
 Some payment providers encrypt the card in the browser. For those, VGS runs an **adapter** that rebuilds the encrypted fields from the real card. Page 1 shows that case.
 
-*Slide from VGS's "Agent Web Gateway" deck, November 2026.*
-
 ## Testing with the control panel
 
 **Recommended browser workflow:** browse through **Egress Proxy** first. When

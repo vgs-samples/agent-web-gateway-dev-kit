@@ -45,8 +45,6 @@ Only the payment provider can decrypt the result. Adyen is the reference integra
 
 Page 5 covers adapters.
 
-*Both slides are from VGS's "Agent Web Gateway" deck, November 2026.*
-
 ## Where the traffic goes
 
 Only the payment hosts go through VGS. With the session's PAC file, the browser sends the session's `allowed_hosts`, and the hosts its adapters are bound to, through the VGS session proxy. Every other site loads directly, or through the customer's own egress proxy if the session sets one.
