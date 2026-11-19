@@ -111,5 +111,5 @@ Collect these first:
 
 The refusal reasons listed here may change. Treat the `reason` in the response as authoritative.
 
-**API errors** use one envelope: `{"errors": [{"status", "code", "title", "detail", "href"}]}`. `400` and `409` carry a `code`; `403` means a missing scope and `404` an unknown, deleted or another tenant's id.
+**API errors** use one envelope: `{"errors": [{"status", "code", "title", "detail", "href"}]}`. `400` and `409` carry a `code`; `403` means a missing scope and `404` an unknown, deleted or another tenant's id. Every code is explained in [API error codes](../reference/error-codes.md).
 

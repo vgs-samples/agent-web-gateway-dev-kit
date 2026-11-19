@@ -195,7 +195,7 @@ Do the labs in a private folder outside this repository, and never commit creden
 | Path | What it is |
 |---|---|
 | `docs/training/` | The training pages |
-| `docs/reference/` | The Agent Web Gateway developer guide, and a diagram of the request path |
+| `docs/reference/` | The Agent Web Gateway developer guide, the API error codes, and a diagram of the request path |
 | `openapi/` | The API specification |
 | `tools/sitecheck/` | `awg-sitecheck`, the tool that tests merchant sites (page 6) |
 | `tools/vgs-proxy-controls/` | Agent Web Gateway Control Panel source, local helper, tests and package builder (page 10) |
