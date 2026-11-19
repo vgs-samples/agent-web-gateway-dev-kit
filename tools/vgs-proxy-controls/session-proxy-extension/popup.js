@@ -18,7 +18,10 @@ const environmentLabel = value => ({dev: "Dev", sandbox: "Sandbox", live: "Live"
 let state = {mode: "unavailable", canControl: false, availableModes: []};
 
 function render() {
+    globalThis.renderTestRecording?.(state, busy);
     renderAccount();
+    globalThis.renderGateway?.(state);
+    globalThis.renderCertificate?.(state);
     renderBrowserEgress();
     const session = state.session || {};
     document.getElementById("session-id").textContent = session.sessionId || "Not available";
@@ -41,7 +44,7 @@ function render() {
         for (const row of rows) {
             const option = document.createElement("option");
             option.value = row.sessionId;
-            option.disabled = !row.available;
+            option.disabled = false; // Details remain inspectable even when activation is unavailable.
             option.textContent = row.sessionId + (row.available ? " · expires " + new Date(row.expiresAt).toLocaleTimeString() : " · " + row.reason);
             sessionSelect.append(option);
         }
@@ -62,8 +65,9 @@ function render() {
     document.getElementById("catalog-status").textContent = state.catalogError || (state.checkedAt
         ? `${(state.sessions || []).filter(s => s.available).length} usable session(s). Updated ${new Date(state.checkedAt).toLocaleTimeString()}.`
         : "Refresh to check active sessions and locally saved credentials.");
+    renderSessionInspector();
     stateLabel.dataset.mode = state.mode;
-    stateLabel.textContent = {pac: "Reveal Session PAC", session: "Reveal Session Proxy", egress: "Egress Proxy", direct: "No Proxy", unavailable: "Unavailable"}[state.mode];
+    stateLabel.textContent = {pac: "VGS Reveal Session PAC File", session: "VGS Reveal Session Proxy", egress: "Egress Proxy", direct: "No Proxy", unavailable: "Unavailable"}[state.mode];
     description.textContent = {
         pac: "The PAC file chooses the route for each destination. View its exact rules in Diagnostics.",
         session: "VGS handles browser traffic directly and applies the session’s reveal rules, then its configured egress.",
@@ -91,6 +95,7 @@ async function request(message) {
     try {
         const response = await chrome.runtime.sendMessage(message);
         if (!response) throw new Error("No response");
+        if (response.accountConnected) globalThis.resetGateway?.();
         state = response;
         if (response.fileSelection) renderFileSelection(response.fileSelection);
         else if (["browseAccountFile", "accountFileSelectionStatus"].includes(message.type)) { accountPicker=null; document.getElementById('account-file-status').textContent=''; }
@@ -238,6 +243,7 @@ function showView(view) {
         button.setAttribute("aria-pressed", String(selected));
         document.getElementById("view-" + button.dataset.view).hidden = !selected;
     }
+    if (view === "gateway") globalThis.openGateway?.();
 }
 for (const button of document.querySelectorAll("button[data-view]")) button.addEventListener("click", () => showView(button.dataset.view));
 document.getElementById("environment-shortcut").addEventListener("click", () => { showView("settings"); document.getElementById("environment-select").focus(); });
@@ -350,3 +356,77 @@ document.getElementById('account-file-form').addEventListener('submit',async eve
     if(result?.ok && result.accountConnected){accountDraftDirty=false;accountTenantChoices=[];resetCreation();renderAccountFile();document.getElementById('account-file-status').textContent='Connected. Sessions refreshed.';}
     else document.getElementById('account-file-status').textContent='';
 });
+
+let inspectorKey = '', inspectorSequence = 0, inspectorDetails = null, inspectorError = '', inspectorLoading = false;
+let inspectorCheckedAt = null, createdSessionNotice = null;
+function inspectorSelection() {
+    const sessionId = sessionSelect.value;
+    return /^RS[A-Za-z0-9]+$/.test(sessionId || '') && state.account?.tenantId
+        ? {sessionId,environment:state.environment,tenantId:state.account.tenantId} : null;
+}
+function renderSessionInspector() {
+    const selected = inspectorSelection(), key = JSON.stringify(selected);
+    if (key !== inspectorKey) {
+        inspectorKey = key; inspectorSequence++; inspectorDetails = null; inspectorError = ''; inspectorLoading = false;
+        document.getElementById('token-copy-status').textContent = '';
+        document.getElementById('selected-session-tokens').replaceChildren();
+        document.getElementById('selected-session-settings').replaceChildren();
+        globalThis.renderSelectedCertificate?.(selected);
+        if (selected) loadSessionInspector(selected,key);
+    } else if (selected && state.checkedAt !== inspectorCheckedAt && !inspectorLoading) loadSessionInspector(selected,key);
+    inspectorCheckedAt = state.checkedAt;
+    const container = document.getElementById('session-inspector'); container.hidden = !selected;
+    if (!selected) return;
+    const active = state.session?.sessionId === selected.sessionId && state.session?.environment === selected.environment;
+    const badge = document.getElementById('session-inspector-state'); badge.textContent = active ? 'Active in browser' : 'Not active'; badge.dataset.active = String(active);
+    document.getElementById('session-inspector-title').textContent = 'Session aliases';
+    document.getElementById('session-created-notice').hidden = JSON.stringify(createdSessionNotice) !== key;
+    document.getElementById('session-inspector-status').textContent = inspectorError || (inspectorLoading ? 'Loading session details…' : '');
+    document.getElementById('session-inspector-content').hidden = !inspectorDetails;
+    const available = state.sessions?.find(session => session.sessionId === selected.sessionId);
+    document.getElementById('selected-session-availability').textContent = !active && available?.available === false ? available.reason
+        : active ? '' : 'Choose “Use selected session” to activate this session. The current proxy mode stays selected.';
+    if (!inspectorDetails) return;
+    const settings = inspectorDetails.settings || {};
+    const expiry = settings.expires_at && Number.isFinite(Date.parse(settings.expires_at)) ? new Date(settings.expires_at).toLocaleString() : 'Unknown expiry';
+    document.getElementById('standin-guidance').textContent = !active ? 'Activate this session before using these session aliases.'
+        : ['pac','session'].includes(state.mode) ? 'Use these values in the checkout fields. Reveal depends on the session’s destination rules.'
+        : 'Select VGS Reveal Session Proxy or its PAC file before using these values at checkout.';
+    const tokens = document.getElementById('selected-session-tokens'); tokens.replaceChildren();
+    for (const [index,token] of (inspectorDetails.tokens || []).entries()) {
+        const row = document.createElement('div'); row.className = 'standin-row';
+        const heading = document.createElement('div'), label = document.createElement('span'), copy = document.createElement('button'), value = document.createElement('code');
+        const name = {card_number:'Card number',card_cvc:'Security code',text:'Text'}[token.format] || token.format;
+        label.className = 'small-label'; label.textContent = name; copy.type = 'button'; copy.className = 'quiet'; copy.textContent = 'Copy'; copy.setAttribute('aria-label',`Copy ${name.toLowerCase()} session alias ${index+1}`);
+        value.textContent = token.value;
+        copy.addEventListener('click',async () => {
+            try { await navigator.clipboard.writeText(token.value); if (key !== inspectorKey) return; document.getElementById('token-copy-status').textContent = name + ' session alias copied.'; }
+            catch (_) { document.getElementById('token-copy-status').textContent = 'Select the value and copy it manually.'; }
+        });
+        heading.append(label,copy); row.append(heading,value); tokens.append(row);
+    }
+    if (!tokens.children.length) { const note=document.createElement('p');note.className='private-note';note.textContent='No session aliases were saved for this session.';tokens.append(note); }
+    const fields = document.getElementById('selected-session-settings'); fields.replaceChildren();
+    const endpoint = proxy => proxy?.hostname ? `${proxy.scheme}://${proxy.hostname}${proxy.port ? ':'+proxy.port : ''}` : 'None';
+    const rows = [['Environment',environmentLabel(selected.environment)],['Tenant',selected.tenantId],['Session ID',selected.sessionId],['State',settings.state || 'active'],['Expires',expiry],
+        ['Adapter',settings.adapter || 'Automatic'],['Adapter version',settings.adapter_version],['Allowed hosts',settings.allowed_hosts?.join('\n') || 'Tenant destination policy'],
+        ['Allowed client addresses',settings.allowed_client_cidrs?.join('\n') || 'No session restriction'],['Reveal proxy',endpoint(settings.proxy)],['Egress proxy',endpoint(settings.egress)],
+        ['PAC source (signature omitted)',settings.pacUrl],['Reveal limit',settings.reveal_limit ?? settings.max_reveals],['Reveals used',settings.reveal_count]];
+    for (const [label,value] of rows) { if (value === undefined || value === null) continue; const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=String(value);fields.append(dt,dd); }
+}
+async function loadSessionInspector(selected,key) {
+    const sequence = ++inspectorSequence; inspectorLoading = true; inspectorError = '';
+    try {
+        const result = await chrome.runtime.sendMessage({type:'getSessionDetails',environment:selected.environment,sessionId:selected.sessionId});
+        if (sequence !== inspectorSequence || key !== inspectorKey) return;
+        const details = result?.sessionDetails;
+        if (!result?.ok || !details) throw new Error(result?.error || 'Could not load session details. Refresh the session list.');
+        if (details.environment !== selected.environment || details.tenantId !== selected.tenantId || details.sessionId !== selected.sessionId) throw new Error('The selected account changed. Refresh the session list.');
+        inspectorDetails = details;
+    } catch (error) {
+        if (sequence !== inspectorSequence || key !== inspectorKey) return;
+        inspectorDetails = null; inspectorError = error.message;
+    } finally {
+        if (sequence === inspectorSequence && key === inspectorKey) { inspectorLoading = false; renderSessionInspector(); }
+    }
+}

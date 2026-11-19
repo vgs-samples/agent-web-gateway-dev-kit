@@ -58,6 +58,20 @@ class CatalogTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.catalog.configuration('RSFIRST')
         with self.assertRaises(ValueError): module.session_config(self.saved, 'other-ca')
 
+    def test_different_ca_uses_existing_local_trust_and_rechecks_selection(self):
+        self.catalog.ca = 'original-launch-ca'
+        with patch.object(module, 'ca_trusted_locally', return_value=False) as trust:
+            listed = self.catalog.listing()['sessions'][0]
+            self.assertFalse(listed['available'])
+            self.assertIn('trust it locally', listed['reason'])
+            with self.assertRaises(ValueError): self.catalog.configuration('RSFIRST')
+        with patch.object(module, 'ca_trusted_locally', return_value=True):
+            self.assertTrue(self.catalog.listing()['sessions'][0]['available'])
+            self.assertEqual(self.catalog.configuration('RSFIRST')['sessionId'], 'RSFIRST')
+            with self.assertRaises(ValueError): module.session_config(self.saved, 'original-launch-ca', 'live')
+        with patch.object(module, 'ca_trusted_locally', return_value=False):
+            with self.assertRaises(ValueError): self.catalog.configuration('RSFIRST')
+
     def test_loopback_requires_secret_and_rejects_web_origins(self):
         server = module.CatalogServer(None, catalog=self.catalog)
         try:
@@ -87,6 +101,31 @@ class CatalogTests(unittest.TestCase):
                 self.assertEqual(json.load(response)['accessToken'],'fixture-transient')
             self.catalog.operations.collect_token.assert_called_once_with({'tenantId':'fixture','method':'aliases'})
         finally: server.close()
+
+    def test_recording_endpoints_are_local_authenticated_and_do_not_require_account(self):
+        recorder = Mock()
+        recorder.status.return_value = {'state':'idle', 'recording':False}
+        recorder.start.return_value = {'state':'starting'}
+        recorder.stop.return_value = {'state':'stopping'}
+        server = module.CatalogServer(None, catalog=self.catalog, recording=recorder)
+        try:
+            url = server.config['url'] + '/environments/sandbox/recording'
+            headers = {'Authorization':'Bearer '+server.config['token'], 'Content-Type':'application/json'}
+            for extra in ({'Authorization':'Bearer wrong'}, {'Origin':'https://merchant.invalid'}):
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(Request(url+'/start', data=b'{}', headers={**headers, **extra}))
+                self.assertEqual(error.exception.code, 403)
+            recorder.start.assert_not_called()
+            with urlopen(Request(url, headers=headers)) as response:
+                self.assertEqual(json.load(response)['state'], 'idle')
+            with urlopen(Request(url+'/start', data=b'{"requestId":"fixture"}', headers=headers)) as response:
+                self.assertEqual(json.load(response)['state'], 'starting')
+            recorder.start.assert_called_once_with({'requestId':'fixture','environment':'sandbox'})
+            with urlopen(Request(url+'/stop', data=b'{}', headers=headers)) as response:
+                self.assertEqual(json.load(response)['state'], 'stopping')
+            self.assertEqual(self.calls, [])
+        finally: server.close()
+        recorder.close.assert_called_once()
 
     def test_file_picker_requires_auth_and_works_before_account_connection(self):
         picker = Mock()

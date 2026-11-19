@@ -2,7 +2,7 @@
 
 ## Direct capture
 
-In the existing Capture Console (`npm start`, normally loopback port 4318), verify merchant URL/country and select **Direct · Byteful** (or an explicitly authorized residential route). Start **Record checkout**, navigate in its recording browser, then **Finish & save HAR** to flush bodies, frames and redirects. Show the user where to watch. Direct capture uses no reveal session or adapter transformations.
+In the existing Capture Console (`npm start`, normally loopback port 4318), verify merchant URL/country and select direct capture with the user-selected egress route. Start **Record checkout**, navigate in its recording browser, then **Finish & save HAR** to flush bodies, frames and redirects. Show the user where to watch. Direct capture uses no reveal session or adapter transformations.
 
 Capture the real checkout through key/config retrieval and the card-bearing request within the user's authorized scope. Homepage/batch visits, curl probes, SDK downloads and echo replays do not replace checkout navigation. A login, consent or payment-submission gate is a limitation to record, not evidence to invent. A capture request alone does not authorize purchases, account creation or use of real payment credentials.
 

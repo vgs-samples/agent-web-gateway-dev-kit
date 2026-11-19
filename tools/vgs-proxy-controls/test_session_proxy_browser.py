@@ -139,6 +139,8 @@ def main():
                         else {'status':'cancelled'} if self.count == 2 else {'status':'failed', 'error':'File explorer is unavailable. Enter the local file path instead.'})}
                 def close(self): pass
             fixture_catalog = FixtureCatalog()
+            fixture_catalog.sessions_directory = root / "sessions"
+            fixture_catalog.ca = "fixture-ca"
             catalog = CatalogServer(None, catalog=fixture_catalog, file_picker=FixturePicker())
             if args.walkthrough:
                 catalog.mcp_status = {'enabled': True, 'environment': 'sandbox', 'writesEnabled': False,

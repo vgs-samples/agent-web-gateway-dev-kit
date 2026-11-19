@@ -3,7 +3,7 @@ const environments = ["dev", "sandbox", "live"];
 function sessionEnvironment(session) {
     if (environments.includes(session.environment)) return session.environment;
     const host = new URL(session.pacSource || session.pacUrl).hostname;
-    return host === "vgsapi.com" ? "live" : host === "sandbox.vgsapi.com" ? "sandbox" : "dev";
+    return (host === "vgsapi.com" || host === "live.vgsapi.com") ? "live" : host === "sandbox.vgsapi.com" ? "sandbox" : "dev";
 }
 let current = {...INITIAL_SESSION, environment: sessionEnvironment(INITIAL_SESSION)};
 let environment = CATALOG?.environment || current.environment;
@@ -14,6 +14,7 @@ let sessionList = [];
 let checkedAt = null;
 let catalogError = null;
 let account = null;
+let recording = null;
 let manualEgress = null;
 const egressProxy = () => manualEgress?.proxy || current.proxies.egress;
 const publicEgress = () => ({source: manualEgress ? "custom" : "session", proxy: egressProxy(), hasCredentials: !!manualEgress?.credentials});
@@ -52,12 +53,12 @@ function describe(config) {
         else if (matchesProxy(value, egressProxy())) mode = "egress";
         else if (value.mode === "direct") mode = "direct";
     }
-    return {mode, canControl: owned || config.levelOfControl === "controllable_by_this_extension", availableModes: modes(), session: publicSession(), sessions: sessionList, checkedAt, catalogError, catalogAvailable: !!CATALOG, environment, account, egress: publicEgress()};
+    return {mode, canControl: owned || config.levelOfControl === "controllable_by_this_extension", availableModes: modes(), session: publicSession(), sessions: sessionList, checkedAt, catalogError, catalogAvailable: !!CATALOG, environment, account, recording, egress: publicEgress()};
 }
 
 function showBadge(state) {
     const labels = {pac: "PAC", session: "VGS", egress: "EGR", direct: "OFF", unavailable: "!"};
-    const titles = {pac: "Reveal Session PAC", session: "Reveal Session Proxy", egress: "Egress Proxy", direct: "No Proxy", unavailable: "Unavailable"};
+    const titles = {pac: "VGS Reveal Session PAC File", session: "VGS Reveal Session Proxy", egress: "Egress Proxy", direct: "No Proxy", unavailable: "Unavailable"};
     chrome.action.setBadgeText({text: labels[state.mode]});
     chrome.action.setBadgeBackgroundColor({color: state.mode === "direct" ? "#a34b10" : state.mode === "unavailable" ? "#a12b35" : "#156b50"});
     chrome.action.setTitle({title: titles[state.mode] + " — Agent Web Gateway Control Panel"});
@@ -137,6 +138,10 @@ async function companion(path, body, selected = environment) {
     if (!response.ok) {
         const error = new Error("Session catalog unavailable."); error.status = response.status;
         if (path === "/credentials" || path.startsWith("/credentials/picker")) { const body = await response.json().catch(() => ({})); if (typeof body.accountError === "string" && body.accountError.length < 300) error.accountError = body.accountError; }
+        if (path === "/egress-profiles") { const body = await response.json().catch(() => ({})); if (typeof body.egressError === "string" && body.egressError.length < 300) error.egressError = body.egressError; }
+        if (path.startsWith("/recording")) { const body = await response.json().catch(() => ({})); if (typeof body.recordingError === "string" && body.recordingError.length < 400) error.recordingError = body.recordingError; }
+        if (path === "/gateway/read") { const body = await response.json().catch(() => ({})); if (typeof body.gatewayError === "string" && body.gatewayError.length < 400) error.gatewayError = body.gatewayError; }
+        if (path.endsWith("/ca")) { const body = await response.json().catch(() => ({})); if (typeof body.certificateError === "string" && body.certificateError.length < 400) error.certificateError = body.certificateError; }
         throw error;
     }
     return response.json();
@@ -283,7 +288,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     const page = controlsPage(sender.url);
     if (sender.id !== chrome.runtime.id || !page) return;
     const allowDev = allowDevForPage(page);
-    if (!["getState", "setMode", "refreshSessions", "selectSession", "getPac", "createSession", "creationStatus", "setEnvironment", "getAdapters", "createCard", "cardStatus", "configureEgress", "connectAccount", "browseAccountFile", "accountFileSelectionStatus", "getCollectToken"].includes(message?.type)) return;
+    if (!["getState", "setMode", "refreshSessions", "selectSession", "getPac", "createSession", "creationStatus", "setEnvironment", "getAdapters", "createCard", "cardStatus", "configureEgress", "connectAccount", "browseAccountFile", "accountFileSelectionStatus", "getCollectToken", "getEgressProfiles", "saveEgressProfile", "saveBrowserEgressProfile", "recordingStatus", "recordingTabs", "startRecording", "stopRecording", "readGateway", "getSessionCa", "getSessionDetails"].includes(message?.type)) return;
     const operation = pending.then(async () => {
         // Gate environment management per controls URL, never by a saved opt-in.
         // Existing routing remains visible and controllable independently.
@@ -292,14 +297,52 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
             const error = new Error("Dev requires allow_dev_env=true in the control-panel URL.");
             error.status = 403; error.devEnvironmentDisabled = true; throw error;
         }
+        if (message.type === "getSessionDetails") {
+            if (!/^RS[A-Za-z0-9]+$/.test(message.sessionId) || !environments.includes(message.environment) || message.environment !== environment) throw new Error("Invalid session.");
+            return {...await getState(), sessionDetails: await companion("/sessions/" + message.sessionId + "/details", undefined, message.environment)};
+        }
+        if (message.type === "getSessionCa") {
+            if (!/^RS[A-Za-z0-9]+$/.test(message.sessionId) || !environments.includes(message.environment)) throw new Error("Invalid session.");
+            return {...await getState(), certificate: await companion("/sessions/" + message.sessionId + "/ca", undefined, message.environment)};
+        }
+        if (message.type === "readGateway") {
+            if (message.environment !== environment) throw new Error("Environment changed.");
+            return {...await getState(), gateway: await companion("/gateway/read", message.options)};
+        }
+        if (message.type === "recordingStatus") {
+            recording = await companion("/recording");
+            return getState();
+        }
+        if (message.type === "recordingTabs") return {...await getState(), recordingTabs: (await companion("/recording/tabs")).tabs};
+        if (message.type === "startRecording") {
+            const state = await getState();
+            if (state.mode === "unavailable" || ((state.mode === "pac" || state.mode === "session") && !(Date.parse(current.expiresAt) > Date.now())))
+                throw Object.assign(new Error("Choose an available route and active session first."), {recordingError: "Choose an available route and active session before starting the test."});
+            recording = await companion("/recording/start", {...message.options, sessionId: current.sessionId}, current.environment);
+            return getState();
+        }
+        if (message.type === "stopRecording") {
+            recording = await companion("/recording/stop", {});
+            return getState();
+        }
         if (message.type === "configureEgress") return configureEgress(message.settings);
         if (message.type === "setEnvironment") {
             if (!environments.includes(message.environment) || !CATALOG?.environments) throw new Error("Environment unavailable.");
             await changeEnvironment(message.environment);
             return refreshSessions();
         }
-        if (["createSession", "selectSession", "createCard", "getAdapters", "connectAccount", "browseAccountFile", "accountFileSelectionStatus", "getCollectToken"].includes(message.type) && message.environment && message.environment !== environment)
+        if (["createSession", "selectSession", "createCard", "getAdapters", "connectAccount", "browseAccountFile", "accountFileSelectionStatus", "getCollectToken", "getEgressProfiles", "saveEgressProfile", "saveBrowserEgressProfile"].includes(message.type) && message.environment && message.environment !== environment)
             throw new Error("Environment changed; refresh the panel.");
+        if (message.type === "getEgressProfiles") return {...await getState(), ...await companion("/egress-profiles")};
+        if (message.type === "saveBrowserEgressProfile") {
+            const selected = egressProxy();
+            if (!selected) throw new Error("Configure a browser egress proxy first.");
+            const {scheme, host, port} = selected;
+            const credentials = manualEgress ? manualEgress.credentials : current.credentials[`${host}:${port}`];
+            return {...await getState(), ...await companion("/egress-profiles", {name:message.name,
+                proxy:{type:"custom",scheme,hostname:host,port,...(credentials || {})}})};
+        }
+        if (message.type === "saveEgressProfile") return {...await getState(), ...await companion("/egress-profiles", message.profile)};
         if (message.type === "getCollectToken") return companion("/collect-token", {tenantId: message.tenantId, method: message.method});
         if (message.type === "browseAccountFile") return {...await getState(), fileSelection: await companion("/credentials/picker", {})};
         if (message.type === "accountFileSelectionStatus") {
@@ -339,13 +382,21 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     operation.then(state => respond({ok: true, ...state}), async failure => {
         const state = await getState().catch(() => ({mode: "unavailable", canControl: false, availableModes: modes()}));
         const result = {ok: false, ...state, error: "Could not complete that change. Refresh the session list and check the current route."};
+        if (message.type === "getSessionDetails") result.error = failure.sessionDetailsError || "Could not load session details. Refresh the list and try again.";
+        if (message.type === "getSessionCa") result.error = failure.certificateError || "Could not download the session CA. Check the helper and saved session.";
+        if (message.type === "readGateway") result.error = failure.gatewayError || "Could not load gateway configuration. Refresh the panel and check the local helper.";
         if (failure.devEnvironmentDisabled) result.error = "Dev requires allow_dev_env=true in the control-panel URL.";
+        if (["recordingStatus", "recordingTabs", "startRecording", "stopRecording"].includes(message.type)) {
+            result.error = failure.recordingError || "Recording status is unconfirmed. Check the local helper and refresh recording status before starting another test.";
+            if (message.type !== "recordingTabs") result.recording = recording = {...recording, state:"unknown", error:result.error};
+        }
         if (["createSession", "creationStatus", "createCard", "cardStatus"].includes(message.type)) {
             const rejected = [400,403,404].includes(failure.status);
             const job = {requestId: message.requestId || message.options?.requestId, environment: message.environment || environment,
                 status: rejected ? "failed" : "unknown", error: rejected ? "Check the form and local configuration. The helper rejected this request." : "The helper did not confirm the result. Check its status before starting another request."};
             result[["createCard", "cardStatus"].includes(message.type) ? "cardOperation" : "operation"] = job;
         }
+        if (["getEgressProfiles", "saveEgressProfile", "saveBrowserEgressProfile"].includes(message.type)) result.egressError = failure.egressError || "Saved proxies are unavailable. Check the local helper and retry.";
         if (message.type === "connectAccount") result.accountError = failure.accountError || "Connection was not confirmed. Check the file and helper, then refresh before trying again.";
         if (["browseAccountFile", "accountFileSelectionStatus"].includes(message.type)) result.accountError = failure.accountError || "File explorer is unavailable. Enter the local file path instead.";
         respond(result);

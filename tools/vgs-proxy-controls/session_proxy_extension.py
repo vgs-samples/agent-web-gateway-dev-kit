@@ -39,7 +39,7 @@ def write_extension(directory: Path, pac_url: str, credentials: dict,
     manifest = {
         "manifest_version": 3,
         "name": "Agent Web Gateway Control Panel",
-        "version": "1.8.1",
+        "version": "1.10.0",
         "permissions": ["proxy", "webRequest", "webRequestAuthProvider", "storage", "browsingData"],
         "host_permissions": ["<all_urls>"],
         "icons": {str(n): f"assets/icon-{n}.png" for n in (16, 32, 48)},
@@ -54,7 +54,7 @@ def write_extension(directory: Path, pac_url: str, credentials: dict,
                               + 'const INITIAL_MODE = ' + json.dumps(initial_mode) + ';\n'
                               + 'const CATALOG = ' + json.dumps(catalog) + ';\n'
                               + (source / 'background.js').read_text())
-    for name in ("popup.html", "popup.css", "popup.js", "create-session.js", "collect-card.js"):
+    for name in ("popup.html", "popup.css", "popup.js", "create-session.js", "collect-card.js", "recording.js", "gateway.js", "certificate.js"):
         files[name] = (source / name).read_text()
     vendor = directory / "vendor"
     vendor.mkdir(exist_ok=True, mode=0o700)

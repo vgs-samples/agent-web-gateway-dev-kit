@@ -3,9 +3,16 @@
 from pathlib import Path
 import hashlib
 import zipfile
+from check_publication import check_files
 
 FILES = [
+    'check_publication.py', 'test_publication.py',
+    'egress_profiles.py', 'test_egress_profiles.py',
     'BROWSER-PROXY-BEST-PRACTICES.md',
+    'session_certificates.py', 'test_session_certificates.py', 'session-proxy-extension/certificate.js',
+    'gateway_view.py', 'test_gateway_view.py', 'test_gateway_panel_browser.py', 'session-proxy-extension/gateway.js',
+    'capture_repair.py', 'repair-capture.py', 'test_capture_repair.py', 'REPAIRS.md',
+    'panel_recording.py', 'requirements-recording.txt', 'test_panel_recording.py', 'test_panel_recording_browser.py', 'session-proxy-extension/recording.js',
     'MCP.md', 'requirements-mcp.txt', 'awg_mcp.py', 'mcp_capture.py', 'mcp_gateway.py', 'gateway-api-schema.json',
     'test_mcp_gateway.py', 'test_mcp_stdio.py', 'test_mcp_browser.py',
     'session-proxy-extension/collect-card.js', 'COLLECT-SDK.md',
@@ -33,9 +40,10 @@ FILES = [
 
 def build(root=None, output=None):
     root = Path(root or Path(__file__).resolve().parent)
-    output = Path(output or root / 'dist/vgs-agent-web-gateway-control-panel-1.8.1.zip')
+    output = Path(output or root / 'dist/vgs-agent-web-gateway-control-panel-1.10.0.zip')
     output.parent.mkdir(parents=True, exist_ok=True)
-    prefix = 'vgs-agent-web-gateway-control-panel-1.8.1/'
+    check_files(root, FILES)
+    prefix = 'vgs-agent-web-gateway-control-panel-1.10.0/'
     checksums = []
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
         for name in FILES:

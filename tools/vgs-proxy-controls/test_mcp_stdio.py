@@ -69,7 +69,7 @@ class McpProtocolTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(initialized.server_info.name, 'Agent Web Gateway Testing')
                     listing = await session.list_tools()
                     names = {tool.name for tool in listing.tools}
-                    self.assertTrue({'browser_select_tab', 'capture_start', 'capture_entry', 'gateway_write'} <= names)
+                    self.assertTrue({'browser_select_tab', 'capture_start', 'capture_entry', 'gateway_write', 'diagnose_capture', 'repair_capture'} <= names)
                     result = await session.call_tool('capture_read', {'capture_id': cid})
                     self.assertFalse(result.is_error)
                     view = json.loads(result.content[0].text)

@@ -1,8 +1,8 @@
 {
- "name": "H&M UK (www2.hm.com/en_gb), prod sandbox tntwoi4nnts",
- "adapter": "ADQfQ4pwWB81r2PKoG7KLmRU",
+ "name": "H&M UK (www2.hm.com/en_gb), Sandbox fixture",
+ "adapter": "AD_EXAMPLE",
  "capture": {
-  "binding": "AXUtmbGe1HC377UTxQaRT119",
+  "binding": "AX_EXAMPLE",
   "response": {
    "status": 200,
    "headers": {
@@ -12,7 +12,7 @@
   }
  },
  "checkout": {
-  "binding": "AX4Fqz6d81odYKviZ51iFSUB",
+  "binding": "AX_EXAMPLE",
   "method": "POST",
   "url": "https://www2.hm.com/en_gb/v2/checkout/proceed",
   "headers": {

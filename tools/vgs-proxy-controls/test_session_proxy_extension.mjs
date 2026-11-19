@@ -358,3 +358,35 @@ test('manual egress validates endpoints and credentials before touching routing'
     assert.equal(call.url,'http://127.0.0.1:1234/environments/dev/collect-token');
     assert.equal(call.options.body,JSON.stringify({tenantId:'fixture-tenant',method:'aliases'}));
  });
+
+test('gateway reads use the selected environment without changing the route', async () => {
+    const f = await fixture(undefined, false, {}, true);
+    const before = f.config();
+    const options = {tenantId:'fixtureTenant',resource:'functions',limit:50,offset:0};
+    const response = await f.message({type:'readGateway',environment:'dev',options});
+    assert.equal(response.ok, true);
+    const call = f.fetched.find(row => row.url.endsWith('/gateway/read'));
+    assert.equal(call.url, 'http://127.0.0.1:1234/environments/dev/gateway/read');
+    assert.deepEqual(JSON.parse(call.options.body), options);
+    assert.deepEqual(f.config(), before);
+    const count = f.fetched.length;
+    const stale = await f.message({type:'readGateway',environment:'sandbox',options});
+    assert.equal(stale.ok, false);
+    assert.equal(f.fetched.length, count);
+    assert.deepEqual(f.config(), before);
+});
+
+test('session detail reads are sender-scoped, environment-scoped and preserve routing', async () => {
+    const f = await fixture(undefined,false,{},true);
+    const before = f.config();
+    const result = await f.message({type:'getSessionDetails',environment:'dev',sessionId:'RSSECOND'});
+    assert.equal(result.ok,true);
+    assert.ok(f.fetched.some(row => row.url === 'http://127.0.0.1:1234/environments/dev/sessions/RSSECOND/details'));
+    assert.deepEqual(f.config(),before);
+    const count = f.fetched.length;
+    assert.equal((await f.message({type:'getSessionDetails',environment:'live',sessionId:'RSSECOND'})).ok,false);
+    assert.equal((await f.message({type:'getSessionDetails',environment:'dev',sessionId:'../RSSECOND'})).ok,false);
+    assert.equal(await f.message({type:'getSessionDetails',environment:'dev',sessionId:'RSSECOND'},{id:'fixture',url:'https://merchant.invalid'}),undefined);
+    assert.equal(f.fetched.length,count);
+    assert.deepEqual(f.config(),before);
+});

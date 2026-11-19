@@ -65,7 +65,7 @@ def validate_aliases(rows, environment):
 
 
 def validate_dashboard_options(value, environment):
-    allowed = {'requestId','aliases','allowedHosts','allowedClientCidrs','adapter','egressMode','egress'}
+    allowed = {'requestId','aliases','allowedHosts','allowedClientCidrs','adapter','egressMode','egress','egressProfileId'}
     if not isinstance(value, dict) or set(value) - allowed: raise ValueError('Unsupported session fields')
     if not isinstance(value.get('requestId'), str) or not re.fullmatch(r'[a-f0-9-]{36}', value['requestId']):
         raise ValueError('Invalid request ID')
@@ -90,8 +90,13 @@ def validate_dashboard_options(value, environment):
     adapter=value.get('adapter','')
     if not isinstance(adapter,str) or adapter and not re.fullmatch(r'AD[A-Za-z0-9]+',adapter): raise ValueError('Invalid adapter')
     mode=value.get('egressMode','profile')
-    if mode not in ('profile','custom','none'): raise ValueError('Choose an egress type')
+    if mode not in ('profile','custom','none','saved'): raise ValueError('Choose an egress type')
+    profile_id = value.get('egressProfileId')
+    if mode == 'saved':
+        if not isinstance(profile_id, str) or not re.fullmatch(r'[a-f0-9]{32}', profile_id):
+            raise ValueError('Choose a saved proxy')
+    elif profile_id is not None: raise ValueError('Unexpected saved proxy selection')
     egress=validate_egress(value.get('egress')) if mode=='custom' else None
     if mode!='custom' and value.get('egress') is not None: raise ValueError('Unexpected egress fields')
     return {'requestId':value['requestId'], 'source':'dashboard', 'aliases':aliases, 'allowedHosts':normalized,
-            'allowedClientCidrs':clients, 'adapter':adapter, 'egressMode':mode, 'egress':egress}
+            'allowedClientCidrs':clients, 'adapter':adapter, 'egressMode':mode, 'egress':egress, **({'egressProfileId':profile_id} if mode=='saved' else {})}

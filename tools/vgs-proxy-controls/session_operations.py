@@ -121,6 +121,7 @@ class Operations:
         self.tenant = getattr(client, "tenant", TENANT)
         self.egress_file, self.tokenizer_socket = egress_file, tokenizer_socket
         self.capture_profile, self.slot_file = capture_profile, slot_file
+        self.egress_profiles = None
         self.jobs = {}
         self.lock = threading.Lock()
 
@@ -157,6 +158,9 @@ class Operations:
         if saved:
             if mode != 'profile': raise ValueError('Use the egress profile loaded by this app')
             return saved
+        if mode=='saved':
+            if self.egress_profiles is None: raise ValueError('Saved proxies are unavailable. Restart the local helper.')
+            return self.egress_profiles.resolve(options.get('egressProfileId'))
         if mode == 'profile': raise ValueError('Configure an egress profile or choose an egress type')
         return options.get('egress') if mode == 'custom' else None
 
@@ -239,8 +243,9 @@ class Operations:
     def create(self, options):
         # Validate before recording a job or making any remote mutation.
         options = validated_options(options, self.environment)
-        self.session_egress(options)  # Validate the selected route before accepting a job.
-        rid, fingerprint = options['requestId'], hashlib.sha256(json.dumps(options, sort_keys=True).encode()).hexdigest()
+        egress = self.session_egress(options)  # Snapshot before accepting the job.
+        fingerprint_input = [options, egress] if options.get('egressMode') == 'saved' else options
+        rid, fingerprint = options['requestId'], hashlib.sha256(json.dumps(fingerprint_input, sort_keys=True).encode()).hexdigest()
         with self.lock:
             path = self.job_path(rid)
             if path.exists():
@@ -250,10 +255,10 @@ class Operations:
             record = {'requestId': rid, 'status': 'running', 'fingerprint': fingerprint}
             private_json(path, record)
             self.jobs[rid] = record
-            threading.Thread(target=self._create, args=(options, record), daemon=True).start()
+            threading.Thread(target=self._create, args=(options, record, egress), daemon=True).start()
             return {'requestId': rid, 'status': 'running'}
 
-    def _create(self, options, record):
+    def _create(self, options, record, egress):
         submitted, slot = False, None
         try:
             if self.slot_file:
@@ -261,7 +266,6 @@ class Operations:
                 slot = open(self.slot_file)
                 try: fcntl.flock(slot, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except BlockingIOError: raise ValueError('Another test owns the browser/session slot; try again after it finishes') from None
-            egress = self.session_egress(options)
             attrs = {'egress_proxy_settings': egress} if egress else {}
             if options['allowedHosts']: attrs['allowed_hosts'] = options['allowedHosts']
             if options['source'] == 'dashboard':

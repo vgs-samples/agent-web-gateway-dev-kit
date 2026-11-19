@@ -61,10 +61,11 @@ def runtime_lock(directory):
 
 
 class GatewayBridge:
-    def __init__(self, registry, environment, directory, allow_writes=False):
+    def __init__(self, registry, environment, directory, allow_writes=False, repair=None):
         self.registry, self.environment = registry, environment
         self.directory, self.allow_writes = Path(directory), allow_writes
         self.lock = threading.Lock()
+        self.repair = repair
 
     def execute(self, value):
         if not isinstance(value, dict):
@@ -80,6 +81,12 @@ class GatewayBridge:
                     'environment': self.environment, 'writesEnabled': self.allow_writes}
             if value.get('tenantId') != catalog.tenant:
                 raise ValueError('Tenant changed or does not match. Read gateway_account and select the intended account.')
+            if op in ('diagnose_capture', 'repair_capture'):
+                if not self.repair or self.environment != 'dev':
+                    raise ValueError('Capture repair requires a configured DEV repair policy.')
+                if op == 'repair_capture' and not self.allow_writes:
+                    raise ValueError('Gateway writes are disabled.')
+                return self.repair.run(value.get('captureId'), apply=op == 'repair_capture')
             resource, rid = value.get('resource'), value.get('id')
             spec = RESOURCES.get(resource)
             if not spec:

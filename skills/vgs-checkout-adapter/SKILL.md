@@ -11,6 +11,7 @@ For new integrations use **direct checkout capture → HAR evidence → local La
 
 - **Fresh session/browser:** read [fresh-session.md](references/fresh-session.md). The runnable kit is [scripts/session-kit](scripts/session-kit/). Use `create-fresh-session.sh` for checkout; `create-session.sh` supports explicit existing-alias diagnostics.
 - **Capture/HAR review:** read [har-review.md](references/har-review.md). Use [har-index.py](scripts/har-index.py) for local structural indexing and [evidence.example.json](assets/evidence.example.json) for provenance.
+- **Debug a failing adapter:** read [debug-adapters.md](references/debug-adapters.md). Capture the failing HAR, reproduce with the function-invocation API or local Larky, and validate the repair before retrying the merchant.
 - **Author/test Larky:** read [local-larky.md](references/local-larky.md). Use [run-larky.py](scripts/run-larky.py) with the SHA-pinned official native runtime. Keep deployed function logic identical.
 - **Register/update:** read [deploy-adapters.md](references/deploy-adapters.md); [payload examples](assets/deployment/) show the observed API shape. For live checks read [gateway-verification.md](references/gateway-verification.md).
 - **Provider specifics:** consult [provider-notes.md](references/provider-notes.md) for Stripe, Adyen and OPPWA. Historical packages can differ from registered source; inspect the registration ledger.
@@ -19,7 +20,7 @@ For new integrations use **direct checkout capture → HAR evidence → local La
 
 Store the supplied card immediately before every checkout. Require both returned PAN and CVC aliases; never fall back to cached CVC. The bundled wrapper also requires HTTP 201 and a card ID different from the last saved ID. PAN aliases may deduplicate. Do not substitute another card to bypass a failure. Enter **session tokens**, not vault aliases, at checkout. Preserve actual expiry unless the transformation explicitly requires an override.
 
-Direct capture means browser → required residential egress → merchant, without AWG transformations. Gateway tests mean browser/client → VGS → required residential egress → merchant. The inherited default is Byteful. Honor explicitly authorized alternatives; never silently fall back to VGS egress or another route. A prior workspace's personal proxy authorization does not transfer to teammates.
+Direct capture means browser → required residential egress → merchant, without AWG transformations. Gateway tests mean browser/client → VGS → required residential egress → merchant. Read the user-selected route from private local configuration; do not embed a provider default. Honor the current task’s routing authorization; never silently fall back to VGS egress or another route. A prior workspace's personal proxy authorization does not transfer to teammates.
 
 Functions reveal or reveal plus encrypt. Process supported submitted fields without payment validation or unrelated field requirements. Preserve unrelated data, encoding and browser expiry. Non-card requests and absent capture markers pass unchanged without reveals or session-state changes. Surface missing transformation prerequisites and actual reveal/encryption failures on matching requests. Verify encryption by independent decryption with an owned synthetic test key.
 

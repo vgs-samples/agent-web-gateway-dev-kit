@@ -17,7 +17,11 @@ from awg_dev_api import API, KIT, TENANT, Client
 from session_operations import Operations, private_json
 from account_files import AccountFileError, discover_tenants
 from credential_picker import CredentialFilePicker
-from environments import ENVIRONMENTS, EnvironmentClient, domains
+from panel_recording import TestRecording, RecordingError
+from egress_profiles import EgressProfiles, EgressProfileError
+from environments import ENVIRONMENTS, EnvironmentClient, domains, matches_session_proxy, matches_session_pac
+from gateway_view import GatewayViewError, read_configuration
+from session_certificates import CertificateError, session_certificate, SessionDetailsError, session_details, ca_trusted_locally
 
 
 def alive(attrs):
@@ -30,15 +34,14 @@ def session_config(path, ca_bundle, environment="dev", tenant=TENANT):
     sid, a = document['data']['id'], document['data']['attributes']
     if not re.fullmatch(r'RS[A-Za-z0-9]+', sid):
         raise ValueError('Invalid session ID')
-    if a['proxy']['ca_bundle'].strip() != ca_bundle.strip():
-        raise ValueError('Requires a new browser: different session CA')
     pac = urlsplit(a['proxy']['pac_url'])
     vgs = urlsplit(a['proxy']['url'])
-    if (pac.scheme != 'https' or pac.netloc != urlsplit(endpoints['api']).netloc
-            or pac.path != f'/reveal-sessions/{sid}.pac'
-            or vgs.scheme != 'https' or vgs.hostname != urlsplit(endpoints['proxy']).hostname
-            or vgs.port != urlsplit(endpoints['proxy']).port or not vgs.username or not vgs.password):
+    if (not matches_session_pac(a['proxy']['pac_url'], sid, environment)
+            or not matches_session_proxy(a['proxy']['url'], environment, tenant)
+            or not vgs.username or not vgs.password):
         raise ValueError('Session does not match this environment and tenant')
+    if a['proxy']['ca_bundle'].strip() != ca_bundle.strip() and not ca_trusted_locally(a['proxy']['ca_bundle']):
+        raise ValueError('Different session CA: trust it locally or relaunch with this CA')
     credentials = {f'{vgs.hostname}:{vgs.port}': {'username': unquote(vgs.username), 'password': unquote(vgs.password)}}
     proxies = {'session': {'scheme': vgs.scheme, 'host': vgs.hostname, 'port': vgs.port}, 'egress': None}
     egress = a.get('egress_proxy_settings') or {}
@@ -97,7 +100,7 @@ class Catalog:
                 except FileNotFoundError:
                     reason = 'Proxy credentials not saved on this computer'
                 except ValueError as e:
-                    reason = str(e) if str(e) in ('Requires a new browser: different session CA', 'Missing saved egress credentials', 'Expired or revoked') else 'Saved session configuration unavailable'
+                    reason = str(e) if str(e) in ('Different session CA: trust it locally or relaunch with this CA', 'Missing saved egress credentials', 'Expired or revoked') else 'Saved session configuration unavailable'
                 except (KeyError, TypeError):
                     reason = 'Saved session configuration unavailable'
                 rows.append({'sessionId': sid, 'expiresAt': a.get('expires_at'), 'available': reason is None,
@@ -135,6 +138,7 @@ class CatalogRegistry:
     def __init__(self, initial, profiles=None):
         self.initial = initial
         self.profile_file = Path(initial.sessions_directory).parent / ".proxy-controls-accounts.json" if hasattr(initial, "sessions_directory") else None
+        self.egress_profiles = EgressProfiles(Path(initial.sessions_directory).parent / ".proxy-controls-egress.json") if hasattr(initial, "sessions_directory") else None
         self.saved_profiles = {}
         self.default = getattr(initial, 'environment', 'dev')
         self.catalogs = {self.default: initial}
@@ -169,7 +173,9 @@ class CatalogRegistry:
                     profile['sessions_directory'], ca_bundle=initial.ca, use_settings=False,
                     egress_file=profile.get('egress_file'), tokenizer_socket=profile.get('tokenizer_socket'),
                     capture_profile=initial.operations.capture_profile, slot_file=initial.operations.slot_file)
-            return self.catalogs.get(environment)
+            catalog = self.catalogs.get(environment)
+            if catalog: catalog.operations.egress_profiles = self.egress_profiles
+            return catalog
 
     def account(self, environment):
         try:
@@ -228,7 +234,8 @@ class CatalogRegistry:
 
 
 class CatalogServer:
-    def __init__(self, session_path, catalog=None, profiles=None, file_picker=None):
+    def __init__(self, session_path, catalog=None, profiles=None, file_picker=None, recording=None,
+                 recording_browser_url=None, captures_directory=None, repair_policy=None):
         initial = catalog or Catalog(session_path)
         if profiles is None:
             settings = KIT / ".proxy-controls.json"
@@ -261,8 +268,35 @@ class CatalogServer:
                         match = re.fullmatch(r'/environments/(dev|sandbox|live)(/.*)', route)
                         if not match: raise ValueError('Unknown environment')
                         environment, route = match.groups()
-                    catalog = registry.get(environment) if route not in ('/account', '/credentials') and not route.startswith('/credentials/picker') else None
-                    if route == '/account' and not write:
+                    catalog = registry.get(environment) if route not in ('/account', '/credentials', '/egress-profiles') and not route.startswith(('/credentials/picker', '/recording')) else None
+                    if route == '/gateway/read' and write:
+                        length = int(self.headers.get('Content-Length', '0'))
+                        if not 0 < length <= 4096 or self.headers.get('Content-Type') != 'application/json':
+                            raise GatewayViewError('Invalid gateway selection.')
+                        data = read_configuration(registry, environment, json.loads(self.rfile.read(length)))
+                    elif route == '/recording' and not write:
+                        data = owner.recording.status()
+                    elif route == '/recording/tabs' and not write:
+                        data = {'tabs': owner.recording.tabs()}
+                    elif route in ('/recording/start', '/recording/stop') and write:
+                        length = int(self.headers.get('Content-Length', '0'))
+                        if not 0 < length <= 12288 or self.headers.get('Content-Type') != 'application/json':
+                            raise RecordingError('Invalid recording request.')
+                        options = json.loads(self.rfile.read(length))
+                        if route.endswith('/stop'):
+                            if options != {}: raise RecordingError('Invalid stop request.')
+                            data = owner.recording.stop()
+                        else:
+                            data = owner.recording.start({**options, 'environment': environment})
+                    elif route == '/egress-profiles':
+                        if write:
+                            length = int(self.headers.get('Content-Length', '0'))
+                            if not 0 < length <= 8192 or self.headers.get('Content-Type') != 'application/json':
+                                raise EgressProfileError('Enter a name and proxy settings.')
+                            data = registry.egress_profiles.save(json.loads(self.rfile.read(length)))
+                        else:
+                            data = registry.egress_profiles.listing()
+                    elif route == '/account' and not write:
                         data = {**registry.account(environment), 'mcp': owner.mcp_status}
                     elif route == '/credentials' and write:
                         length = int(self.headers.get('Content-Length', '0'))
@@ -288,6 +322,10 @@ class CatalogServer:
                         else: data = catalog.operations.create_card(value) if route == '/cards' else catalog.operations.create(value)
                     elif route == '/adapters':
                         data = catalog.operations.adapters()
+                    elif match := re.fullmatch(r'/sessions/(RS[A-Za-z0-9]+)/details', route):
+                        data = session_details(catalog, match[1])
+                    elif match := re.fullmatch(r'/sessions/(RS[A-Za-z0-9]+)/ca', route):
+                        data = session_certificate(catalog, match[1])
                     elif match := re.fullmatch(r'/operations/([a-f0-9-]{36})', route):
                         data = catalog.operations.status(match[1])
                     else:
@@ -300,6 +338,16 @@ class CatalogServer:
                                 self.send_error(404)
                                 return
                     status = 200
+                except SessionDetailsError as error:
+                    status, data = 400, {'sessionDetailsError': str(error)}
+                except CertificateError as error:
+                    status, data = 400, {'certificateError': str(error)}
+                except GatewayViewError as error:
+                    status, data = 400, {'gatewayError': str(error)}
+                except RecordingError as error:
+                    status, data = 400, {'recordingError': str(error)}
+                except EgressProfileError as error:
+                    status, data = 400, {'egressError': str(error)}
                 except AccountFileError as error:
                     status, data = 400, {'accountError': str(error)}
                 except ValueError:
@@ -316,6 +364,12 @@ class CatalogServer:
                 self.wfile.write(body)
 
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        from capture_repair import CaptureRepair
+        captures_directory = captures_directory or Path(getattr(initial, 'sessions_directory', KIT / '.state-dev/sessions')).parent / 'test-captures'
+        self.repair = CaptureRepair(registry, captures_directory, repair_policy)
+        self.recording = recording or TestRecording(recording_browser_url,
+            captures_directory, profile=getattr(initial.operations, 'capture_profile', None),
+            repair=self.repair.automatic if repair_policy else None)
         self.server.daemon_threads = True
         self.config = {'url': f'http://127.0.0.1:{self.server.server_port}', 'token': token, 'environments': True, 'environment': registry.default}
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -326,6 +380,7 @@ class CatalogServer:
         self.server.server_close()
         self.thread.join()
         self.file_picker.close()
+        self.recording.close()
 
 
 def main():
@@ -337,9 +392,13 @@ def main():
     parser.add_argument('--tokenizer-socket', type=Path)
     parser.add_argument('--capture-profile', type=Path)
     parser.add_argument('--slot-file', type=Path)
+    parser.add_argument('--recording-browser-url')
+    parser.add_argument('--captures-directory', type=Path)
+    parser.add_argument('--repair-policy', type=Path, help='Private local DEV automatic-repair policy')
     args = parser.parse_args()
     os.umask(0o077)
-    server = CatalogServer(args.session, Catalog(args.session, egress_file=args.egress_profile, tokenizer_socket=args.tokenizer_socket, capture_profile=args.capture_profile, slot_file=args.slot_file))
+    server = CatalogServer(args.session, Catalog(args.session, egress_file=args.egress_profile, tokenizer_socket=args.tokenizer_socket, capture_profile=args.capture_profile, slot_file=args.slot_file),
+                           recording_browser_url=args.recording_browser_url, captures_directory=args.captures_directory, repair_policy=args.repair_policy)
     args.output.write_text(json.dumps(server.config))
     args.output.chmod(0o600)
     print('Local session catalog ready', flush=True)

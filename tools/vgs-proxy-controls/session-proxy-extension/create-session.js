@@ -12,6 +12,7 @@ if (!allowDevEnv && creationEnvironment === 'dev') creationId = null;
 if (!allowDevEnv && cardEnvironment === 'dev') cardRequestId = null;
 let aliasRows = [], nextAliasKey = 0, formEnvironment = null;
 let adapters = [], adaptersLoaded = false, adaptersLoading = false;
+let egressProfiles = [], egressProfilesLoaded = false;
 const creationRunning = () => collectCard.submitting || operation?.status === 'running' || cardOperation?.status === 'running'
     || (!!creationId && !operation) || (!!cardRequestId && !cardOperation);
 const splitEntries = text => [...new Set(text.split(/[\s,]+/).filter(Boolean))];
@@ -25,6 +26,8 @@ function resetCreation() {
     formEnvironment = state.environment || 'sandbox';
     const profile = state.account?.egressConfig;
     el('egress-type').value = profile ? 'profile' : 'none';
+    el('egress-status').textContent = ''; el('egress-error').hidden = true;
+    renderEgressOptions();
     renderAliases(); renderAdapters(); renderCreation();
 }
 
@@ -137,11 +140,20 @@ function renderCreation() {
     el('egress-type').disabled = busy || running || profile;
     el('egress-type').querySelector('[value=profile]').hidden = !profile;
     if (profile) el('egress-type').value = 'profile';
-    el('egress-fields').hidden = el('egress-type').value !== 'custom';
-    for (const input of el('egress-fields').querySelectorAll('input,select')) {
-        input.disabled = busy || running || profile;
-    }
-    el('egress-help').textContent = profile ? 'Uses your saved proxy configuration.' : '';
+    const selected = el('egress-type').value, adding = selected === 'custom';
+    el('egress-new').hidden = !adding;
+    const browserProxy = state.egress?.proxy || null;
+    const browserOption = el('egress-entry-source').querySelector('[value=browser]');
+    browserOption.hidden = !browserProxy;
+    browserOption.textContent = browserProxy ? `Use current browser proxy · ${browserProxy.host}:${browserProxy.port}` : 'Use current browser proxy';
+    if (!browserProxy) el('egress-entry-source').value = 'custom';
+    el('egress-fields').hidden = el('egress-entry-source').value === 'browser';
+    for (const input of el('egress-new').querySelectorAll('input,select,button')) input.disabled = busy || running || profile;
+    if (adding) el('create-session').disabled = true;
+    const saved = egressProfiles.find(p => 'saved:' + p.id === selected);
+    el('egress-help').textContent = profile ? 'Uses the proxy configured by your local helper.' : saved
+        ? `${saved.scheme}://${saved.hostname}:${saved.port} · ${saved.hasAuthentication ? 'Authentication saved' : 'No authentication'}`
+        : adding ? 'Give this proxy a name and save it to use it in this session.' : 'Choose a saved proxy or add a new one.';
     el('aliases-empty').hidden = !!aliasRows.length || !el('add-card-panel').hidden;
 }
 
@@ -169,37 +181,44 @@ function collectOptions() {
     if (hosts.some(h => /[:/\*]/.test(h))) throw new Error('Allowed hosts are exact host names, without https://, a port, a path or a wildcard.');
     if (cidrs.length > 10) throw new Error('At most 10 client address ranges.');
     const options = {aliases, allowedHosts: hosts, allowedClientCidrs: cidrs, adapter: el('adapter-select').value, egressMode: el('egress-type').value};
-    if (options.egressMode === 'custom') {
-        const hostname = el('egress-hostname').value.trim(), portText = el('egress-port').value.trim();
-        const username = el('egress-username').value, password = el('egress-password').value;
-        if (!hostname || /[:/\s]/.test(hostname)) throw new Error('Egress proxy: enter a host name without https://, port or path.');
-        if (!/^\d+$/.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw new Error('Egress proxy: the port must be 1 to 65535.');
-        if (!!username !== !!password || username.includes(':')) throw new Error('Egress proxy: enter a user name without a colon and its password together, or neither.');
-        options.egress = {type:'custom', scheme:el('egress-scheme').value, hostname, port:Number(portText), ...(username ? {username,password} : {})};
+    if (options.egressMode === 'custom') throw new Error('Save your new proxy before creating the session.');
+    if (options.egressMode.startsWith('saved:')) {
+        const id = options.egressMode.slice(6);
+        if (!egressProfilesLoaded || !egressProfiles.some(p => p.id === id)) throw new Error('Refresh the proxy list and choose a saved proxy.');
+        options.egressMode = 'saved'; options.egressProfileId = id;
     }
     return options;
 }
 
 function renderOperation(value) {
     operation = value;
+    globalThis.renderCreatedCertificate?.(value);
     const label = el('creation-status');
     if (value.status === 'running') {
         label.textContent = `Creating in ${environmentLabel(value.environment || creationEnvironment)}. Your current session stays selected.`;
         clearTimeout(operationTimer);
         operationTimer = setTimeout(() => request({type:'creationStatus',requestId:value.requestId,environment:value.environment || creationEnvironment}),1000);
     } else if (value.status === 'complete') {
-        label.textContent = 'Created. Return to sessions and choose Use selected session to switch.';
+        label.textContent = 'Session created. Its details are available in Browser Settings.';
         el('created-session').hidden = (value.environment || creationEnvironment) !== state.environment;
         el('created-session-id').textContent = value.sessionId;
         const tokens = el('session-tokens'); tokens.replaceChildren();
         for (const token of value.tokens || []) {
             const dt = document.createElement('dt'), dd = document.createElement('dd');
-            dt.textContent = token.format + ' stand-in'; dd.textContent = token.value; tokens.append(dt,dd);
+            dt.textContent = token.format + ' session alias'; dd.textContent = token.value; tokens.append(dt,dd);
         }
         creationId = null; sessionStorage.removeItem('creationId'); sessionStorage.removeItem('creationEnvironment');
         el('egress-password').value = ''; renderedSessions = '';
-        if ((value.environment || creationEnvironment) === state.environment) setTimeout(async () => {
-            await request({type:'refreshSessions'}); sessionSelect.value=value.sessionId; render();
+        const completedEnvironment = value.environment || creationEnvironment, completedTenant = state.account?.tenantId;
+        if (completedEnvironment === state.environment) setTimeout(async () => {
+            await request({type:'refreshSessions'});
+            if (state.environment !== completedEnvironment || state.account?.tenantId !== completedTenant) return;
+            if (![...sessionSelect.options].some(option => option.value === value.sessionId)) sessionSelect.add(new Option(value.sessionId, value.sessionId));
+            sessionSelect.value = value.sessionId;
+            createdSessionNotice = {sessionId:value.sessionId,environment:completedEnvironment,tenantId:completedTenant};
+            showView('controls'); render();
+            document.getElementById('session-inspector-title').focus();
+            document.getElementById('session-inspector').scrollIntoView({block:'nearest'});
         },0);
     } else {
         label.textContent = value.error || 'Creation did not complete.';
@@ -231,7 +250,7 @@ function renderCardOperation(value) {
 
 el('open-create').addEventListener('click', async () => {
     if (!state.account?.creationAvailable) { showView('settings'); el('account-file').focus(); return; }
-    resetCreation(); showView('create'); el('create-title').focus(); await loadAdapters();
+    resetCreation(); showView('create'); el('create-title').focus(); await loadAdapters(); await loadEgressProfiles();
 });
 for(const id of ['back-create','cancel-create','created-back']) el(id).addEventListener('click',()=>{
     if(creationRunning())return;
@@ -273,7 +292,14 @@ el('adapter-search').addEventListener('keydown',event=>{
     }else if(event.key==='Enter'&&adapterMenuOpen){event.preventDefault();if(adapterMatches[adapterActive])chooseAdapter(adapterMatches[adapterActive].id);}
     else if(event.key==='Escape'&&adapterMenuOpen){event.preventDefault();adapterMenuOpen=false;renderAdapters();}
 });
-el('egress-type').addEventListener('change',renderCreation);
+el('egress-type').addEventListener('change', () => {
+    el('egress-status').textContent = ''; el('egress-error').hidden = true;
+    if (el('egress-type').value !== 'custom') el('egress-password').value = '';
+    renderCreation();
+});
+el('egress-entry-source').addEventListener('change', renderCreation);
+el('retry-egress-profiles').addEventListener('click', loadEgressProfiles);
+el('save-egress-profile').addEventListener('click', saveEgressProfile);
 el('create-form').addEventListener('submit',event=>{
     event.preventDefault();if(busy||creationRunning())return;
     if(creationId){request({type:'creationStatus',requestId:creationId,environment:creationEnvironment});return;}
@@ -292,4 +318,59 @@ function handleCreationTransportFailure(message) {
         error:'The helper did not confirm the result. Check its status before starting another request.'};
     if(['createCard','cardStatus'].includes(message.type))renderCardOperation(value);
     if(['createSession','creationStatus'].includes(message.type))renderOperation(value);
+}
+
+
+function renderEgressOptions(selected = el('egress-type').value) {
+    const select = el('egress-type');
+    for (const option of select.querySelectorAll('[data-saved-proxy]')) option.remove();
+    const custom = select.querySelector('[value=custom]');
+    for (const profile of egressProfiles) {
+        const option = document.createElement('option');
+        option.value = 'saved:' + profile.id; option.dataset.savedProxy = 'true';
+        option.textContent = `${profile.name} · ${profile.hostname}:${profile.port}`;
+        select.insertBefore(option, custom);
+    }
+    select.value = selected;
+    if (!select.value) select.value = 'none';
+}
+async function loadEgressProfiles() {
+    const environment = state.environment;
+    el('egress-error').hidden = true; el('retry-egress-profiles').hidden = true;
+    const result = await request({type:'getEgressProfiles', environment});
+    if (environment !== state.environment) return;
+    egressProfilesLoaded = !!result?.ok && Array.isArray(result.egressProfiles);
+    if (egressProfilesLoaded) { egressProfiles = result.egressProfiles; renderEgressOptions(); }
+    else { el('egress-error').textContent = result?.egressError || 'Could not load saved proxies. Retry when the helper is available.'; el('egress-error').hidden = false; }
+    el('retry-egress-profiles').hidden = egressProfilesLoaded;
+    renderCreation();
+}
+async function saveEgressProfile() {
+    if (busy || creationRunning()) return;
+    el('egress-error').hidden = true; el('egress-status').textContent = '';
+    try {
+        const name = el('egress-name').value.trim();
+        if (!name || name.length > 80) throw new Error('Enter a proxy name between 1 and 80 characters.');
+        let proxy;
+        if (el('egress-entry-source').value === 'custom') {
+            const hostname = el('egress-hostname').value.trim(), portText = el('egress-port').value.trim();
+            const username = el('egress-username').value, password = el('egress-password').value;
+            if (!/^[A-Za-z0-9.-]{1,253}$/.test(hostname)) throw new Error('Enter a proxy host name without a scheme, port or path.');
+            if (!/^\d+$/.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw new Error('The proxy port must be 1 to 65535.');
+            if (!!username !== !!password || username.includes(':')) throw new Error('Enter a user name without a colon and its password together, or neither.');
+            proxy = {type:'custom', scheme:el('egress-scheme').value, hostname, port:Number(portText), ...(username ? {username,password} : {})};
+        }
+        const environment = state.environment;
+        const result = await request(proxy ? {type:'saveEgressProfile', environment, profile:{name,proxy}}
+            : {type:'saveBrowserEgressProfile', environment, name});
+        if (environment !== state.environment) return;
+        if (!result?.ok || !result.savedEgressProfileId) throw new Error(result?.egressError || 'Save was not confirmed. Reload the proxy list before retrying.');
+        egressProfiles = result.egressProfiles; egressProfilesLoaded = true;
+        renderEgressOptions('saved:' + result.savedEgressProfileId);
+        for (const id of ['egress-name','egress-hostname','egress-port','egress-username','egress-password']) el(id).value = '';
+        el('egress-status').textContent = 'Proxy saved on this computer and selected.';
+        el('retry-egress-profiles').hidden = true;
+        el('egress-type').focus();
+    } catch (error) { el('egress-error').textContent = error.message; el('egress-error').hidden = false; }
+    renderCreation();
 }

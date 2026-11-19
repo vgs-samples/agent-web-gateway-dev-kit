@@ -32,7 +32,7 @@ merchant is never contacted.
 
 ```sh
 pip install cryptography
-export VGS_TENANT=tntmdki2teh                                   # the dev vault
+export VGS_TENANT=YOUR_TENANT_ID                                   # the dev vault
 export VGS_CLIENT_ID=... VGS_CLIENT_SECRET=...                  # or VGS_ACCESS_TOKEN=...
 python3 awg_harness.py verify merchants/hm.json
 python3 awg_harness.py verify merchants/*.json --card card.json

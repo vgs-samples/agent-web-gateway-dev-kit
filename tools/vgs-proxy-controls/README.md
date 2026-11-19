@@ -4,8 +4,8 @@ A VGS-branded, full-page Chromium extension with a local companion. It displays
 the selected tenant and service-account permissions, creates/selects reveal sessions,
 shows the actual PAC file, and selects one of four browser routes:
 
-1. PAC File — the session's host-based routing rules.
-2. VGS Proxy — VGS proxy followed by that session's configured egress.
+1. VGS Reveal Session PAC File — the session's host-based routing rules.
+2. VGS Reveal Session Proxy — VGS proxy followed by that session's configured egress.
 3. Egress Proxy — the session's egress or a manually configured proxy, without VGS replacement.
 4. No Proxy — direct connection from this computer.
 
@@ -13,7 +13,7 @@ In **Add card**, Sandbox offers the same **Test cards** shortcuts as the dashboa
 
 Contextual documentation links open the official reveal-session, PAC, Collect, adapter, and service-account references in a new tab, keeping your form open.
 
-Version 1.8.1. Choose Sandbox or Live in **Settings → Environment**. Each environment
+Version 1.10.0. Choose Sandbox or Live in **Settings → Environment**. Each environment
 uses its own service-account credentials and saved session directory. New tabs
 default to Sandbox. The screenshots below use synthetic data from local fixtures;
 actual service availability and permissions depend on your account.
@@ -144,6 +144,35 @@ or expand **Connect an assistant with MCP** for its local client configuration.
 
 ## Use
 
+### Automatic test recording
+
+In the **Recording** tab, enter a merchant address and click **Start test**.
+The helper attaches its recorder before opening the address in a new tab. Use
+**Find tabs** to select an existing tab instead; leave the address blank to start
+recording without reloading it. Redirects and requests from payment frames remain
+in the same HAR without opening DevTools or enabling its Preserve log checkbox.
+
+The panel shows recording progress and **Stop and save HAR**. Closing the test tab
+also saves automatically. Closing only the panel leaves recording active. HARs
+are checkpointed every five seconds to the private `test-captures` directory next
+to the sessions directory; `--captures-directory` overrides it. Files use mode
+0600 and the directory 0700. Failed/in-flight requests, unavailable bodies and
+capture limits are reported. An abrupt helper exit may leave an incomplete checkpoint.
+
+Install `requirements-recording.txt` into the helper's Python environment. Launch
+the dedicated testing browser with local debugging as described in [MCP.md](MCP.md#2-launch-a-dedicated-browser-with-local-debugging).
+The panel recorder discovers the debugging port from `--capture-profile` when provided,
+otherwise it uses `http://127.0.0.1:9222`; pass
+`--recording-browser-url` to the helper for another loopback port. No MCP client,
+`--enable-mcp`, gateway-write access, or additional service-account scopes are
+required. If the browser cannot be reached, no test navigation starts.
+
+Only the selected test tab and its frames are recorded; new tabs/popups require
+their own recording. Secure VGS tokenization and loopback helper requests are
+excluded. Other captured headers and bodies are unredacted and may include checkout
+details. Panel status never returns them. The HAR shows the browser's requests
+before gateway transformations, not proof that a payment or reveal succeeded.
+
 To record a selected tab for Claude or another assistant, follow [MCP setup](MCP.md).
 Start the helper with `--enable-mcp` and launch the dedicated browser with local
 debugging. This exposes unredacted captured headers/bodies through explicit MCP
@@ -152,8 +181,9 @@ permissions. MCP does not switch proxy routes or submit a checkout automatically
 
 **Available sessions** lists active sessions from the account. Click **Refresh**
 to include sessions created after opening the browser. Entries without locally
-saved credentials or a compatible CA are disabled and explain why. Expired or
-revoked sessions cannot be selected; a current expired session remains visible.
+saved credentials or a compatible CA explain why activation is unavailable. You can
+select an entry to inspect its details; **Use selected session** is enabled only for
+a usable session. A current expired session remains visible.
 
 Choose an entry, then click **Use selected session**. The current PAC / VGS /
 egress / direct mode is kept. Switching briefly blocks routing and resets cached
@@ -162,8 +192,8 @@ Merchant cookies, tabs and history are preserved. Switching to a session without
 custom egress is refused while Egress Proxy mode is selected unless a manual proxy is configured. An interrupted
 switch stays blocked until you explicitly choose a route.
 
-Session stand-ins are specific to the session: re-enter the newly selected session's
-stand-ins in existing checkout forms. The extension does not fill checkout forms or submit orders/payments. Reload pages after switching;
+Session aliases are specific to the session: re-enter the newly selected session's
+session aliases in existing checkout forms. The extension does not fill checkout forms or submit orders/payments. Reload pages after switching;
 requests already running may finish on their previous route.
 
 **Proxy Settings** shows four horizontal flow diagrams. Expand **Egress proxy settings**
@@ -181,6 +211,15 @@ script, with a fetch timestamp. The displayed PAC source omits its private signa
 PAC means Proxy Auto-Configuration; it chooses routes by host and does not detect
 checkout. For checkout-only VGS routing, choose Egress Proxy while browsing, then
 VGS Proxy before opening checkout.
+
+## Certificates
+
+**Download CA** in Proxy Settings follows the active browser session. The download
+inside Session aliases follows the selected session, which may not yet be active.
+Install and trust the certificate through your operating system; the extension does
+not change trust. On macOS, the helper checks existing local SSL trust when a session
+uses a different CA. On other systems, start a helper/browser configured for that CA.
+The extension preserves the proxy host and supported port returned by the session API.
 
 ## Environment profiles
 
@@ -245,11 +284,21 @@ shows account setup guidance without making remote requests. Changing the
 setting updates the list and creation context; the browser keeps its current
 session and route until **Use selected session**. The panel identifies that session's
 environment, including when it differs from the setting. Sessions requiring another
-CA need a new browser configured for that CA. PAC inspection uses the browser's
+CA require matching local SSL trust on macOS, or a new helper/browser configured for that CA on other systems. PAC inspection uses the browser's
 current session even while another environment is selected in Settings.
 
 Use the same `--environment` with the private tokenizer. Its socket protocol
 checks both environment and tenant before accepting aliases.
+
+## Gateway configuration
+
+**Agent Web Gateway Config** follows the dashboard hierarchy: **Destinations** and
+**Adapters**. The adapter registry opens each adapter's **Functions** and
+**Connected destinations**, grouped by host. Open a function to inspect its code and
+inputs; open a destination to inspect its conditions and input mappings. Breadcrumbs
+return to the adapter. **Default** contains the review queue and destination policy.
+There are no standalone Functions or Connections tabs. This view is read-only and
+refreshes while visible; it never approves guarded destinations automatically.
 
 ## Create sessions
 
@@ -273,7 +322,7 @@ When the app loads an egress profile, the creation form shows **Saved proxy** an
 helper supplies its saved endpoint and credentials. Host inputs and route diagrams contain no example hostnames. Its private JSON has `scheme` (`http` or
 `https`), `hostname`, integer `port`, `username`, and `password`; keep it outside
 the package with mode 0600. Without a loaded profile, the form supports explicit
-**None** or **Custom proxy** settings. Existing sessions keep their original egress.
+**None**, a saved proxy, or **Add new proxy…**. Give each proxy a local name; its credentials remain in the helper’s private `.proxy-controls-egress.json` file. You can also save the current browser egress for reuse. Existing sessions keep their original egress.
 
 The included private tokenizer remains available for CLI workflows (it is optional for the control panel):
 
@@ -291,7 +340,12 @@ Existing approved-card socket helpers using this protocol are also supported;
 use your organization’s approved tokenizer where required.
 
 Creating saves the one-time response and matching request privately (0600), then
-shows the new ID and stand-ins. Click **Use selected session** separately to switch.
+returns to **Browser Settings**, selects the new entry for inspection, and shows a
+success notice and copyable session aliases under **Session aliases**. **Session settings**
+includes expiry, destination and client restrictions, adapter, proxy endpoints, and
+a CA download. These details load from the saved creation response when reopening
+the panel, so session aliases are available later too. The badge distinguishes the
+selected entry from the active browser session. Click **Use selected session** to switch.
 The selected route stays unchanged. Creation uses an asynchronous operation ID
 and persistent journal: retries cannot duplicate the same POST. After an uncertain
 network result, check the list and local files before starting a new request.
@@ -322,7 +376,7 @@ to narrow windows.
 
 ## Share this package
 
-Share the original `vgs-agent-web-gateway-control-panel-1.8.1.zip`, or rebuild it using the included
+Share the original `vgs-agent-web-gateway-control-panel-1.10.0.zip`, or rebuild it using the included
 `build-package.py`. The builder uses a fixed allowlist and produces a clean ZIP.
 
 **Never share `.private-extension`, a loaded browser profile, your environment
@@ -363,10 +417,12 @@ and exact PAC display using local fixtures only.
 
 Connect your service-account file in Settings, open **New session → Add card**, and enter the card number and security code in the VGS-hosted fields. Choose **Create aliases**, then create the session. PAN uses persistent UUID aliases; CVC uses volatile UUID aliases. The card is not charged. Expiry appears when using the card-creation API. The direct alias flow does not require it.
 
-Card lengths default to 16/3 and adjust to 15/4 for Amex or 14/3 for Diners Club. For other lengths, expand **Card lengths**. Collect validates the number of digits inside the hosted fields before submission, so the session stand-ins match.
+Card lengths default to 16/3 and adjust to 15/4 for Amex or 14/3 for Diners Club. For other lengths, expand **Card lengths**. Collect validates the number of digits inside the hosted fields before submission, so the session session aliases match.
 
 Service-account secrets stay in the helper. Collect receives a transient access token with that account’s existing permissions; the extension does not persist it. It never receives raw PAN/CVC values. A failed or incomplete alias response is rejected. The terminal tokenizer remains available for automated CLI workflows. See [COLLECT-SDK.md](COLLECT-SDK.md) for bundled SDK sources.
 
 Launcher HAR recordings use `capture_preferences.har_recording_filter()` to exclude VGS Collect, Vault/Cards API, and loopback helper traffic. Card values are visible inside the hosted fields; screen/video captures can include them. This filter applies to launcher recordings; a manually exported DevTools HAR is controlled by DevTools.
 
 An account with `aliases:write` creates fresh PAN/CVC aliases directly. A card-write account uses Collect’s Cards API. If that API returns an existing card without a fresh CVC alias, the panel rejects the incomplete result and asks for an account with `aliases:write`. Existing CVC aliases are never silently reused.
+
+Capture-driven DEV repair is documented in [REPAIRS.md](REPAIRS.md). The panel can run approved destination repairs after saving a HAR; MCP exposes `diagnose_capture` and `repair_capture`. Unexpected adapter failures remain reviewable evidence and require local transformation tests before deployment.

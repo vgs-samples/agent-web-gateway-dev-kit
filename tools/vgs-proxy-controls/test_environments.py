@@ -58,6 +58,21 @@ class EnvironmentsTests(unittest.TestCase):
                 with self.assertRaises(ValueError): session_config(path, 'fixture-ca', other, TENANT)
             with self.assertRaises(ValueError): session_config(path, 'fixture-ca', env, 'tntother')
             with self.assertRaises(ValueError): session_config(path, 'different-ca', env, TENANT)
+    def test_live_session_port_is_preserved_but_wrong_accounts_and_ports_are_rejected(self):
+        path = self.session('live')
+        doc = json.loads(path.read_text())
+        original = doc['data']['attributes']['proxy']['url']
+        doc['data']['attributes']['proxy']['pac_url'] = doc['data']['attributes']['proxy']['pac_url'].replace('https://vgsapi.com', 'https://live.vgsapi.com')
+        for port in (3443, 8443):
+            doc['data']['attributes']['proxy']['url'] = original.replace(':8443', ':' + str(port))
+            path.write_text(json.dumps(doc))
+            config = session_config(path, 'fixture-ca', 'live', TENANT)
+            self.assertEqual(config['proxies']['session']['port'], port)
+            with self.assertRaises(ValueError):session_config(path, 'fixture-ca', 'sandbox', TENANT)
+        doc['data']['attributes']['proxy']['url'] = original.replace(':8443', ':443')
+        path.write_text(json.dumps(doc))
+        with self.assertRaises(ValueError):session_config(path, 'fixture-ca', 'live', TENANT)
+
     def test_registry_isolates_profiles_and_requires_configuration(self):
         dev = Catalog(self.session('dev'), EnvironmentClient(self.credentials('dev'), 'dev'), self.root/'dev', use_settings=False)
         profile = {'credentials_file': str(self.credentials('sandbox', 'tntsandbox')), 'sessions_directory': str(self.root/'sandbox')}

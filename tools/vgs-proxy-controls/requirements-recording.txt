@@ -1,0 +1,2 @@
+# Reuses the existing dedicated Chromium browser; no browser download is needed.
+playwright>=1.49,<2

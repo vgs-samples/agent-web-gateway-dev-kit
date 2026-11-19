@@ -104,6 +104,10 @@ MCP connection too if you change the debugging port or capture directory.
 
 ## 4. Record and inspect a request
 
+The extension also offers **Controls → Test recording** without an MCP client.
+See [automatic test recording](README.md#automatic-test-recording). The panel and
+MCP recorders are separate; use one recorder for a test to avoid duplicate captures.
+
 Ask the connected assistant:
 
 > List the available testing-browser tabs and select the tab I identify. Start
@@ -195,3 +199,5 @@ The browser harness uses a temporary profile, synthetic data and loopback-only
 fixtures. It checks MCP discovery, selected-tab isolation, iframe requests,
 cookies/auth headers, request/response bodies, binary encoding, redirects,
 capture limits, private file permissions, and disconnecting without closing tabs.
+
+Capture-driven DEV repair is documented in [REPAIRS.md](REPAIRS.md). The panel can run approved destination repairs after saving a HAR; MCP exposes `diagnose_capture` and `repair_capture`. Unexpected adapter failures remain reviewable evidence and require local transformation tests before deployment.

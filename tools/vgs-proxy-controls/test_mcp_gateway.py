@@ -29,6 +29,22 @@ class GatewayTests(unittest.TestCase):
     def test_account_excludes_secret(self):
         self.assertNotIn('secret', self.bridge.execute({'operation': 'account'}))
 
+    def test_repair_requires_dev_tenant_and_write_opt_in(self):
+        repair = Mock()
+        repair.run.return_value = {'status': 'planned'}
+        self.bridge.repair = repair
+        value = {'operation': 'diagnose_capture', 'tenantId': 'tntFixture', 'captureId': 'CAP'+'a'*32}
+        with self.assertRaises(ValueError): self.bridge.execute(value)
+        self.bridge.environment = 'dev'
+        self.bridge.registry = SimpleNamespace(get=lambda env: self.catalog)
+        self.bridge.allow_writes = False
+        self.assertEqual(self.bridge.execute(value)['status'], 'planned')
+        repair.run.assert_called_once_with(value['captureId'], apply=False)
+        with self.assertRaises(ValueError): self.bridge.execute({**value, 'operation': 'repair_capture'})
+        self.bridge.allow_writes = True
+        self.bridge.execute({**value, 'operation': 'repair_capture'})
+        repair.run.assert_called_with(value['captureId'], apply=True)
+
     def test_mutation_scope_and_paths(self):
         for change in ({'tenantId': 'tntOther'}, {'resource': '../preferences'}, {'id': 'FNx?query=1'},
                        {'operation': 'delete'}, {'attributes': {'name': 'bad'}}, {'requestId': '../file'}):

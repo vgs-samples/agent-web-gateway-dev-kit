@@ -29,6 +29,9 @@ def main():
     parser.add_argument('--tokenizer-socket', type=Path, help='Private card tokenizer Unix socket')
     parser.add_argument('--capture-profile', type=Path, help='Browser profile used to report sensitive-HAR preference status')
     parser.add_argument('--slot-file', type=Path, help='Optional shared session-work lock file')
+    parser.add_argument('--recording-browser-url', help='Dedicated browser local debugging URL (defaults to capture profile, otherwise port 9222)')
+    parser.add_argument('--captures-directory', type=Path, help='Private local folder for panel HAR recordings')
+    parser.add_argument('--repair-policy', type=Path, help='Private local DEV automatic-repair policy; see REPAIRS.md')
     parser.add_argument('--enable-mcp', action='store_true', help='Enable the local MCP companion; see MCP.md')
     parser.add_argument('--mcp-browser-url', default='http://127.0.0.1:9222', help='Dedicated browser local debugging URL')
     parser.add_argument('--mcp-directory', type=Path, default=Path(__file__).resolve().parent / '.private-mcp', help='Private MCP configuration, operation journal and captures')
@@ -65,16 +68,18 @@ def main():
             raise ValueError('Choose an empty output directory')
         catalog = Catalog(session_path, client=client, sessions_directory=args.sessions_dir or session_path.parent, egress_file=args.egress_profile,
                           tokenizer_socket=args.tokenizer_socket, capture_profile=args.capture_profile, slot_file=args.slot_file)
-        server = CatalogServer(session_path, catalog=catalog, profiles=profiles)
+        server = CatalogServer(session_path, catalog=catalog, profiles=profiles,
+                               recording_browser_url=args.recording_browser_url, captures_directory=args.captures_directory,
+                               repair_policy=args.repair_policy)
         if args.enable_mcp:
             directory = args.mcp_directory.expanduser().resolve()
             directory.mkdir(parents=True, exist_ok=True, mode=0o700)
             directory.chmod(0o700)
             mcp_lock = runtime_lock(directory)
-            mcp_server = McpGatewayServer(GatewayBridge(server.registry, args.environment, directory, args.mcp_write))
+            mcp_server = McpGatewayServer(GatewayBridge(server.registry, args.environment, directory, args.mcp_write, repair=server.repair))
             connection_file = directory / 'connection.json'
             private_json(connection_file, {**mcp_server.config, 'browserUrl': browser_url,
-                         'capturesDirectory': str(directory / 'captures')})
+                         'capturesDirectory': str(server.repair.directory)})
             client_config = {'mcpServers': {'awg-testing': {'command': sys.executable,
                 'args': [str(Path(__file__).resolve().parent / 'awg_mcp.py'), '--connection', str(connection_file)]}}}
             private_json(directory / 'mcp-client.json', client_config)

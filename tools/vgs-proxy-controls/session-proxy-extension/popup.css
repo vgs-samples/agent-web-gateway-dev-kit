@@ -45,3 +45,50 @@
 .account-setup .setup-steps{padding-left:22px;margin:20px 0 0}.setup-steps>li{padding-left:6px;margin-bottom:24px}.setup-steps h3{font-size:14px;margin-bottom:8px}.setup-steps p{font-size:12px;color:var(--muted);margin:8px 0 12px;line-height:1.6}.setup-command{position:relative;min-width:0}.setup-command button{position:absolute;right:8px;top:8px}.setup-command pre{padding:48px 14px 14px;margin:10px 0 12px;max-height:none;white-space:pre-wrap;overflow-wrap:anywhere;user-select:all}.setup-file{display:block;white-space:normal}.account-setup #account-copy-status:empty{display:none}
 
 #mcp-client-config{white-space:pre-wrap;overflow-wrap:anywhere;max-height:none;user-select:all}
+.test-recording-fields{display:grid;grid-template-columns:1fr 1fr;gap:20px}.test-recording-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}.test-recording-panel .state[data-recording=true]{background:#e7f6ee;color:#156b50}.test-recording-panel .intro{margin-bottom:12px}.test-recording-panel .setup-file{margin-top:14px}.test-recording-panel .note{margin-top:16px}@media(max-width:700px){.test-recording-fields{grid-template-columns:1fr}}
+
+@media(max-width:560px){.navigation nav{flex-wrap:wrap;gap:12px 18px}}
+
+/* Gateway resource tables follow the dashboard's list/detail hierarchy. */
+.navigation{flex-wrap:wrap}.navigation nav{flex-wrap:wrap;gap:18px 26px}.gateway-panel{color:#1b2530}.gateway-panel h2,.gateway-panel h3{color:#1b2530}.gateway-panel .section-heading{margin-bottom:20px}.gateway-tabs{display:flex;gap:24px;flex-wrap:wrap;border-bottom:1px solid #e1e3e8;margin-bottom:24px}.gateway-tabs button{border:0;border-radius:0;background:transparent;padding:12px 0;color:#414b58;border-bottom:3px solid transparent}.gateway-tabs button[aria-pressed=true]{border-bottom-color:#a300cc;color:#a300cc}.gateway-toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:24px}.gateway-toolbar>div{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.gateway-toolbar h3{margin:0;font-size:20px}.gateway-toolbar #gateway-updated{font-size:12px;color:#556270}.gateway-auto{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;margin:0}.gateway-auto input{width:auto;min-height:0;margin:0;accent-color:#a300cc}.gateway-filters{display:flex;gap:20px;align-items:end;margin-bottom:24px}.gateway-filters>div{flex:0 1 320px}.gateway-filters label{font-size:12px;font-weight:400;margin:0 0 8px;color:#414b58}.gateway-filters input,.gateway-filters select{font-size:14px;border-color:#b9c0c9;border-radius:4px}.gateway-table-scroll{overflow:auto}.gateway-table{border-collapse:collapse;width:100%;text-align:left;font-size:13px}.gateway-table th{background:#f8f9fa;font-size:12px;font-weight:600;color:#414b58;white-space:nowrap;padding:13px 16px;border-block:1px solid #e1e3e8}.gateway-table td{padding:16px;border-bottom:1px solid #e1e3e8;max-width:320px;overflow-wrap:anywhere;vertical-align:middle}.gateway-table td:last-child{width:72px;white-space:nowrap}.gateway-table tbody tr:hover{background:#fcfaff}.gateway-table .text-button,.gateway-panel #gateway-back{color:#a300cc;font-weight:400}.gateway-table .gateway-empty{text-align:center;padding:48px 20px;color:#556270}.gateway-badge{display:inline-block;white-space:nowrap;border:1px solid #dce1e7;border-radius:4px;background:#f4f6f8;color:#414b58;padding:3px 8px;font-size:11px;line-height:1.4}.gateway-badge[data-tone=success]{background:#eaf7ef;border-color:#a9dbc0;color:#166b3f}.gateway-badge[data-tone=warning]{background:#fff5dd;border-color:#eed092;color:#825407}.gateway-badge[data-tone=danger]{background:#fff0ef;border-color:#efb4af;color:#a92d25}.gateway-pagination{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:20px;font-size:12px;color:#556270}.gateway-pagination>span{margin-right:auto}.gateway-error{color:#a92d25;background:#fff4f2;border:1px solid #efb4af;padding:12px 16px;border-radius:4px;margin:12px 0 20px;max-width:none}.gateway-detail-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin:28px 0}.gateway-detail-fields dt{font-size:12px;color:#556270;margin-bottom:8px}.gateway-detail-fields dd{margin:0;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}.gateway-panel pre{max-height:540px;overflow:auto;background:#f8f9fa;color:#1b2530;border-color:#e1e3e8;white-space:pre;line-height:1.6;font-size:12px}.gateway-panel #gateway-detail-title{margin:20px 0 8px}.gateway-raw{margin-top:24px;border-top:1px solid #e1e3e8;padding-top:20px}.gateway-raw summary{font-size:13px}@media(max-width:800px){.gateway-toolbar{align-items:flex-start;flex-direction:column}.gateway-filters{flex-wrap:wrap}.gateway-filters>div{flex:1 1 240px}.gateway-detail-fields{grid-template-columns:1fr}.gateway-tabs{gap:18px}}
+
+.certificate-actions { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:24px; }
+.certificate-actions .private-note { margin:0; }
+.certificate-panel { margin-bottom:32px; }
+
+/* Account context above the browser tools; gateway configuration is separate. */
+.page-heading{flex-wrap:wrap;align-items:flex-start;row-gap:18px}
+.account-context{margin-left:auto;justify-content:flex-end;flex-wrap:wrap;padding-top:8px}
+.navigation nav{width:100%;align-items:stretch;justify-content:space-between;gap:12px 28px}
+.browser-view-tabs{display:flex;align-items:stretch;gap:26px;flex-wrap:wrap}
+.navigation nav .gateway-view-tab{margin-left:auto;padding-left:26px;border-left:1px solid var(--line)}
+@media(max-width:700px){.page-heading .account-context{width:100%;justify-content:flex-start;margin-left:0;padding:0}.navigation nav{gap:8px}.browser-view-tabs{gap:18px}.navigation nav .gateway-view-tab{padding-left:18px}}
+
+/* Dashboard adapter registry and its child views. */
+.gateway-breadcrumbs{display:flex;align-items:center;gap:12px;margin:8px 0 24px;font-size:13px;flex-wrap:wrap}
+.gateway-breadcrumbs .text-button{color:#a300cc;font-weight:400}.gateway-crumb-divider{color:#89929f}
+.gateway-child-section{margin-top:32px}.gateway-child-section h3{font-size:18px;margin-bottom:14px}
+.gateway-adapter-name{display:flex;align-items:center;gap:12px}.gateway-adapter-name>div{min-width:0}
+.gateway-adapter-icon{display:flex;align-items:center;justify-content:center;width:48px;height:48px;flex:none;border-radius:8px;background:#f8f0fc;color:#a300cc;font-size:24px}
+.gateway-adapter-icon-default{background:#1b2530;color:white}
+.gateway-row-note{display:block;font-size:11px;color:#556270;margin:4px 0 0;white-space:normal}
+.gateway-inline-error{font-size:12px;color:#a92d25;margin:6px 0 0}
+.gateway-badge[data-tone=brand]{background:#f8e8fc;border-color:#edc8f4;color:#8900ac}
+.gateway-table td:last-child{width:auto;white-space:normal}
+.gateway-table .text-button{text-align:left;white-space:normal;overflow-wrap:anywhere}
+.gateway-function-links{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+#gateway-destinations-table th[scope=rowgroup]{background:#eef5fc;text-transform:none;color:#1b2530}
+#gateway-detail-title{font-size:24px;font-weight:600}#gateway-detail-subtitle{font-size:13px;margin-bottom:8px}
+#gateway-default h3{font-size:24px}#gateway-default .gateway-badge{vertical-align:middle;margin-left:8px}
+#gateway-default>p{font-size:13px;color:#556270;max-width:90ch}
+#gateway-destination-count{margin-bottom:10px;white-space:nowrap}
+#gateway-bindings>section{margin:18px 0}#gateway-bindings .text-button{color:#a300cc}
+
+/* Session results live beside the browser's proxy settings. */
+.session-inspector{border-top:1px solid var(--line);padding-top:20px;margin-top:20px}
+.session-inspector .section-heading{gap:12px;margin-bottom:12px}.session-inspector h3{font-size:15px;margin:0}
+.session-success{padding:10px 12px;border:1px solid #a9dbc0;border-radius:5px;background:#eaf7ef;color:#166b3f;font-size:12px}
+.session-inspector .standin-title{margin-top:20px}.standin-row{border:1px solid var(--line);border-radius:5px;padding:10px 12px;margin:10px 0}
+.standin-row>div{display:flex;align-items:center;justify-content:space-between;gap:8px}.standin-row code{font-size:16px;display:block;white-space:normal;overflow-wrap:anywhere}
+.standin-row .small-label{font-size:12px}.session-settings{margin-top:20px}.session-settings summary{font-size:13px}.session-settings dd{white-space:pre-wrap}
+.session-inspector .certificate-actions{margin-top:12px}.session-inspector .gateway-badge[data-active=true]{background:#eaf7ef;color:#166b3f}

@@ -21,4 +21,4 @@ def prepare_profile(profile):
 
 def har_recording_filter():
     """Keep merchant traffic, excluding local credentials and Collect tokenization."""
-    return re.compile(r'^https?://(?!(?:127\.0\.0\.1|localhost|\[::1\])(?::|/))(?![^/]*\.verygoodvault\.(?:io|com)(?::|/))(?!(?:[^/]*\.)?vgsapi\.(?:io|com)(?::|/))', re.IGNORECASE)
+    return re.compile(r'^https?://(?!(?:127\.0\.0\.1|localhost|\[::1\])(?::|/))(?!(?:[^/]*\.)?(?:verygoodvault|verygoodproxy|vgsapi)\.(?:io|com)(?::|/))', re.IGNORECASE)

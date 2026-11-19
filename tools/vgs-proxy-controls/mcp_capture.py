@@ -85,8 +85,9 @@ class CaptureStore:
 
 
 class BrowserCapture:
-    def __init__(self, endpoint, directory):
+    def __init__(self, endpoint, directory, *, url_filter=None):
         self.endpoint, self.store = loopback_url(endpoint), CaptureStore(directory)
+        self.url_filter = url_filter
         self.playwright = self.browser = self.selected = self.recording = None
         self.pages = {}
         self.lock = asyncio.Lock()
@@ -134,10 +135,11 @@ class BrowserCapture:
         self.selected = tab_id
         return {'tabId': tab_id, 'url': self.pages[tab_id].url}
 
-    def page(self):
+    def page(self, allow_blank=False):
         page = self.pages.get(self.selected)
         if not page or page.is_closed(): raise ValueError('Select an available HTTP or HTTPS tab first.')
-        if urlsplit(page.url).scheme not in ('http', 'https'): raise ValueError('The selected tab is no longer an HTTP or HTTPS page.')
+        if urlsplit(page.url).scheme not in ('http', 'https') and not (allow_blank and page.url == 'about:blank'):
+            raise ValueError('The selected tab is no longer an HTTP or HTTPS page.')
         return page
 
     async def start(self, max_entries=2000, max_body_bytes=20000000, max_total_body_bytes=100000000):
@@ -146,12 +148,12 @@ class BrowserCapture:
         if (not 1 <= max_entries <= 10000 or not 1 <= max_body_bytes <= 100000000
                 or not 1 <= max_total_body_bytes <= 500000000):
             raise ValueError('Capture limits are out of range.')
-        page = self.page()
+        page = self.page(allow_blank=True)
         capture_id = 'CAP' + uuid.uuid4().hex
         meta = {'tabId': self.selected, 'url': page.url, 'startedAt': now(), 'state': 'recording',
                 'unredacted': True, 'maxEntries': max_entries, 'maxBodyBytes': max_body_bytes,
                 'maxTotalBodyBytes': max_total_body_bytes, 'capturedBodyBytes': 0,
-                'omittedRequests': 0, 'bodyErrors': 0}
+                'omittedRequests': 0, 'excludedRequests': 0, 'bodyErrors': 0}
         har = {'log': {'version': '1.2', 'creator': {'name': 'Agent Web Gateway Testing', 'version': '1.8.1'},
                        'pages': [], 'entries': [], '_capture': meta}}
         record = {'id': capture_id, 'har': har, 'requests': {}, 'tasks': set(), 'page': page, 'listeners': {}}
@@ -164,6 +166,9 @@ class BrowserCapture:
 
         def request_started(request):
             if urlsplit(request.url).scheme not in ('http', 'https'): return
+            if self.url_filter and not self.url_filter(request.url):
+                meta['excludedRequests'] += 1
+                return
             if len(har['log']['entries']) >= max_entries:
                 meta['omittedRequests'] += 1
                 return
