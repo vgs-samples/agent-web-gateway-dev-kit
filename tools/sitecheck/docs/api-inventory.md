@@ -1,7 +1,6 @@
 # Agent Web Gateway (AWG) API inventory - vault-management
 
-Source: vault-management commit d37e6452 (branch awg/stack-top), worktree
-`/Volumes/code/vgs/vgs2/vault-management/.claude/worktrees/vm-docs`. Read from code only; nothing was built or called.
+Source: vault-management commit d37e6452 (branch awg/stack-top). Read from code only; nothing was built or called.
 
 Citation base: file paths are relative to
 `vault-management-service/src/main/java/com/verygood/security/vault/management/` unless they start with `opa/`

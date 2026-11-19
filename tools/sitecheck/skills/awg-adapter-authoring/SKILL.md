@@ -15,7 +15,7 @@ Read `adapters/README.md` first: it decides whether the site needs an adapter at
 
 ## Steps
 
-1. **Collect evidence**, from the probe video, a HAR, or dev tools on a normal browser:
+1. **Collect evidence**, from the probe video, a HAR, or DevTools on a normal browser:
    - the key-delivering response, saved as `fixtures/capture.json` with `body_file`;
    - the checkout request: host, method, path, and the JSONPath to the encrypted fields, saved as `fixtures/encrypt.json`;
    - the PSP's public JS SDK, read to learn the exact plaintext and envelope. Adyen uses JWE `RSA-OAEP-256`/`A256GCM` with header `version: 1`, and the plaintext `{"<field>": value, "generationtime": ...}`.

@@ -12,7 +12,7 @@ Default replacement can handle intact tokens. A custom function can support deli
 
 Pair key/config response capture with the card submission from the same session. Current shared capture state uses `adyen_public_key`; one session holds one active key, so use separate sessions per checkout. Missing usable key markers pass through without state changes; matching encryption without required key/secret fails.
 
-The observed secured-fields binding is GET `checkoutshopper-live.adyen.com` with `/checkoutshopper/securedfields/*/*/securedFields*html`. The suffix glob avoided an observed dev route-serialization failure around escaped literal dots. This is an environment observation, not a universal ban on dots: verify current dispatch and nearby nonmatches.
+The observed secured-fields binding is GET `checkoutshopper-live.adyen.com` with `/checkoutshopper/securedfields/*/*/securedFields*html`. The suffix glob avoided an observed route-serialization failure around escaped literal dots. This is an environment observation, not a universal ban on dots: verify current dispatch and nearby nonmatches.
 
 H&M captures public key and server `genTime` from secured-fields HTML in the same session and ignores creation-time `adyen_generationtime`. Its request mapping selects `$.adyenData.encryptedAdyenForm` as `adyen_form`, with optional `card_label`. It preserves browser expiry ciphertext unless explicit expiry context overrides it. It requires role-based `cards`.
 

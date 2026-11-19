@@ -219,7 +219,7 @@ The answer is in [the self-check](self-check.md), question 15.
 
 | Test | What it proves | What it does not prove |
 |---|---|---|
-| Local Larky run with stand-in `session` and `vault` objects (`skills/vgs-checkout-adapter/references/local-larky.md`) | The function's logic on a captured body | That the gateway's modules, routing or authorization behave the same. The local runner is pinned to the Larky 1.0.0 binary, while the engineering spec names Larky 1.1.0 as the runtime on dev |
+| Local Larky run with stand-in `session` and `vault` objects (`skills/vgs-checkout-adapter/references/local-larky.md`) | The function's logic on a captured body | That the gateway's modules, routing or authorization behave the same. The local runner is pinned to the Larky 1.0.0 binary, while the engineering spec names Larky 1.1.0 as its reference runtime |
 | Dry run (step 7) | The function runs in VGS on the request or response you supply | Anything involving the card, or that a binding dispatches to it |
 | Level 2 harness (step 8) | The re-encrypt works through the real proxy | That the merchant or provider accepts the payment |
 | Level 3 recorded checkout (step 9) | The whole flow on the real site, up to the order | Nothing beyond what the recording and the merchant's response show |

@@ -6,7 +6,7 @@ Copy `scripts/session-kit/` to a private working directory. Shell dependencies a
 
 Copy `.env.example` to `.env`, mode 0600. For a named profile use `.env.<name>` and `KIT_ENV=<name>` consistently for creation, status, relaunch and revocation. State lives in `.state/` or `.state-<name>/`. Exported variables override the file: clear stale `VGS_*`/`EGRESS_*` overrides before switching targets. Use simple `KEY=value` lines without shell quotes, `export` or substitutions.
 
-API/auth endpoints must belong to the selected environment. The original kit used `.com` for sandbox and `.io` for dev; verify your target. No credentials are included.
+API/auth endpoints must belong to your Sandbox or Live environment. No credentials are included.
 
 There is no embedded egress provider or endpoint. Read the user-approved route from private local configuration. A private proxy JSON has `scheme`, `hostname`, numeric `port`, `username`, `password`. `--egress-profile` overrides `EGRESS_PROXY`. Both methods must match `EGRESS_ALLOWED_HOST` and `EGRESS_ALLOWED_PORT` configured locally. Invalid or missing configuration stops without route fallback.
 
@@ -15,7 +15,7 @@ There is no embedded egress provider or endpoint. Read the user-approved route f
 From the private kit, using hidden prompts:
 
 ```sh
-KIT_ENV=dev bash ./create-fresh-session.sh \
+KIT_ENV=sandbox bash ./create-fresh-session.sh \
   --hosts merchant.example,payments.example \
   --egress-profile /absolute/private/proxy.json
 ```
@@ -35,7 +35,7 @@ Pass `--adapter AD...` registered in this tenant to send role-based `cards` with
 For CloakBrowser:
 
 ```sh
-KIT_ENV=dev CLOAK_PYTHON=/absolute/path/to/venv/bin/python \
+KIT_ENV=sandbox CLOAK_PYTHON=/absolute/path/to/venv/bin/python \
   bash ./create-fresh-session.sh --adapter AD_REPLACE_WITH_REGISTERED_ID \
   --hosts payments.example --egress-profile /absolute/private/proxy.json \
   --launch-browser --url https://merchant.example/checkout
@@ -50,8 +50,8 @@ Type `tokens_to_type.card_number`/`.card_cvc`, not vault aliases. Use actual exp
 ## Inspect and end
 
 ```sh
-KIT_ENV=dev bash ./session-status.sh
-KIT_ENV=dev bash ./end-session.sh
+KIT_ENV=sandbox bash ./session-status.sh
+KIT_ENV=sandbox bash ./end-session.sh
 ```
 
 Supply an explicit session ID when needed. Revocation does not delete cards or local evidence. Do not run concurrent fresh commands in one kit/profile.

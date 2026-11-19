@@ -1,0 +1,524 @@
+{
+  "source": "openapi/awg-tenant-api.yaml",
+  "sourceSha256": "c8d3b742f95404cd28cf51a22367c2bda781655dd08a5baca780867b0d74436d",
+  "components": {
+    "schemas": {
+      "FunctionAttributes": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "larky"
+            ],
+            "default": "larky"
+          },
+          "source": {
+            "type": "string",
+            "description": "Larky source, <= 262144 UTF-8 bytes, no `${`, must parse; `vault` only via `load(\"@vgs//vault\", \"vault\")`"
+          },
+          "extension_point": {
+            "type": "string",
+            "enum": [
+              "route.request",
+              "route.response",
+              "invoke"
+            ]
+          },
+          "inputs": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/FunctionInput"
+            }
+          },
+          "previous_version": {
+            "type": "string",
+            "description": "FN id of an earlier version owned by the same owner"
+          },
+          "sha256": {
+            "type": "string",
+            "description": "Hex SHA-256 of `source`",
+            "readOnly": true
+          },
+          "owner": {
+            "type": "string",
+            "enum": [
+              "tenant",
+              "vgs"
+            ],
+            "readOnly": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ],
+            "readOnly": true
+          },
+          "created_by": {
+            "type": "string",
+            "readOnly": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "updated_by": {
+            "type": "string",
+            "readOnly": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        }
+      },
+      "FunctionInput": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "required": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "AdapterAttributes": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "functions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "description": "FN id"
+            },
+            "description": "On create and new version: the version's functions. In responses: the functions of the version shown"
+          },
+          "publish_at": {
+            "type": "string",
+            "description": "PATCH only: `now`, or an ISO-8601 date-time with offset",
+            "writeOnly": true
+          },
+          "version": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "latest_version": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "published_version": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "scheduled_version": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "scheduled_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "owner": {
+            "type": "string",
+            "enum": [
+              "tenant",
+              "vgs"
+            ],
+            "readOnly": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ],
+            "readOnly": true
+          },
+          "created_by": {
+            "type": "string",
+            "readOnly": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "updated_by": {
+            "type": "string",
+            "readOnly": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        }
+      },
+      "DestinationAttributes": {
+        "type": "object",
+        "properties": {
+          "host_pattern": {
+            "type": "string",
+            "description": "Exact host or `*.` pattern; immutable after create"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "trust",
+              "guarded",
+              "block"
+            ]
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "auto"
+            ],
+            "readOnly": true
+          },
+          "route_id": {
+            "type": "string",
+            "readOnly": true
+          },
+          "created_by": {
+            "type": "string",
+            "readOnly": true
+          },
+          "promoted_by": {
+            "type": "string",
+            "readOnly": true
+          },
+          "promoted_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        }
+      },
+      "AdapterDestinationAttributes": {
+        "type": "object",
+        "properties": {
+          "adapter": {
+            "type": "string",
+            "description": "AD id or name on input; AD id on output; immutable"
+          },
+          "adapter_version": {
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "when": {
+            "type": "object",
+            "required": [
+              "host"
+            ],
+            "properties": {
+              "host": {
+                "type": "string",
+                "description": "One of the vault's agent destinations, not blocked"
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "GET",
+                  "POST",
+                  "PUT",
+                  "PATCH",
+                  "DELETE",
+                  "HEAD",
+                  "OPTIONS"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 1024,
+                "description": "Starts with `/`; `*` matches any characters"
+              }
+            }
+          },
+          "functions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "inputs": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/InputSource"
+                  }
+                },
+                "extension_point": {
+                  "type": "string",
+                  "enum": [
+                    "route.request",
+                    "route.response"
+                  ],
+                  "readOnly": true
+                }
+              }
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "created_by": {
+            "type": "string",
+            "readOnly": true
+          },
+          "updated_by": {
+            "type": "string",
+            "readOnly": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        }
+      },
+      "InputSource": {
+        "type": "object",
+        "required": [
+          "from"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "enum": [
+              "constant",
+              "request.body",
+              "response.body",
+              "request.header",
+              "response.header",
+              "request.query",
+              "session.value"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "description": "`constant`: <= 4096 characters, no `${`"
+          },
+          "path": {
+            "type": "string",
+            "description": "`*.body`: JSONPath (`$`, `.key`, `['key']`, `[index]`)"
+          },
+          "name": {
+            "type": "string",
+            "description": "`*.header` / `request.query`"
+          },
+          "key": {
+            "type": "string",
+            "description": "`session.value` (behind a feature flag)"
+          }
+        }
+      },
+      "InvocationAttributes": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "`invoke` functions only",
+            "writeOnly": true
+          },
+          "request": {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "headers": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "body": {
+                "type": "string",
+                "description": "<= 1 MiB"
+              }
+            },
+            "writeOnly": true
+          },
+          "response": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 599
+              },
+              "headers": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "body": {
+                "type": "string",
+                "description": "<= 1 MiB"
+              }
+            },
+            "writeOnly": true
+          },
+          "destination": {
+            "type": "string",
+            "description": "AX id whose bindings supply the inputs; not with `inputs`",
+            "writeOnly": true
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "writeOnly": true
+          },
+          "session": {
+            "type": "object",
+            "properties": {
+              "values": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "context": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "writeOnly": true
+          },
+          "function": {
+            "type": "string",
+            "readOnly": true
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "api",
+              "test"
+            ],
+            "readOnly": true
+          },
+          "dry_run": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "succeeded",
+              "failed"
+            ],
+            "readOnly": true
+          },
+          "error": {
+            "type": "string",
+            "readOnly": true
+          },
+          "duration_ms": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "result": {
+            "type": "object",
+            "description": "Create response only",
+            "properties": {
+              "output": {
+                "type": "string"
+              },
+              "request": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "response": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "session": {
+                "type": "object",
+                "properties": {
+                  "values": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "readOnly": true
+          },
+          "created_by": {
+            "type": "string",
+            "readOnly": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        }
+      }
+    }
+  }
+}

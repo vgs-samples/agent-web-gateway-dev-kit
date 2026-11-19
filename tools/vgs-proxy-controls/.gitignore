@@ -5,3 +5,17 @@ dev.env
 RS*.json
 __pycache__/
 dist/
+
+.proxy-controls.json
+
+.proxy-controls-accounts.json
+control-panel-sessions/
+
+.venv-mcp/
+.private-mcp/
+sandbox.env
+
+.proxy-controls-egress.json*
+.proxy-controls-accounts.json*
+test-captures/
+private/

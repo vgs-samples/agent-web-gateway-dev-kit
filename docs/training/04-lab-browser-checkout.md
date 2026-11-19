@@ -4,6 +4,13 @@
 
 > **Status: source-checked, not run.** These steps were checked against the session kit's code and notes, but nobody has run this lab end to end as written. Tell the AWG team what breaks.
 
+For the recommended interactive workflow, follow [Browser proxying best
+practices](../../tools/vgs-proxy-controls/BROWSER-PROXY-BEST-PRACTICES.md): browse
+through egress first, then add the card and create a fresh reveal session near
+checkout. This older CLI lab creates the card and session before launching its
+browser; it demonstrates the gateway path, rather than the recommended timing for
+an extended browsing task.
+
 **Use a test card**, such as `4111111111111111`. A real merchant will decline it, and that is expected. You are checking three things: pages load through VGS, the site does not treat you as a bot, and the token is swapped on the payment request. Do not submit a payment unless someone has approved that purchase.
 
 ## What you need
@@ -93,7 +100,7 @@ When you are done with the kit, delete its `.state/` folder. Ending a session do
 | The site blocks you (`403`) | That is the merchant's bot protection. Page 6 shows how to tell whether the gateway path caused it |
 | `reveal_count` stays `0` after you submit | The payment host was not allowed, or the provider encrypts the card in the browser and needs an adapter (page 5) |
 
-Tip: page 10 covers a browser extension that switches between sessions and routes without restarting the browser. It works on the DEV environment only.
+Tip: page 10 covers a browser extension that switches between sessions and routes without restarting the browser. The extension walkthrough uses Sandbox.
 
 ---
 
@@ -115,7 +122,7 @@ bash ./create-fresh-session.sh --hosts payments.example-psp.com \
 
 - **`--adapter AD…`** sets the session's `adapter` and sends the card as `cards`, which functions that call `session.card()` need. The id must be registered in the tenant. The named forms `--adapter adyen` and `--adapter stripe` need a registration ledger file; none is bundled.
 - **Expiry.** Use the card's real expiry unless the adapter requires an override.
-- **A second environment.** Create `.env.<name>` and prefix every command with `KIT_ENV=<name>`; its state goes to `.state-<name>/`. Dev uses the `.io` hosts. Variables already exported in your shell override the file.
+- **A second environment.** Create `.env.<name>` and prefix every command with `KIT_ENV=<name>`; its state goes to `.state-<name>/`. Use the API and authentication endpoints for your Sandbox or Live account. Variables already exported in your shell override the file.
 - **Which traffic goes through VGS.** The hosts in the session's PAC file. On a build without the PAC split, all of it.
 - **If the payment host is not allowed,** what happens depends on the tenant's unlisted-host mode: the request may bypass VGS and deliver the worthless tokens, be refused (the October 2026 doc set gives `403 reveal_refused`, reason `session_host_not_allowed`), be revealed within the guard's limits, or be held for approval. Page 2 explains the modes.
 - **The CVC alias is volatile.** A new session does not bring back a CVC alias that is no longer available; store the card again.

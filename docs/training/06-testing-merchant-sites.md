@@ -55,7 +55,7 @@ Under `defaults`, set:
 
 | Key | What to put |
 |---|---|
-| `env` | `prod-sandbox` or `dev` |
+| `env` | `prod-sandbox` for Sandbox tests |
 | `tenant` | Your tenant id |
 | `egress` | The name of an egress profile further down the file |
 | `context` | The card's expiry month and year |
@@ -195,8 +195,8 @@ Keep runs few and spaced out per site. Bot protection learns from repetition, an
 - **Verdicts in full.** `blocked-even-direct` is given when a direct page was blocked, failed to load, or returned a status outside 200–399; `--direct` needs an egress profile. `errors` covers any status outside 200–399 that is not a recognised bot-wall block. A page that fails to load gives `errors`, not `error`.
 - **`--deep` in full.** Without a `recipe:` it does nothing extra. The other suffixes are `; capture-missing` and `; recipe-failed`. It reports whether the key was captured when the site has an `adapter:` and the recipe lists `CAPTURE_KEYS`.
 - **What the harness checks.** It first dry-runs the capture function on a saved payment page and checks the merchant's public key ends up in the session. Then each placeholder must have become a JWE under the harness's key, carrying a number that matches the card's BIN and length, the expiry from the session context, a `generationtime` from the page or the context (the report says which), and a CVC of the card's CVC length. Every other field must be unchanged. New bindings take time to reach the proxy; the harness waits up to 120 seconds by default.
-- **Merchant files.** The files in `harness/merchants/` hold one tenant's binding ids. The `*-prod-sandbox.json` files name a prod sandbox tenant. `hm.json`, `jysk.json`, `dunelm.json` and `alza.json` are the bindings the engineering spec and the harness README describe on the dev tenant. To add a merchant, see `tools/sitecheck/harness/README.md`.
-- **`--card`.** The harness README says that without it the harness uses the dev smoke card, but the code loads that card through a module that is not in this repository, and exits when it cannot.
+- **Merchant files.** The files in `harness/merchants/` illustrate merchant request shapes. Replace tenant, adapter and binding IDs with values from your Sandbox account before running them. To add a merchant, see `tools/sitecheck/harness/README.md`.
+- **`--card`.** Always supply your own card alias file. No card or account is bundled.
 - **Managing adapters with the tool.** `uv run awg-sitecheck adapter plan|apply|dry-run|teardown <spec.yaml>` and `adapter list`. Page 5 uses them.
 - **For AI agents** working in that folder, `tools/sitecheck/AGENTS.md` and the three skills under `tools/sitecheck/skills/` give the same workflow as instructions.
 
