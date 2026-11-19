@@ -141,7 +141,7 @@ select **Egress Proxy**. Defer the fresh payment session until checkout preparat
 
 Choose an entry under **Available sessions** and click **Use selected session**.
 The current route is preserved. Reload merchant pages after switching and use the
-new session's stand-ins in any checkout fields.
+new session's values from **Session aliases** in any checkout fields.
 
 For a new session, open **New session…**. Use **Add card** for VGS Collect hosted
 fields, or **Add alias** for existing aliases. Sandbox offers public **Test cards**
@@ -151,16 +151,27 @@ egress used for browsing; manual browser egress settings are not copied into thi
 form. The new session's private creation response is saved locally. Select it
 when ready, then explicitly enable the VGS route before loading checkout.
 
-![Create reveal session form populated with synthetic aliases](../../tools/vgs-proxy-controls/screenshots/create-session.png)
+![Create reveal session form using a synthetic Sandbox account](../../tools/vgs-proxy-controls/screenshots/create-session.png)
 
 ### 7. Inspect routing and turn it off
 
 Select a route in **Proxy Settings**. **Diagnostics → View actual PAC file → Load
 PAC script** shows the script used by the current session. PAC chooses routes by
 host, not checkout stage. To proxy only the checkout portion manually, use
-**Egress Proxy** while browsing, then select **VGS Proxy** before checkout.
+**Egress Proxy** while browsing, then select **VGS Reveal Session Proxy** before checkout.
 
-![Diagnostics showing the actual PAC script from a local fixture](../../tools/vgs-proxy-controls/screenshots/diagnostics.png)
+![Diagnostics with CA download, PAC inspection and HAR export controls](../../tools/vgs-proxy-controls/screenshots/diagnostics.png)
+
+Open **Agent Web Gateway Config** to inspect destinations and adapters. Each
+adapter contains its functions and connected destinations. Destination details
+show the inputs supplied to those functions; the view does not edit or approve
+gateway configuration.
+
+![Adapter functions and connected destinations](../../tools/vgs-proxy-controls/screenshots/gateway-config.png)
+
+Use the separate **Recording** tab to capture one selected test tab. Recording
+does not change the proxy route. See the [recording instructions](../../tools/vgs-proxy-controls/README.md#automatic-test-recording)
+for the browser debugging setup and capture controls.
 
 Choose **No Proxy** to turn proxying off. When finished, close the training browser
 and press Ctrl-C in the helper terminal. Stopping the helper alone does not turn

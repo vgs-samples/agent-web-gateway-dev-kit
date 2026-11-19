@@ -147,7 +147,7 @@ the browser setup route before lab 4, so learners can choose a route and see the
 PAC file without editing browser flags during checkout. Link the versioned kit
 and its browser support notes from page 10.
 
-The **Agent Web Gateway Testing** README puts the control-panel download and
+The **Agent Web Gateway dev kit** README puts the control-panel download and
 walkthrough after the product introduction. It links the reviewed source/helper
 artifact rather than a generated private extension directory.
 
@@ -164,11 +164,12 @@ The package does not start a merchant test or submit a payment.
 
 ## Verified scope
 
-The source is based on the clean 1.7.6 package, updated to 1.8.0 for this repository.
-Local verification covers helper tests, extension-worker tests, and a Chrome for
-Testing browser harness with synthetic sessions, dummy proxy credentials and
-mocked Collect. The four walkthrough screenshots are generated from Sandbox
-fixtures. No real VGS account, card tokenization or merchant payment was used.
+The source began with the clean 1.7.6 package and is updated to 1.10.0 in this
+repository. Local verification passed 116 helper/privacy tests, 31 extension-worker
+tests and 24 session-kit tests. GitHub Actions also passed isolated Chromium
+fixtures for MCP capture, panel recording, gateway views, session aliases and CA
+downloads. The five walkthrough screenshots come from synthetic Sandbox fixtures.
+No real VGS account, card tokenization or merchant payment was used.
 
 Browser launch examples and distribution choices reference the official vendor
 documentation linked in this guide and the browser walkthrough. They do not

@@ -94,7 +94,7 @@ Chrome, Edge and Brave use a one-time **Load unpacked** step; see the
 These screenshots use synthetic Sandbox data and local fixtures. They show the
 interface, not a real account, merchant transaction or completed tokenization.
 
-**1. Controls:** confirm the tenant, configure egress, and choose **Egress Proxy**
+**1. Browser Settings:** confirm the tenant, configure egress, and choose **Egress Proxy**
 before browsing. Create the payment reveal session when checkout is ready.
 Choose **No Proxy** to turn proxying off for this browser profile.
 
@@ -111,13 +111,21 @@ through Collect or use available aliases, and create a session with the same
 egress used for browsing. Select the new session, then explicitly enable a VGS
 route before loading checkout. Selection preserves the current route.
 
-![Create reveal session with synthetic aliases](tools/vgs-proxy-controls/screenshots/create-session.png)
+![Create reveal session form using a synthetic Sandbox account](tools/vgs-proxy-controls/screenshots/create-session.png)
 
 **4. Diagnostics:** inspect the actual PAC script and the HAR export setting.
 Enabling sensitive-HAR export does not start a recording. The optional MCP setup
 appears under **Connect an assistant with MCP**.
 
 ![Diagnostics: PAC script and HAR export information](tools/vgs-proxy-controls/screenshots/diagnostics.png)
+
+**5. Agent Web Gateway Config:** inspect destinations and adapters. Open an adapter
+to see its functions and connected destinations, including the inputs supplied by
+each destination. This panel is read-only.
+
+![Adapter details with functions and connected destinations](tools/vgs-proxy-controls/screenshots/gateway-config.png)
+
+Use the separate **Recording** tab to start and stop a selected tab's HAR capture.
 
 When finished, select **No Proxy**, close the test browser and stop the helper with
 Ctrl-C. Keep credentials, generated extensions, saved sessions and HAR files private.

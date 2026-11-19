@@ -6,20 +6,20 @@ The training pages in `docs/training/` were written on 2026-11-16 from the files
 
 | Path here | Origin | Dated | Changed? |
 |---|---|---|---|
-| `docs/reference/01…04-*.md`, `request-path.svg`, `api-inventory-full.md` | AWG docs bundle (`awg-docs-bundle`), written from vault-management `awg/stack-top` at `d37e6452` and proxy `awg/stack-top` at `a02ccd315` | 2026-11-12 | No |
+| `docs/reference/01…04-*.md`, `request-path.svg`, `api-inventory-full.md` | AWG docs bundle (`awg-docs-bundle`), written from vault-management `awg/stack-top` at `d37e6452` and proxy `awg/stack-top` at `a02ccd315` | 2026-11-12 | Replaced an internal tenant example with a placeholder |
 | `openapi/` | Same bundle | 2026-11-12 | No |
 | `examples/functions/` | Same bundle, `harness/examples/` | 2026-11-12 | No |
 | `docs/images/*.png` | Two slides exported from VGS's Google Slides deck "Agent Web Gateway" (dated Nov 2026, marked confidential): the token-swap flow and the client-side-encryption flow | 2026-11 | No |
-| `tools/vgs-proxy-controls/` | Clean `vgs-agent-web-gateway-control-panel-1.7.6.zip` source package, updated here as 1.7.7; `SHA256SUMS` covers the packaged files | 2026-11-18 | Current panel/helper, corrected CLI scope text, Sandbox setup examples/default, screenshots and browser fixture support |
+| `tools/vgs-proxy-controls/` | Clean 1.7.6 source package plus maintained panel/helper changes, updated here as 1.10.0; `SHA256SUMS` covers the packaged files | 2026-11-19 | Current panel, recording/MCP tools, gateway views, session/CA fixes, publication checks and five synthetic screenshots |
 | `tools/sitecheck/` | `awg-sitecheck` release of 2026-11-14, plus local changes made on 2026-11-15 and 2026-11-16 | 2026-11-16 | See below |
-| `skills/vgs-checkout-adapter/` | The `vgs-checkout-adapter` skill, packaged 2026-11-13; its own provenance is in `references/source-notes.md` | 2026-11-13 | No |
+| `skills/vgs-checkout-adapter/` | The `vgs-checkout-adapter` skill, packaged 2026-11-13; its own provenance is in `references/source-notes.md` | 2026-11-19 | Session-kit compatibility fixes and adapter debugging reference |
 
 Local changes in `tools/sitecheck/` relative to the 2026-11-14 release:
 
 - `awg_sitecheck/browser.py`, `awg_sitecheck/purchase.py`: for recipes that call `run.require_success`, a failed page load now stops a checkout and records the status, a URL without credentials, the session id and the request id.
 - `recipes/hm_us.py`: waits and retries when the checkout page's scripts are rate-limited.
 - Added `recipes/ikea_us.py` and `tests/test_navigation_failures.py`.
-- Replaced two machine-specific source paths in research documents with portable repository/commit references.
+- Replaced two machine-specific source paths in research documents with portable repository/commit references. Replaced account-bound tenant, adapter and binding examples with placeholders.
 - Left out: four helper scripts tied to one person's Keychain and 1Password setup, and every credential, card, state and run-output file.
 
 ## Where the sources disagree
@@ -59,17 +59,18 @@ Local changes in `tools/sitecheck/` relative to the 2026-11-14 release:
 
 ## Keeping this accurate
 
-The control-panel update on 2026-11-18 replaces the older bundled extension with
-1.7.7 source and adds a build workflow, Sandbox setup guide and four screenshots.
-The source derives from the clean 1.7.6 package; generated private configuration
-was not imported. Documentation uses the official browser references linked in
-the extension chapter and distribution guide.
+The control-panel update on 2026-11-19 publishes version 1.10.0 with recording,
+MCP tools, gateway views, session/CA fixes, a build workflow, and five screenshots.
+Only reviewed source was imported; private generated configuration and captures
+were excluded. Documentation uses the official browser references linked in the
+extension chapter and distribution guide.
 
-Local verification passed 41 Python helper tests and 29 extension-worker tests.
-The Chrome for Testing browser harness verified routing, session switches, proxy
-authentication, worker restarts, PAC display and HAR/video generation using local
-fixtures. Walkthrough screenshots use synthetic Sandbox data and mocked Collect;
-no real VGS account, tokenization or merchant transaction was involved. Other
-browser/version combinations and the end-to-end labs still need validation.
+Local verification passed 116 helper/privacy tests, 31 extension-worker tests and
+24 session-kit tests. GitHub Actions passed isolated Chromium fixtures for MCP
+capture, panel recording, gateway navigation, session aliases, activation and CA
+downloads. The source and downloadable ZIP passed publication and secret scans.
+Walkthrough screenshots use synthetic Sandbox data. No real VGS account, card
+tokenization or merchant transaction was involved. Other browser/version
+combinations and the end-to-end labs still need validation.
 
 When the product changes, update `docs/reference/` from the new bundle first, then fix the training pages that cite the changed section, then update the dates in `README.md` and this file.

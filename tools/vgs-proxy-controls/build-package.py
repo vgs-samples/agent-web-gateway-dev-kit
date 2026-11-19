@@ -29,7 +29,7 @@ FILES = [
     'session-proxy-extension/assets/icon-48.png',
     'README.md', 'sandbox.env.example', '.gitignore', 'build-package.py',
     'screenshots/control-panel.png', 'screenshots/settings.png',
-    'screenshots/create-session.png', 'screenshots/diagnostics.png',
+    'screenshots/create-session.png', 'screenshots/diagnostics.png', 'screenshots/gateway-config.png',
     'start-proxy-controls.py', 'awg_dev_api.py', 'session_catalog.py',
     'session_proxy_extension.py', 'test_session_catalog.py',
     'test_session_proxy_extension.mjs', 'test_session_proxy_browser.py',

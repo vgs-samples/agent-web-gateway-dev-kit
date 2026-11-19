@@ -125,7 +125,7 @@ select **Egress Proxy** before browsing.
 All screenshots use synthetic Sandbox data and local fixtures. They do not show
 real credentials, a live session or merchant traffic.
 
-**Controls:** select a saved session, then choose a route. **No Proxy** turns proxying off.
+**Browser Settings:** select a saved session, then choose a route. **No Proxy** turns proxying off.
 
 ![Session selection and proxy routing diagrams](screenshots/control-panel.png)
 
@@ -135,12 +135,18 @@ real credentials, a live session or merchant traffic.
 
 **New session:** open the form when needed and use hosted card fields or existing aliases.
 
-![Create reveal session with example aliases](screenshots/create-session.png)
+![Create reveal session form using a synthetic Sandbox account](screenshots/create-session.png)
 
 **Diagnostics:** inspect the actual PAC script and sensitive-HAR export setting,
 or expand **Connect an assistant with MCP** for its local client configuration.
 
 ![PAC file and HAR export details](screenshots/diagnostics.png)
+
+**Agent Web Gateway Config:** inspect destinations and adapters. Each adapter
+contains its functions and connected destinations; destination details show the
+function inputs. This panel is read-only.
+
+![Adapter functions and connected destinations](screenshots/gateway-config.png)
 
 ## Use
 
