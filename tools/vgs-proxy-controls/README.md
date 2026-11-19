@@ -107,6 +107,17 @@ open -a "Google Chrome"
 Share the clean ZIP, not the generated private directory. Each recipient runs the
 helper with their own account and session before loading their generated extension.
 
+## Recommended browser workflow
+
+Browse through **Egress Proxy** first. When checkout is ready, add the card aliases,
+create a fresh reveal session using the same egress settings, select it, and enable
+VGS before loading checkout or its payment frames. Manual browser egress settings
+are not automatically copied into new sessions, and session selection preserves
+the current route. See [Browser proxying best practices](BROWSER-PROXY-BEST-PRACTICES.md)
+for the full sequence, PAC routing, recording and cleanup. The current installer
+still requires an active saved session for initial setup and starts in PAC mode;
+select **Egress Proxy** before browsing.
+
 ## Walkthrough screenshots
 
 All screenshots use synthetic Sandbox data and local fixtures. They do not show

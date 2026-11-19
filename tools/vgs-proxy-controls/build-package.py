@@ -5,6 +5,7 @@ import hashlib
 import zipfile
 
 FILES = [
+    'BROWSER-PROXY-BEST-PRACTICES.md',
     'MCP.md', 'requirements-mcp.txt', 'awg_mcp.py', 'mcp_capture.py', 'mcp_gateway.py', 'gateway-api-schema.json',
     'test_mcp_gateway.py', 'test_mcp_stdio.py', 'test_mcp_browser.py',
     'session-proxy-extension/collect-card.js', 'COLLECT-SDK.md',

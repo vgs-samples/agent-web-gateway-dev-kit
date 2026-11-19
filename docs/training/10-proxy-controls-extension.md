@@ -29,6 +29,20 @@ The panel also shows the tenant and session ID, reads the actual PAC, accepts
 local service-account exports, and creates sessions using hosted VGS Collect
 fields or existing aliases. It does not fill merchant forms or submit payments.
 
+## Recommended browser workflow
+
+Start browsing through **Egress Proxy**. Prepare the basket in the same browser,
+then add the card aliases and create a fresh reveal session when checkout is
+ready. Give that session the same egress configuration, select it, and switch to
+**VGS Proxy** before opening checkout or loading its payment frames. Use **PAC
+File** when its actual rules cover the payment hosts you need.
+
+The [browser proxying best-practices guide](../../tools/vgs-proxy-controls/BROWSER-PROXY-BEST-PRACTICES.md)
+covers the complete sequence. It also explains two separate settings: a manual
+browser egress is not copied into new reveal sessions, and selecting a session
+does not enable VGS. The current launcher's initial-session prerequisite below
+still applies; first-time setup is not yet session-free.
+
 ## What you need
 
 1. Python 3.10 or later and a dedicated Chromium browser profile. Chrome for
@@ -121,6 +135,9 @@ walkthrough. It requires a CLI build containing `agent-web-gateway-admin`; check
 
 ### 6. Select or create a session
 
+Before browsing, configure **Proxy Settings → Egress proxy settings**, save, and
+select **Egress Proxy**. Defer the fresh payment session until checkout preparation.
+
 Choose an entry under **Available sessions** and click **Use selected session**.
 The current route is preserved. Reload merchant pages after switching and use the
 new session's stand-ins in any checkout fields.
@@ -128,8 +145,10 @@ new session's stand-ins in any checkout fields.
 For a new session, open **New session…**. Use **Add card** for VGS Collect hosted
 fields, or **Add alias** for existing aliases. Sandbox offers public **Test cards**
 shortcuts. Creating aliases and then a session are explicit separate actions;
-neither submits a merchant payment. The new session's private creation response
-is saved locally. Select it when ready.
+neither submits a merchant payment. Configure the new session with the same
+egress used for browsing; manual browser egress settings are not copied into this
+form. The new session's private creation response is saved locally. Select it
+when ready, then explicitly enable the VGS route before loading checkout.
 
 ![Create reveal session form populated with synthetic aliases](../../tools/vgs-proxy-controls/screenshots/create-session.png)
 

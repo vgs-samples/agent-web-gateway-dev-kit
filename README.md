@@ -22,6 +22,12 @@ Some payment providers encrypt the card in the browser. For those, VGS runs an *
 
 ## Testing with the control panel
 
+**Recommended browser workflow:** browse through **Egress Proxy** first. When
+checkout is ready, add the card aliases, create a fresh reveal session with the
+same egress settings, select it, and enable VGS before loading the payment flow.
+Read [Browser proxying best practices](tools/vgs-proxy-controls/BROWSER-PROXY-BEST-PRACTICES.md)
+for the steps, PAC choice, cleanup and the current launcher's initial-session requirement.
+
 The current **Agent Web Gateway Control Panel** source and local helper are in
 [`tools/vgs-proxy-controls/`](tools/vgs-proxy-controls/). For a CLI-first lab, page 10 includes
 [launch examples for Chrome for Testing, Chromium, Chrome, Edge and Brave](docs/training/10-proxy-controls-extension.md#browser-launch-examples).
@@ -88,7 +94,8 @@ Chrome, Edge and Brave use a one-time **Load unpacked** step; see the
 These screenshots use synthetic Sandbox data and local fixtures. They show the
 interface, not a real account, merchant transaction or completed tokenization.
 
-**1. Controls:** confirm the tenant and session, then choose a routing diagram.
+**1. Controls:** confirm the tenant, configure egress, and choose **Egress Proxy**
+before browsing. Create the payment reveal session when checkout is ready.
 Choose **No Proxy** to turn proxying off for this browser profile.
 
 ![Control panel: session selection and four routing diagrams](tools/vgs-proxy-controls/screenshots/control-panel.png)
@@ -99,9 +106,10 @@ copyable CLI setup instructions.
 
 ![Settings: Sandbox and the local service-account file picker](tools/vgs-proxy-controls/screenshots/settings.png)
 
-**3. New session:** open **New session…** when needed, add a card through Collect
-or use existing aliases, choose the session options, and create it. Select the new
-session separately when ready.
+**3. New session:** at checkout preparation, open **New session…**, add a card
+through Collect or use available aliases, and create a session with the same
+egress used for browsing. Select the new session, then explicitly enable a VGS
+route before loading checkout. Selection preserves the current route.
 
 ![Create reveal session with synthetic aliases](tools/vgs-proxy-controls/screenshots/create-session.png)
 
@@ -123,6 +131,8 @@ Give your assistant this repository and the following setup request:
 > credentials and original saved session response, and create a dedicated browser
 > profile. Keep credential contents out of chat and source control. Start the helper,
 > launch the browser, and help me verify the tenant, selected session, and proxy route.
+> Follow Browser proxying best practices: browse through Egress Proxy, then add the
+> card and create a fresh payment reveal session with the same egress near checkout.
 > Do not submit a merchant payment.
 
 The assistant needs access to your computer to execute those steps. The repository
@@ -159,6 +169,7 @@ Work through the pages in order. Reading takes about two hours; the two labs tak
 | 8 | [Rules](docs/training/08-rules.md) | Work without exposing card data or secrets |
 | 9 | [Integration checklist](docs/training/09-integration-checklist.md) | Review a customer's integration |
 | 10 | [Agent Web Gateway Control Panel](docs/training/10-proxy-controls-extension.md) | Load the extension, connect an account, create/select sessions and switch routes |
+| 11 | [Browser proxying best practices](tools/vgs-proxy-controls/BROWSER-PROXY-BEST-PRACTICES.md) | Browse through egress, prepare a fresh session near checkout, and switch to VGS for the payment flow |
 
 Then take the [self-check](docs/training/self-check.md). The [glossary](docs/training/glossary.md) defines every term.
 

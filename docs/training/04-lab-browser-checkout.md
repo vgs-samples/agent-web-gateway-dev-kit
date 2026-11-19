@@ -4,6 +4,13 @@
 
 > **Status: source-checked, not run.** These steps were checked against the session kit's code and notes, but nobody has run this lab end to end as written. Tell the AWG team what breaks.
 
+For the recommended interactive workflow, follow [Browser proxying best
+practices](../../tools/vgs-proxy-controls/BROWSER-PROXY-BEST-PRACTICES.md): browse
+through egress first, then add the card and create a fresh reveal session near
+checkout. This older CLI lab creates the card and session before launching its
+browser; it demonstrates the gateway path, rather than the recommended timing for
+an extended browsing task.
+
 **Use a test card**, such as `4111111111111111`. A real merchant will decline it, and that is expected. You are checking three things: pages load through VGS, the site does not treat you as a bot, and the token is swapped on the payment request. Do not submit a payment unless someone has approved that purchase.
 
 ## What you need
