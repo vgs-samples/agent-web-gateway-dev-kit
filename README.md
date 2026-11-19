@@ -173,7 +173,7 @@ Work through the pages in order. Reading takes about two hours; the two labs tak
 | 6 | [Testing merchant sites](docs/training/06-testing-merchant-sites.md) | Test a merchant site at three levels |
 | 7 | [Troubleshooting](docs/training/07-troubleshooting.md) | Go from a symptom to a cause |
 | 8 | [Rules](docs/training/08-rules.md) | Work without exposing card data or secrets |
-| 9 | [Integration checklist](docs/training/09-integration-checklist.md) | Review a customer's integration |
+| 9 | [Integration checklist](docs/training/09-integration-checklist.md) | Check your integration before it goes live |
 | 10 | [Agent Web Gateway Control Panel](docs/training/10-proxy-controls-extension.md) | Load the extension, connect an account, create/select sessions and switch routes |
 | 11 | [Browser proxying best practices](tools/vgs-proxy-controls/BROWSER-PROXY-BEST-PRACTICES.md) | Browse through egress, prepare a fresh session near checkout, and switch to VGS for the payment flow |
 
@@ -181,7 +181,7 @@ Then take the [self-check](docs/training/self-check.md). The [glossary](docs/tra
 
 ## What you need before the labs
 
-Ask the AWG team for these. None of them are in this repository.
+Ask your VGS contact for these. None of them are in this repository.
 
 1. A service account (client id and secret) on a sandbox tenant that is enabled for AWG.
 2. The tenant id. It starts with `tnt`.
@@ -195,24 +195,20 @@ Do the labs in a private folder outside this repository, and never commit creden
 | Path | What it is |
 |---|---|
 | `docs/training/` | The training pages |
-| `docs/reference/` | VGS's AWG documents of 2026-11-12: engineering spec, API detail, support runbook, customer developer guide |
-| `openapi/` | The API specs: 34 tenant operations and 15 admin operations |
+| `docs/reference/` | The Agent Web Gateway developer guide, the API error codes, and a diagram of the request path |
+| `openapi/` | The API specification |
 | `tools/sitecheck/` | `awg-sitecheck`, the tool that tests merchant sites (page 6) |
 | `tools/vgs-proxy-controls/` | Agent Web Gateway Control Panel source, local helper, tests and package builder (page 10) |
 | `.github/workflows/control-panel-package.yml` | Tests the helper/worker and builds a downloadable source/helper artifact |
 | `skills/vgs-checkout-adapter/` | A Claude Code skill for writing adapters, with the scripts lab 4 uses |
 | `examples/functions/` | A real adapter function, and a broken copy for an exercise |
-| `docs/images/` | Two slides from VGS's AWG deck |
-| `docs/comparison-evervault-browser-tokens.md` | AWG next to Evervault's Browser Tokens |
+| `docs/images/` | The two flow diagrams used in the README and page 1 |
 
-## How far to trust this
+## Status
 
-- AWG is pre-release. The reference documents describe it as of **2026-11-12**.
-- Every training page was checked line by line against those documents and the tool code.
-- **Nothing was run against a live environment, and the labs have not been run end to end as written.** Code in the labs is source-checked, not tested.
-- The control panel has local helper, worker and browser-fixture tests. Its screenshots use synthetic data; these checks do not validate a live integration.
-- If the product has changed, the reference documents win over the training pages, and the running system wins over both.
+- Start in **Sandbox** and validate your integration there before using Live.
+- The labs and tool walkthroughs are a preview: they follow the API reference and the tools' code and have not yet been validated end to end. Tell your VGS contact if a step does not behave as written.
+- The control panel has local helper, worker and browser-fixture tests. Its screenshots use synthetic data.
+- Where this kit and the running system differ, the running system is right.
 
-[SOURCES.md](SOURCES.md) lists where each file came from, where the sources disagree, and what nobody has verified.
-
-A note on words: these pages say **tenant** for the VGS account an integration runs in, identified by its `tnt…` id. The reference documents often say "vault" for the same thing. "Vault" here means only the place the card is stored.
+A note on words: these pages say **tenant** for the VGS account an integration runs in, identified by its `tnt…` id. Some VGS documents say "vault" for the same thing. "Vault" here means only the place the card is stored.

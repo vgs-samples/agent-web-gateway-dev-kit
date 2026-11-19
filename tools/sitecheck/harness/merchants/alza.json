@@ -1,14 +1,14 @@
 {
   "name": "Alza (www.alza.cz)",
-  "adapter": "ADNepZjV7BxFSWYttAmh4afX",
+  "adapter": "AD_REPLACE_WITH_YOUR_ADAPTER_ID",
   "capture": {
-    "binding": "AX1S5A14mY95X2AhXHAbC8GD",
+    "binding": "AX_REPLACE_WITH_YOUR_BINDING_ID",
     "response": {"status": 200, "headers": {"Content-Type": "application/json"},
                  "body": {"form": {"value": [{"name": "merchantAccount", "value": "AlzaCZ"},
                                              {"name": "publicKey", "value": "$harness_key"}]}}}
   },
   "checkout": {
-    "binding": "AXKsqGuNDS9dd8W3QotNoGwG",
+    "binding": "AX_REPLACE_WITH_YOUR_BINDING_ID",
     "method": "POST",
     "url": "https://www.alza.cz/api/payment/v3/adyenpayment",
     "headers": {"Content-Type": "application/json"},

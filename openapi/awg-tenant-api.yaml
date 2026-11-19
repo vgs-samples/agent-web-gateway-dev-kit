@@ -2,8 +2,7 @@ openapi: 3.1.0
 info:
   title: VGS Agent Web Gateway API
   version: '2026-11-12'
-  description: Reveal sessions, agent destinations, functions, adapters and adapter destinations. JSON:API. Generated from
-    vault-management awg/stack-top d37e6452. Scopes are listed per operation (`x-vgs-required-scope`); write scopes do not
+  description: Reveal sessions, agent destinations, functions, adapters and adapter destinations. JSON:API. Scopes are listed per operation (`x-vgs-required-scope`); write scopes do not
     include read.
 servers:
 - url: https://sandbox.vgsapi.com

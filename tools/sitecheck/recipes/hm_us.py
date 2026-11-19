@@ -1,6 +1,6 @@
 """H&M US (www2.hm.com/en_us): product page -> bag -> guest checkout -> addresses -> delivery -> Adyen card form.
 
-Reference recipe. It placed a real order through the gateway on 2026-11-14 (prod sandbox), and records what H&M needs:
+Reference recipe. It placed a real order through the gateway in Sandbox, and records what H&M needs:
   * The gateway must use browser emulation (tenant preference agentGatewayBrowserEmulation=true) and a sticky egress IP,
     or Akamai answers 403.
   * run.browse() before the cart POST and before the email step, so Akamai's sensor validates the session.

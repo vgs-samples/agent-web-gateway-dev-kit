@@ -1,13 +1,13 @@
 {
   "name": "H&M (www2.hm.com)",
-  "adapter": "ADNepZjV7BxFSWYttAmh4afX",
+  "adapter": "AD_REPLACE_WITH_YOUR_ADAPTER_ID",
   "capture": {
-    "binding": "AXQvNGzQwPnwwdbDwuHxuz1c",
+    "binding": "AX_REPLACE_WITH_YOUR_BINDING_ID",
     "response": {"status": 200, "headers": {"Content-Type": "text/html; charset=utf-8"},
                  "body_file": "fixtures/adyen-securedfields-hm.html"}
   },
   "checkout": {
-    "binding": "AXEEbdqSU4T5xonrqfy7Sth2",
+    "binding": "AX_REPLACE_WITH_YOUR_BINDING_ID",
     "method": "POST",
     "url": "https://www2.hm.com/en_us/v2/checkout/proceed",
     "headers": {"Content-Type": "application/json"},

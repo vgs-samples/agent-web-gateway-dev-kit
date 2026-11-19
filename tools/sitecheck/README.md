@@ -71,4 +71,4 @@ Each run writes `runs/<kind>-<time>/<site>/` with `result.json`, a video (`.webm
 - [adapters/README.md](adapters/README.md): which sites need an adapter, and how to write one.
 - [docs/lessons.md](docs/lessons.md): bot walls, sticky IPs, warm-up, and what failed and why.
 - [docs/developer-guide.md](docs/developer-guide.md): the function runtime (`session`, `vault`, inputs, dry runs).
-- [docs/api-inventory.md](docs/api-inventory.md): every endpoint, field and error code.
+- [../../openapi/awg-tenant-api.yaml](../../openapi/awg-tenant-api.yaml): every endpoint, field and error code.

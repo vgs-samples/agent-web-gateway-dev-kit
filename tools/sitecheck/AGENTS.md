@@ -56,7 +56,7 @@ recipes/           per-site checkout clicks (hm_us.py = worked example, _templat
 adapters/          adapter specs + Larky: adyen-cse (tested end to end), _template-cse (other CSE providers), README (decision tree)
 harness/           level 2: awg_harness.py + merchants/*.json + fixtures
 skills/            awg-site-probe, awg-adapter-authoring, awg-checkout-recipe
-docs/              developer-guide.md (function runtime), api-inventory.md (every endpoint), lessons.md (what real sites taught us), adyen-cse-research.md
+docs/              developer-guide.md (function runtime), lessons.md (what real sites taught us)
 ```
 
 ## Typical flow for a new site

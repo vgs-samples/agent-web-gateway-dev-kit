@@ -2,7 +2,7 @@
 
 **When you finish this lab you will have** created a reveal session, sent a request through it, read it back and ended it, using only `curl` and `jq`. No browser, no checkout and no adapter.
 
-> **Status: source-checked, not run.** Every command here was checked against the API documents and the session kit's code, but nobody has run this lab end to end as written. Tell the AWG team what breaks.
+> **Status: preview.** These steps follow the API reference and the kit's code and have not yet been validated end to end. If a step does not behave as written, tell your VGS contact.
 
 ## What you need
 
@@ -90,7 +90,7 @@ curl -sS -o /dev/null -D - \
 
 | If you get | It means |
 |---|---|
-| `407` | The proxy did not accept the session's login. If the session is new, the tenant may not be enabled for AWG; escalate to the AWG team |
+| `407` | The proxy did not accept the session's login. If the session is new, the tenant may not be enabled for AWG; contact VGS support |
 | The request is refused by VGS | The host may also need to be an agent destination. See "Details" |
 
 ### 6. Read the session back
@@ -137,11 +137,10 @@ Next: [lab 4](04-lab-browser-checkout.md) does the same with a real browser.
 
 ---
 
-## Details and sources
+## Details
 
 - **CVC storage.** If the card was stored with `POST /cards`, as lab 4's script does, its CVC alias is volatile: add `"storage": "VOLATILE"` to the `cvc` part in step 3.
 - **Hosts.** The developer guide's quickstart asks for the host to be added as an agent destination as well as listed in `allowed_hosts`. This lab relies on `allowed_hosts` alone; if the request is refused, add the destination (`POST /agent-gateway-destinations`, which needs `agent-gateway:write`). Public echo and request-bin services such as `httpbin.org` are refused with `never_host`.
 - **Lifetime.** Sessions last 5 minutes unless the tenant's setting says otherwise. After `expires_at` the proxy answers `407`. The documents do not settle whether reading a session after it expires returns `state: expired` or `404`; the session kit treats `404` as "already ended or expired".
-- **Deleting twice.** The runbook says a repeated delete also returns `204`.
+- **Deleting twice.** A repeated delete also returns `204`.
 
-Sources: `docs/reference/04-developer-guide.md` (Quickstart, Reveal sessions, Errors and limits, API reference), `docs/reference/03-support-runbook.md` (`407`, repeat delete), `skills/vgs-checkout-adapter/scripts/session-kit/lib.sh` (token request), `end-session.sh` (`404`) and `create-session.sh` (CVC storage), `tools/sitecheck/awg_sitecheck/config.py` (environment URLs).

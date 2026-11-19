@@ -1,6 +1,6 @@
 # What real sites taught us
 
-These are from the H&M US purchase through the gateway: prod sandbox, 2026-11-14, order placed, $29.31.
+These are from a real retail checkout run through the gateway in Sandbox.
 
 ## Bot walls (Akamai, and likely Cloudflare, DataDome, PerimeterX)
 

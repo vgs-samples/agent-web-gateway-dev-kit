@@ -51,5 +51,4 @@ Rules that bite:
   `session.card()` aliases.
 - **Teardown order:** bindings, then the adapter, then the functions (`awg-sitecheck adapter teardown`).
 
-API details: `../docs/developer-guide.md` (function runtime) and `../docs/api-inventory.md` (every endpoint, field and
-error code).
+API details: `../docs/developer-guide.md` (function runtime) and `../../../openapi/awg-tenant-api.yaml` (every endpoint, field and error code).

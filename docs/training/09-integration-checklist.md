@@ -1,12 +1,12 @@
 # 9. Integration checklist
 
-**When you finish this page you can** review a customer's integration before it goes live.
+**When you finish this page you can** check your integration before it goes live.
 
-Go through the four lists in order. Each item is one thing to confirm with the customer.
+Go through the four lists in order. Each item is one thing to confirm.
 
 ## 1. Before the first session
 
-- [ ] The card is stored in the vault, and the customer's systems keep only its aliases.
+- [ ] The card is stored in the vault, and your systems keep only its aliases.
 - [ ] The service account has the scopes the integration uses. Write scopes do not include read.
 - [ ] The tenant is enabled for AWG.
 - [ ] You know the tenant's unlisted-host mode and its session lifetime. Neither can be set per session.
@@ -34,17 +34,17 @@ Go through the four lists in order. Each item is one thing to confirm with the c
 - [ ] `reveal_count` is checked. If the checkout request went through and it is still `0`, the merchant got the stand-in card.
 - [ ] The payment request's `vgs-request-id` is kept. It is the key to the logs.
 
-## Questions this training cannot answer
+## Questions to raise with VGS
 
-Ask the AWG team or the compliance team before you answer a customer on these:
+Ask your VGS contact about these before you go live:
 
-- **PCI DSS scope.** VGS's AWG deck says "without PCI exposure" but gives no detail, and no other document here explains the scope.
-- **Hosted browser platforms.** No document here names the ones AWG has been tested with.
-- **3-D Secure.** It was listed as untested on 2026-11-12.
+- **PCI DSS scope** for your integration.
+- **Hosted browser platforms** you plan to use.
+- **3-D Secure.** A person must complete any challenge; ask how your flow should handle it.
 
 ---
 
-## Details and sources
+## Details
 
 **Optional settings worth raising**
 
@@ -55,11 +55,11 @@ Ask the AWG team or the compliance team before you answer a customer on these:
 
 **More on the items above**
 
-- **Tenant not enabled.** If a fresh session gets `407` with the correct password, and other sessions of the tenant fail the same way, the tenant may not be enabled; escalate.
+- **Tenant not enabled.** If a fresh session gets `407` with the correct password, and other sessions of the tenant fail the same way, the tenant may not be enabled; contact VGS support.
 - **Unlisted-host modes** are `strict`, `guarded` and `step_up` (page 2).
 - **Finding the card-bearing request.** From a capture of the real checkout (`skills/vgs-checkout-adapter/references/har-review.md`).
 - **Adapter testing.** A dry run and, for Adyen, the level 2 harness. The harness covers Adyen only today.
-- **Words.** The reference documents call session tokens "aliases" or "session aliases" in places; they mean the per-session values.
+- **Words.** Some VGS documents call session tokens "aliases" or "session aliases" in places; they mean the per-session values.
 - **Why full Chromium.** Playwright's default headless shell ignores `--proxy-pac-url`. A new context does not inherit the command-line PAC.
 - **Certificates.** Prefer trusting the CA to disabling certificate checks. The session kit's launcher trusts only the VGS CA, and keeps `--insecure` as a diagnostic fallback.
 - **`reveal_count`.** A rising count shows a reveal, not the merchant's acceptance.
@@ -91,4 +91,3 @@ cdp.on('Fetch.authRequired', e => cdp.send('Fetch.continueWithAuth', {
 }));
 ```
 
-Sources: `docs/reference/04-developer-guide.md` (Overview, Quickstart, Reveal sessions, PAC, Testing and debugging, API reference), `docs/reference/03-support-runbook.md`, `docs/reference/01-internal-engineering-spec.md` (Egress, Known gaps), `tools/sitecheck/AGENTS.md`, `tools/sitecheck/adapters/README.md`, `skills/vgs-checkout-adapter/SKILL.md` and `skills/vgs-checkout-adapter/references/har-review.md`, `skills/vgs-checkout-adapter/scripts/session-kit/launch-chromium.sh`, and VGS's "Agent Web Gateway" deck of November 2026 (the PCI phrase).

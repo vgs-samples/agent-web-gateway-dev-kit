@@ -2,7 +2,7 @@
 
 **When you finish this page you can** find out whether an agent can shop on a merchant's site through AWG, using the `awg-sitecheck` tool.
 
-> **Status: source-checked, not run.** The commands here were checked against the tool code. Nobody has run them as part of writing this page.
+> **Status: preview.** These steps follow the API reference and the kit's code and have not yet been validated end to end. If a step does not behave as written, tell your VGS contact.
 
 ## The three levels
 
@@ -20,7 +20,7 @@ Test in this order. Go up a level only when the one below passes.
 2. A service account on a sandbox tenant, with the scopes `reveal-sessions:write`, `reveal-sessions:read`, `agent-gateway:read` and `agent-gateway:write`.
 3. The aliases of a card stored in that tenant.
 4. A residential egress proxy you are authorized to use, and its password.
-5. The tenant setting `agentGatewayBrowserEmulation=true`. Sites with bot protection need it. Ask the AWG team whether your tenant has it.
+5. The tenant setting `agentGatewayBrowserEmulation=true`. Sites with bot protection need it. Ask your VGS contact whether your tenant has it.
 
 ## Set up, once
 
@@ -174,7 +174,7 @@ The order is placed only if the total on screen is at or below `--max-total`. No
 
 ## If a site blocks you
 
-These come from the H&M US purchase of 2026-11-14.
+These come from a real retail checkout run through AWG.
 
 | What you see | Why | Fix |
 |---|---|---|
@@ -187,7 +187,7 @@ Keep runs few and spaced out per site. Bot protection learns from repetition, an
 
 ---
 
-## Details and sources
+## Details
 
 - **Other ways to give credentials.** `VGS_ACCESS_TOKEN`, or on macOS `VGS_KEYCHAIN=<Keychain service>`; an egress profile can use `password_keychain`. Creating card aliases needs `aliases:write`; `vgs logs` needs `access-logs:read`.
 - **Probe without a site id** runs every site in `sites.yaml`. `uv run awg-sitecheck report runs/probe-<time>` rebuilds a scorecard.
@@ -200,4 +200,3 @@ Keep runs few and spaced out per site. Bot protection learns from repetition, an
 - **Managing adapters with the tool.** `uv run awg-sitecheck adapter plan|apply|dry-run|teardown <spec.yaml>` and `adapter list`. Page 5 uses them.
 - **For AI agents** working in that folder, `tools/sitecheck/AGENTS.md` and the three skills under `tools/sitecheck/skills/` give the same workflow as instructions.
 
-Sources: `tools/sitecheck/README.md`, `tools/sitecheck/AGENTS.md`, `tools/sitecheck/harness/README.md`, `tools/sitecheck/adapters/README.md`, `tools/sitecheck/docs/lessons.md`, `tools/sitecheck/skills/awg-site-probe/SKILL.md`, `tools/sitecheck/skills/awg-checkout-recipe/SKILL.md` (recipes), `tools/sitecheck/sites.example.yaml`, `tools/sitecheck/.gitignore`, `tools/sitecheck/pyproject.toml`, and the code: `tools/sitecheck/awg_sitecheck/cli.py`, `probe.py` (verdicts, `--deep`, the session card), `session.py`, `purchase.py` (`--max-total`), `adapters.py`, `tools/sitecheck/harness/awg_harness.py` (`--card`), `tools/sitecheck/harness/merchants/*.json`.

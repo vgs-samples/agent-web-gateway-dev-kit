@@ -1,13 +1,13 @@
 {
   "name": "Dunelm (was.dunelm.com)",
-  "adapter": "ADNepZjV7BxFSWYttAmh4afX",
+  "adapter": "AD_REPLACE_WITH_YOUR_ADAPTER_ID",
   "capture": {
-    "binding": "AXQvNGzQwPnwwdbDwuHxuz1c",
+    "binding": "AX_REPLACE_WITH_YOUR_BINDING_ID",
     "response": {"status": 200, "headers": {"Content-Type": "text/html; charset=utf-8"},
                  "body_file": "fixtures/adyen-securedfields-hm.html"}
   },
   "checkout": {
-    "binding": "AX1v4vrpMMKJC9LjjFAiWV9c",
+    "binding": "AX_REPLACE_WITH_YOUR_BINDING_ID",
     "method": "POST",
     "url": "https://was.dunelm.com/graphql",
     "headers": {"Content-Type": "application/json"},
