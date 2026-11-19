@@ -15,7 +15,7 @@ Run these in order. Stop and tell the developer if a step fails; do not work aro
    - If `./awg doctor` shows "Sandbox credentials saved", skip this step.
    - Otherwise ask the developer to run `./awg setup` in their own terminal. It asks for the tenant id, client id and client secret at hidden prompts.
    - If they already have a file with `VGS_TENANT=`, `VGS_CLIENT_ID=` and `VGS_CLIENT_SECRET=` lines, you may run `./awg setup --from /path/to/that/file` instead.
-4. `./awg start https://<the site to test>/`
+4. `./awg start` (or `./awg start https://<the site to test>/` to allow that site and open it in a second tab)
    - Creates a reveal session for the VGS test card, starts the control panel helper, and opens CloakBrowser with the control panel in the first tab and the site in the second.
    - It runs until the browser is closed, so start it in the background or ask the developer to run it.
    - If it says CloakBrowser needs a license key, ask the developer to run `./awg cloak-login` in their own terminal. A free key is enough.

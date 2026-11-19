@@ -109,7 +109,7 @@ cmd_doctor() {
   fi
   say ""
   [ "$MISSING" = 0 ] || fail "install what is marked MISSING, then run ./awg doctor again."
-  if [ -f "$CREDENTIALS" ]; then say "Ready. Next: ./awg start https://www.example-shop.com/"; else say "Ready. Next: ./awg start https://www.example-shop.com/  (it asks for your Sandbox credentials the first time)"; fi
+  if [ -f "$CREDENTIALS" ]; then say "Ready. Next: ./awg start"; else say "Ready. Next: ./awg start  (it asks for your Sandbox credentials the first time)"; fi
 }
 
 cmd_test() {
@@ -185,7 +185,7 @@ cmd_setup() {
   unset client_secret
   access_token >/dev/null
   say "Saved to $CREDENTIALS and verified with VGS (tenant $tenant)."
-  [ "${AWG_IN_START:-}" = 1 ] || say "Next: ./awg start https://www.example-shop.com/"
+  [ "${AWG_IN_START:-}" = 1 ] || say "Next: ./awg start"
 }
 
 # ---------------------------------------------------------------- session

@@ -5,14 +5,20 @@ Opens a browser with the Agent Web Gateway Control Panel loaded, ready to test a
 ## Start
 
 ```sh
-./awg start https://www.example-shop.com/
+./awg start
 ```
 
 That one command does everything:
 
 1. Asks for your VGS Sandbox tenant id, client id and client secret, the first time only. The secret is typed at a hidden prompt and stays on your machine.
-2. Stores the VGS test card and creates a reveal session for the site.
-3. Opens the browser with the control panel in the first tab and the site in the second.
+2. Stores the VGS test card and creates a reveal session.
+3. Opens the browser with the control panel loaded.
+
+To test a checkout, add the site's address. The session then allows that site, and it opens in a second tab:
+
+```sh
+./awg start https://the-shop-you-are-testing.com/
+```
 
 **Using a coding agent?** Open this folder in Claude Code, Codex or Cursor and say "set up this dev kit". It follows [AGENTS.md](AGENTS.md).
 
