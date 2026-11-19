@@ -1,249 +1,54 @@
 # Agent Web Gateway dev kit
 
-Customer setup uses **Sandbox** or **Live**. Start in Sandbox and validate your integration before using Live.
+Opens a browser with the Agent Web Gateway Control Panel loaded, ready to test a checkout on any site with a card the browser never sees.
 
-Testing tools, a browser control panel and hands-on training for Agent Web Gateway.
-
-## Quick start
-
-**With a coding agent:** open this repository in your agent (Claude Code, Codex, Cursor) and say "set up this dev kit". It follows [AGENTS.md](AGENTS.md).
-
-**By hand,** three commands:
+## Start
 
 ```sh
-brew install uv          # the only thing to install
-./awg setup              # once: your Sandbox tenant id, client id and secret, at hidden prompts
 ./awg start https://www.example-shop.com/
 ```
 
-`./awg start` creates a reveal session for the VGS test card, starts the control panel, and opens a browser with the control panel in the first tab and your site in the second.
+That one command does everything:
 
-What you need from VGS: a Sandbox service account (client id and secret) on a tenant enabled for Agent Web Gateway, and its tenant id.
+1. Asks for your VGS Sandbox tenant id, client id and client secret, the first time only. The secret is typed at a hidden prompt and stays on your machine.
+2. Stores the VGS test card and creates a reveal session for the site.
+3. Opens the browser with the control panel in the first tab and the site in the second.
 
-The browser is [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), fetched automatically the first time. It needs a license key; the free tier is enough. If `./awg start` asks for one, get it from the CloakBrowser page and run `./awg cloak-login` once. On macOS, allow the browser once in **System Settings → Privacy & Security** if Gatekeeper blocks it.
+**Using a coding agent?** Open this folder in Claude Code, Codex or Cursor and say "set up this dev kit". It follows [AGENTS.md](AGENTS.md).
 
-`./awg doctor` checks your machine, `./awg test` runs the kit's offline tests, and `./awg --help` lists the rest.
+## What you need
 
-## What AWG does
+- **A VGS Sandbox service account** on a tenant enabled for Agent Web Gateway: its tenant id, client id and client secret. Ask your VGS contact.
+- **[uv](https://docs.astral.sh/uv/)**. If it is missing, `./awg start` offers to install it. Nothing else to install: no Python setup, no browser download.
+- **A free [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) license key.** The kit fetches the browser itself; `./awg start` asks for the key the first time.
 
-AWG lets an AI agent pay on a merchant's website with a card stored in VGS, without the agent or its browser ever holding the card number.
+macOS and Linux. On macOS, allow the browser once in **System Settings → Privacy & Security** if it is blocked on first launch.
+
+## What you see
+
+![The control panel: a reveal session on the left, the four browser routes on the right](tools/vgs-proxy-controls/screenshots/control-panel.png)
+
+Pick a session on the left and a route on the right. At a payment form, type the **session aliases** the panel shows, never a real card. VGS swaps them for the real card on the way to the sites the session allows.
+
+## How Agent Web Gateway works
 
 ![The agent platform holds aliases for the card, creates a session, and gets back proxy settings and session tokens; the agent's browser types the session tokens at checkout; the Agent Web Gateway session swaps them for the real card on the way to the merchant](docs/images/awg-flow-token-swap.png)
 
-1. **You send VGS** the card's aliases and the hosts the agent may pay on. This creates a **reveal session**.
-2. **You get back** a proxy login for the agent's browser and **session tokens**: stand-in card values that work only in that session.
-3. **The agent types** the session tokens into the merchant's payment form.
-4. **VGS swaps** the session tokens for the real card as the payment request passes through, for the allowed hosts only.
-5. **The merchant receives** a normal payment request.
+1. **You send VGS** the card's aliases and the sites the agent may pay on. That creates a **reveal session**.
+2. **You get back** a proxy login and stand-in card values that work only in that session.
+3. **The agent types** the stand-ins into the payment form.
+4. **VGS swaps** them for the real card as the request passes through.
 
-Some payment providers encrypt the card in the browser. For those, VGS runs an **adapter** that rebuilds the encrypted fields from the real card. Page 1 shows that case.
+## If something goes wrong
 
-## Testing with the control panel
-
-**Recommended browser workflow:** browse through **Egress Proxy** first. When
-checkout is ready, add the card aliases, create a fresh reveal session with the
-same egress settings, select it, and enable VGS before loading the payment flow.
-Read [Browser proxying best practices](tools/vgs-proxy-controls/BROWSER-PROXY-BEST-PRACTICES.md)
-for the steps, PAC choice, cleanup and the current launcher's initial-session requirement.
-
-The current **Agent Web Gateway Control Panel** source and local helper are in
-[`tools/vgs-proxy-controls/`](tools/vgs-proxy-controls/). For a CLI-first lab, page 10 includes
-[launch examples for Chrome for Testing, Chromium, Chrome, Edge and Brave](docs/training/10-proxy-controls-extension.md#browser-launch-examples).
-
-**Download a build:** open **Actions → Build control panel**, select a successful
-run for the branch you want, then download **agent-web-gateway-control-panel** from
-its **Artifacts** section. It contains the versioned source/helper ZIP and its
-checksum. Artifacts are kept for 30 days and require repository access and a
-GitHub sign-in. During draft review, choose the PR branch; after merge, use `main`.
-See [download and build instructions](docs/training/extension-distribution.md#download-or-build-the-kit)
-for the CLI equivalent and local builds.
-
-The download contains source, not a configured extension. Run its helper with
-your own credentials and an active saved session, then load the generated
-`.private-extension` directory. The [distribution guide](docs/training/extension-distribution.md)
-also covers a future store release and simpler first-run onboarding.
-
-Use the same browser and configuration when reproducing an existing result.
-The alternative launch examples do not make those browsers equivalent to
-CloakBrowser or provide anonymity.
-
-### Launch it from the command line
-
-Requires Python 3.10+, Chrome for Testing, your service-account credentials and an
-**active session's original creation response**. The launcher needs that initial
-session; after setup, the panel can create additional sessions. Set up the VGS CA
-through your approved browser process before using the VGS routes.
-
-From a checkout, copy the tool to a new working folder. In Terminal 1:
-
-```bash
-cp -R tools/vgs-proxy-controls "$HOME/vgs-proxy-controls"
-cd "$HOME/vgs-proxy-controls"
-
-# Replace these with your own private files, kept outside the repository.
-AWG_ACCOUNT_FILE="/absolute/path/to/service-account-credentials.yaml"
-AWG_SESSION_FILE="/absolute/path/to/sessions/RS_EXAMPLE.json"
-AWG_SESSION_DIR="/absolute/path/to/sessions"
-
-python3 start-proxy-controls.py \
-  --environment sandbox \
-  --credentials-file "$AWG_ACCOUNT_FILE" \
-  --session "$AWG_SESSION_FILE" \
-  --sessions-dir "$AWG_SESSION_DIR"
+```sh
+./awg doctor
 ```
 
-Keep the helper running. For an artifact download, use its extracted folder instead
-of the copy step. In Terminal 2 on macOS, with Chrome for Testing in `/Applications`:
+It checks your machine and says exactly what is missing. `./awg --help` lists every command.
 
-```bash
-AWG_EXTENSION_DIR="$HOME/vgs-proxy-controls/.private-extension"
-"/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing" \
-  --user-data-dir="$HOME/Library/Application Support/AWG Testing/chrome-for-testing" \
-  --load-extension="$AWG_EXTENSION_DIR" \
-  --no-first-run
-```
+## Going deeper
 
-Use a new dedicated profile. The control-panel tab opens automatically. Regular
-Chrome, Edge and Brave use a one-time **Load unpacked** step; see the
-[browser-specific commands](docs/training/10-proxy-controls-extension.md#browser-launch-examples).
+Everything else is optional: [training, the API reference, error codes and the rest of the tools](docs/README.md).
 
-### What you should see
-
-These screenshots use synthetic Sandbox data and local fixtures. They show the
-interface, not a real account, merchant transaction or completed tokenization.
-
-**1. Browser Settings:** confirm the tenant, configure egress, and choose **Egress Proxy**
-before browsing. Create the payment reveal session when checkout is ready.
-Choose **No Proxy** to turn proxying off for this browser profile.
-
-![Control panel: session selection and four routing diagrams](tools/vgs-proxy-controls/screenshots/control-panel.png)
-
-**2. Settings:** check the environment and connected account. Use **Browse…** to
-select a dashboard or CLI credentials export. The service-account section includes
-copyable CLI setup instructions.
-
-![Settings: Sandbox and the local service-account file picker](tools/vgs-proxy-controls/screenshots/settings.png)
-
-**3. New session:** at checkout preparation, open **New session…**, add a card
-through Collect or use available aliases, and create a session with the same
-egress used for browsing. Select the new session, then explicitly enable a VGS
-route before loading checkout. Selection preserves the current route.
-
-![Create reveal session form using a synthetic Sandbox account](tools/vgs-proxy-controls/screenshots/create-session.png)
-
-**4. Diagnostics:** inspect the actual PAC script and the HAR export setting.
-Enabling sensitive-HAR export does not start a recording. The optional MCP setup
-appears under **Connect an assistant with MCP**.
-
-![Diagnostics: PAC script and HAR export information](tools/vgs-proxy-controls/screenshots/diagnostics.png)
-
-**5. Agent Web Gateway Config:** inspect destinations and adapters. Open an adapter
-to see its functions and connected destinations, including the inputs supplied by
-each destination. This panel is read-only.
-
-![Adapter details with functions and connected destinations](tools/vgs-proxy-controls/screenshots/gateway-config.png)
-
-Use the separate **Recording** tab to start and stop a selected tab's HAR capture.
-
-When finished, select **No Proxy**, close the test browser and stop the helper with
-Ctrl-C. Keep credentials, generated extensions, saved sessions and HAR files private.
-
-### Use with a coding assistant
-
-Give your assistant this repository and the following setup request:
-
-> Help me install the Agent Web Gateway Control Panel using the repository's
-> browser walkthrough. Check my Python and browser versions, use my local Sandbox
-> credentials and original saved session response, and create a dedicated browser
-> profile. Keep credential contents out of chat and source control. Start the helper,
-> launch the browser, and help me verify the tenant, selected session, and proxy route.
-> Follow Browser proxying best practices: browse through Egress Proxy, then add the
-> card and create a fresh payment reveal session with the same egress near checkout.
-> Do not submit a merchant payment.
-
-The assistant needs access to your computer to execute those steps. The repository
-and extension alone do not grant it browser control or access to HAR recordings.
-
-### Connect Claude to captures and gateway tools
-
-The optional [MCP companion](tools/vgs-proxy-controls/MCP.md) connects to the
-dedicated browser and the panel's local helper. It can record one selected tab,
-read unredacted HAR headers and bodies, and inspect functions, adapters,
-destinations and bindings using the account configured in Settings. Gateway
-authoring and route-function dry-runs are available with `--mcp-write`.
-
-The [setup guide](tools/vgs-proxy-controls/MCP.md) includes the helper command,
-browser debugging flags, Claude Code registration command and a sample recording
-prompt. Start with capture/read access, then enable writes when ready to author
-configuration. Service-account credentials stay in the helper; captured traffic
-is intentionally available to the connected assistant. Browser captures precede
-VGS transformations and need separate gateway or echo evidence to verify reveal.
-
-## Start here
-
-Work through the pages in order. Reading takes about two hours; the two labs take about half a day.
-
-| # | Page | When you finish you can |
-|---|---|---|
-| 1 | [What AWG is](docs/training/01-what-is-awg.md) | Explain what AWG does and what it does not do |
-| 2 | [Concepts](docs/training/02-concepts.md) | Name the parts and say which card value goes where |
-| 3 | [Lab: your first session](docs/training/03-lab-first-session.md) | Create, use and end a session with `curl` |
-| 4 | [Lab: a browser checkout](docs/training/04-lab-browser-checkout.md) | Open a browser through a session and type session tokens at a checkout |
-| 5 | [Adapters and functions](docs/training/05-adapters-and-functions.md) | Decide whether a merchant needs an adapter, and set one up |
-| 6 | [Testing merchant sites](docs/training/06-testing-merchant-sites.md) | Test a merchant site at three levels |
-| 7 | [Troubleshooting](docs/training/07-troubleshooting.md) | Go from a symptom to a cause |
-| 8 | [Rules](docs/training/08-rules.md) | Work without exposing card data or secrets |
-| 9 | [Integration checklist](docs/training/09-integration-checklist.md) | Check your integration before it goes live |
-| 10 | [Agent Web Gateway Control Panel](docs/training/10-proxy-controls-extension.md) | Load the extension, connect an account, create/select sessions and switch routes |
-| 11 | [Browser proxying best practices](tools/vgs-proxy-controls/BROWSER-PROXY-BEST-PRACTICES.md) | Browse through egress, prepare a fresh session near checkout, and switch to VGS for the payment flow |
-
-Then take the [self-check](docs/training/self-check.md). The [glossary](docs/training/glossary.md) defines every term.
-
-## What you need before the labs
-
-Ask your VGS contact for these. None of them are in this repository.
-
-1. A service account (client id and secret) on a sandbox tenant that is enabled for AWG.
-2. The tenant id. It starts with `tnt`.
-3. These scopes on the service account: `reveal-sessions:read`, `reveal-sessions:write`, `agent-gateway:read`, `agent-gateway:write`. Lab 4 and page 6 name a few more.
-4. For lab 4 and page 6, a residential egress proxy you are authorized to use.
-
-Do the labs in a private folder outside this repository, and never commit credentials, card files, session files or run output.
-
-## VGS documentation
-
-The official documentation is at [docs.verygoodsecurity.com](https://docs.verygoodsecurity.com). These pages go with this kit:
-
-| Topic | Page |
-|---|---|
-| Agent Web Gateway API | [API reference](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway): [reveal sessions](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/reveal-sessions), [step-up approvals](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/step-up-approvals), [destinations](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/destinations), [functions](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/functions), [adapters](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/adapters), [adapter destinations](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway/adapter-destinations) |
-| Agentic commerce | [Overview](https://docs.verygoodsecurity.com/agentic-commerce/agentic-commerce-overview), [agentic payments with a merchant user interface](https://docs.verygoodsecurity.com/agentic-commerce/agentic-payments-with-a-merchant-user-interface) |
-| Getting set up | [Create a VGS vault](https://docs.verygoodsecurity.com/agentic-commerce/create-a-vgs-vault), [collect card data from a user](https://docs.verygoodsecurity.com/agentic-commerce/collect-card-data-from-user) |
-| Service accounts and access tokens | [Authentication](https://docs.verygoodsecurity.com/cmp/platform/authentication), [service accounts](https://docs.verygoodsecurity.com/enterprise-platform/access-management/service-accounts-for-programmatic-access), [creating one with the VGS CLI](https://docs.verygoodsecurity.com/enterprise-platform/access-management/service-accounts-for-programmatic-access/creating-service-accounts-using-the-vgs-cli) |
-| Storing a card | [Cards API](https://docs.verygoodsecurity.com/cmp/developer-resources/api/cards), [create a card using VGS Collect](https://docs.verygoodsecurity.com/cmp/developer-resources/guides/create-a-card-using-vgs-collect), [aliases](https://docs.verygoodsecurity.com/vault/tokens) |
-| VGS CLI | [Getting started](https://docs.verygoodsecurity.com/vault/developer-tools/vgs-cli/getting-started), [commands](https://docs.verygoodsecurity.com/vault/developer-tools/vgs-cli/commands) |
-| Proxying a browser | [Proxying websites via browser settings](https://docs.verygoodsecurity.com/vault/example-integrations/browser-proxy) |
-| Going live | [Going live](https://docs.verygoodsecurity.com/vault/developer-tools/vault-management/going-live) |
-
-## What is in this repository
-
-| Path | What it is |
-|---|---|
-| `docs/training/` | The training pages |
-| `docs/reference/` | The Agent Web Gateway developer guide, the API error codes, and a diagram of the request path |
-| `openapi/` | The API specification |
-| `tools/sitecheck/` | `awg-sitecheck`, the tool that tests merchant sites (page 6) |
-| `tools/vgs-proxy-controls/` | Agent Web Gateway Control Panel source, local helper, tests and package builder (page 10) |
-| `.github/workflows/control-panel-package.yml` | Tests the helper/worker and builds a downloadable source/helper artifact |
-| `skills/vgs-checkout-adapter/` | A Claude Code skill for writing adapters, with the scripts lab 4 uses |
-| `examples/functions/` | A real adapter function, and a broken copy for an exercise |
-| `docs/images/` | The two flow diagrams used in the README and page 1 |
-
-## Status
-
-- Start in **Sandbox** and validate your integration there before using Live.
-- The labs and tool walkthroughs are a preview: they follow the API reference and the tools' code and have not yet been validated end to end. Tell your VGS contact if a step does not behave as written.
-- The control panel has local helper, worker and browser-fixture tests. Its screenshots use synthetic data.
-- Where this kit and the running system differ, the running system is right.
-
-A note on words: these pages say **tenant** for the VGS account an integration runs in, identified by its `tnt…` id. Some VGS documents say "vault" for the same thing. "Vault" here means only the place the card is stored.
+Use **Sandbox** and the test card while you build. This kit is a preview; where it and the running system differ, the running system is right.

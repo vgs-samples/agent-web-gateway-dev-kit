@@ -37,8 +37,26 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 need_uv() {
   have uv && return
+  local answer=""
+  if [ -t 0 ]; then
+    read -r -p "This kit needs uv (it supplies Python and the browser). Install it now? [Y/n] " answer
+    case "$answer" in
+      ""|y|Y|yes|Yes)
+        if have brew; then brew install uv; else curl -LsSf https://astral.sh/uv/install.sh | sh; fi
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        have uv && return
+        ;;
+    esac
+  fi
   fail "uv is not installed. Install it with:  brew install uv
        (or: curl -LsSf https://astral.sh/uv/install.sh | sh), then run this again."
+}
+
+# CloakBrowser needs a license key on every launch; ask for it once.
+need_cloak_license() {
+  [ -n "${CLOAKBROWSER_LICENSE_KEY:-}" ] && return
+  [ -s "$HOME/.cloakbrowser/license.key" ] && return
+  if [ -t 0 ]; then cmd_cloak_login; else fail "CloakBrowser needs a license key. Run './awg cloak-login' in your own terminal."; fi
 }
 
 # Run Python from the kit with the pinned version. uv downloads it on first use.
@@ -91,7 +109,7 @@ cmd_doctor() {
   fi
   say ""
   [ "$MISSING" = 0 ] || fail "install what is marked MISSING, then run ./awg doctor again."
-  if [ -f "$CREDENTIALS" ]; then say "Ready. Next: ./awg start https://www.example-shop.com/"; else say "Ready. Next: ./awg setup"; fi
+  if [ -f "$CREDENTIALS" ]; then say "Ready. Next: ./awg start https://www.example-shop.com/"; else say "Ready. Next: ./awg start https://www.example-shop.com/  (it asks for your Sandbox credentials the first time)"; fi
 }
 
 cmd_test() {
@@ -167,7 +185,7 @@ cmd_setup() {
   unset client_secret
   access_token >/dev/null
   say "Saved to $CREDENTIALS and verified with VGS (tenant $tenant)."
-  say "Next: ./awg start https://www.example-shop.com/"
+  [ "${AWG_IN_START:-}" = 1 ] || say "Next: ./awg start https://www.example-shop.com/"
 }
 
 # ---------------------------------------------------------------- session
@@ -262,7 +280,10 @@ cmd_cloak_login() {
 
 cmd_start() {
   local url="${1:-}" host="" session helper_pid
-  need_credentials
+  for tool in curl jq openssl; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
+  need_uv
+  [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
+  need_cloak_license
   [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
   session=$(latest_session)
   if session_alive "$session" && { [ -z "$host" ] || jq -e --arg h "$host" '(.data.attributes.allowed_hosts // []) | index($h)' "$session" >/dev/null; }; then
