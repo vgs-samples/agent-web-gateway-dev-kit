@@ -9,6 +9,8 @@ shows the actual PAC file, and selects one of four browser routes:
 3. Egress Proxy — the session's egress or a manually configured proxy, without VGS replacement.
 4. No Proxy — direct connection from this computer.
 
+The documentation shortens the first two names to **PAC File** and **VGS Proxy**.
+
 In **Add card**, Sandbox offers the same **Test cards** shortcuts as the dashboard: Visa · 4242, Visa · 4111, and Mastercard · 5454. Choosing one fills the hosted fields with its public test PAN, CVC 123, and December expiry three years ahead when expiry is required. It does not create aliases or a session. Test shortcuts are hidden in Live and never save the selected card between openings.
 
 Contextual documentation links open the official reveal-session, PAC, Collect, adapter, and service-account references in a new tab, keeping your form open.
@@ -81,7 +83,7 @@ directory. This example uses Chrome for Testing installed in `/Applications`:
 ```sh
 AWG_EXTENSION_DIR="/absolute/path/to/.private-extension"
 "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing" \
-  --user-data-dir="$HOME/Library/Application Support/VGS/AgentWebGatewayChrome" \
+  --user-data-dir="$HOME/Library/Application Support/AWG Testing/chrome-for-testing" \
   --load-extension="$AWG_EXTENSION_DIR" \
   --no-first-run
 ```
@@ -264,7 +266,7 @@ explicit environment or endpoint values in a file must match it.
 
 **New session…** opens account setup when the environment is unconfigured or lacks
 creation permission, with a visible explanation. Connect an account granting
-`reveal-sessions:read` and `reveal-sessions:write`, then return to Controls and open
+`reveal-sessions:read` and `reveal-sessions:write`, then return to Browser Settings and open
 the form. **Add card** opens VGS Collect hosted card-number and security-code fields, authorized by the account connected in Settings. It uses `aliases:write` when available, or Collect’s card-creation API with `cards:write` / `cards:create`; no Terminal tokenizer is required.
 
 API and authentication domains follow the selected environment. The session's signed
@@ -311,7 +313,7 @@ refreshes while visible; it never approves guarded destinations automatically.
 The **New session…** control opens a dashboard-style creation view on demand,
 with **Cards and aliases**, a searchable **Adapter** selector, **Allowed hosts**,
 **Allowed client addresses**, and **Egress proxy** settings. Cancel returns to
-Controls. Creation never automatically switches this browser to the new session.
+Browser Settings. Creation never automatically switches this browser to the new session.
 
 **Add card** uses VGS Collect and the connected service account to add both aliases to the
 form. **Add alias** accepts existing `tok_sandbox_…` (Sandbox) or `tok_live_…`
@@ -328,7 +330,7 @@ When the app loads an egress profile, the creation form shows **Saved proxy** an
 helper supplies its saved endpoint and credentials. Host inputs and route diagrams contain no example hostnames. Its private JSON has `scheme` (`http` or
 `https`), `hostname`, integer `port`, `username`, and `password`; keep it outside
 the package with mode 0600. Without a loaded profile, the form supports explicit
-**None**, a saved proxy, or **Add new proxy…**. Give each proxy a local name; its credentials remain in the helper’s private `.proxy-controls-egress.json` file. You can also save the current browser egress for reuse. Existing sessions keep their original egress.
+**None**, a saved proxy, or **Add a new proxy…**. Give each proxy a local name; its credentials remain in the helper’s private `.proxy-controls-egress.json` file. You can also save the current browser egress for reuse. Existing sessions keep their original egress.
 
 The included private tokenizer remains available for CLI workflows (it is optional for the control panel):
 
@@ -364,16 +366,17 @@ Never include that private file or `.proxy-controls-accounts.json` in a distribu
 
 ## Sensitive HAR and browser startup
 
-The updated CloakBrowser launcher seeds **Allow to generate HAR with sensitive
-data** and **Keep log** in every fresh profile. `capture_preferences.py` implements
-this startup step; it refuses to overwrite existing preferences. The panel shows
+`capture_preferences.py` can seed **Allow to generate HAR with sensitive data** and
+**Keep log** in a fresh browser profile before its first launch; it refuses to
+overwrite existing preferences. A browser launcher has to call it. No launcher in
+this repository does, including the one `./awg start` uses. The panel shows
 the setting read from `--capture-profile` when provided. For another existing
 browser, enable DevTools → Settings → Network → Allow to generate HAR with sensitive
 data once. Chromium extensions cannot change DevTools preferences directly.
 
 In Network, select **Export HAR (with sensitive data)**. Merely enabling the
-setting adds the export choice; it does not start recording. The Cloak launcher’s
-`--record` workflow embeds response bodies and includes headers in its private HAR.
+setting adds the export choice; it does not start recording. To record without
+DevTools, use the panel's **Recording** tab (see [Automatic test recording](#automatic-test-recording)).
 HAR files can contain credentials, cookies, and request/response data; keep them
 private. The packaged standalone helper does not include or launch CloakBrowser.
 
@@ -427,7 +430,7 @@ Card lengths default to 16/3 and adjust to 15/4 for Amex or 14/3 for Diners Club
 
 Service-account secrets stay in the helper. Collect receives a transient access token with that account’s existing permissions; the extension does not persist it. It never receives raw PAN/CVC values. A failed or incomplete alias response is rejected. The terminal tokenizer remains available for automated CLI workflows. See [COLLECT-SDK.md](COLLECT-SDK.md) for bundled SDK sources.
 
-Launcher HAR recordings use `capture_preferences.har_recording_filter()` to exclude VGS Collect, Vault/Cards API, and loopback helper traffic. Card values are visible inside the hosted fields; screen/video captures can include them. This filter applies to launcher recordings; a manually exported DevTools HAR is controlled by DevTools.
+Recordings made from the panel's **Recording** tab use `capture_preferences.har_recording_filter()` to exclude VGS Collect, Vault/Cards API, and loopback helper traffic. Card values are visible inside the hosted fields; screen/video captures can include them. This filter applies to panel recordings; a manually exported DevTools HAR is controlled by DevTools.
 
 An account with `aliases:write` creates fresh PAN/CVC aliases directly. A card-write account uses Collect’s Cards API. If that API returns an existing card without a fresh CVC alias, the panel rejects the incomplete result and asks for an account with `aliases:write`. Existing CVC aliases are never silently reused.
 

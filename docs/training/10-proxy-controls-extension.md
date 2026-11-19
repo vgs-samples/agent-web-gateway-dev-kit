@@ -3,7 +3,9 @@
 **When you finish this page you can** load the extension, connect a service account,
 create or select reveal sessions, inspect the PAC file and switch browser routes.
 
-The repository includes the full **1.8.0** control-panel source and local helper.
+The repository includes the full **1.10.0** control-panel source and local helper.
+`./awg start` runs the helper and opens the panel for you in one step; this page
+is the manual path, for another browser or to see each part.
 
 An optional [MCP companion](../../tools/vgs-proxy-controls/MCP.md) lets an assistant
 record one selected tab, inspect unredacted HAR data and use the configured
@@ -20,10 +22,13 @@ with separate credentials; switching the setting does not grant API access.
 
 | Route in Proxy Settings | Where traffic goes |
 |---|---|
-| **PAC File** | Hosts selected by the session's PAC use VGS; other traffic follows the PAC's egress or direct route |
-| **VGS Proxy** | Browser traffic uses VGS, then the session's configured egress |
+| **VGS Reveal Session PAC File** | Hosts selected by the session's PAC use VGS; other traffic follows the PAC's egress or direct route |
+| **VGS Reveal Session Proxy** | Browser traffic uses VGS, then the session's configured egress |
 | **Egress Proxy** | Browser traffic uses the session's egress or a manually configured proxy, without VGS replacement |
 | **No Proxy** | Direct connection from this computer |
+
+These pages shorten the first two names to **PAC File** and **VGS Proxy**.
+**Proxy Settings** is a section of the panel's **Browser Settings** tab.
 
 The panel also shows the tenant and session ID, reads the actual PAC, accepts
 local service-account exports, and creates sessions using hosted VGS Collect
@@ -158,7 +163,7 @@ when ready, then explicitly enable the VGS route before loading checkout.
 Select a route in **Proxy Settings**. **Diagnostics → View actual PAC file → Load
 PAC script** shows the script used by the current session. PAC chooses routes by
 host, not checkout stage. To proxy only the checkout portion manually, use
-**Egress Proxy** while browsing, then select **VGS Reveal Session Proxy** before checkout.
+**Egress Proxy** while browsing, then select **VGS Proxy** before checkout.
 
 ![Diagnostics with CA download, PAC inspection and HAR export controls](../../tools/vgs-proxy-controls/screenshots/diagnostics.png)
 
@@ -256,7 +261,7 @@ With the tool copied to the location used in step 1:
 ```bash
 AWG_EXTENSION_DIR="$HOME/vgs-proxy-controls/.private-extension"
 "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing" \
-  --user-data-dir="$HOME/Library/Application Support/AWG Training/chrome-for-testing" \
+  --user-data-dir="$HOME/Library/Application Support/AWG Testing/chrome-for-testing" \
   --load-extension="$AWG_EXTENSION_DIR" \
   --no-first-run
 ```
@@ -269,7 +274,7 @@ button returns to that tab.
 ```bash
 AWG_EXTENSION_DIR="$HOME/vgs-proxy-controls/.private-extension"
 "/Applications/Chromium.app/Contents/MacOS/Chromium" \
-  --user-data-dir="$HOME/Library/Application Support/AWG Training/chromium" \
+  --user-data-dir="$HOME/Library/Application Support/AWG Testing/chromium" \
   --load-extension="$AWG_EXTENSION_DIR" \
   --no-first-run
 ```
@@ -283,19 +288,19 @@ chooser lets you enter the hidden folder's full path. Keep the folder in place.
 
 ```bash
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --user-data-dir="$HOME/Library/Application Support/AWG Training/chrome" \
+  --user-data-dir="$HOME/Library/Application Support/AWG Testing/chrome" \
   --no-first-run "chrome://extensions"
 ```
 
 ```bash
 "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \
-  --user-data-dir="$HOME/Library/Application Support/AWG Training/edge" \
+  --user-data-dir="$HOME/Library/Application Support/AWG Testing/edge" \
   --no-first-run "edge://extensions"
 ```
 
 ```bash
 "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \
-  --user-data-dir="$HOME/Library/Application Support/AWG Training/brave" \
+  --user-data-dir="$HOME/Library/Application Support/AWG Testing/brave" \
   --no-first-run "brave://extensions"
 ```
 
@@ -315,7 +320,7 @@ For Chromium or Chrome for Testing on Linux, use the executable you installed:
 AWG_BROWSER_BIN="/absolute/path/to/browser-executable"
 AWG_EXTENSION_DIR="$HOME/vgs-proxy-controls/.private-extension"
 "$AWG_BROWSER_BIN" \
-  --user-data-dir="$HOME/.local/share/awg-training/chromium" \
+  --user-data-dir="$HOME/.local/share/awg-testing/chromium" \
   --load-extension="$AWG_EXTENSION_DIR" \
   --no-first-run
 ```
@@ -326,7 +331,7 @@ your own Windows paths, the corresponding PowerShell launch is:
 ```powershell
 $AwgBrowser = 'C:\path\to\chrome-win64\chrome.exe'
 $AwgExtension = Join-Path $HOME 'vgs-proxy-controls\.private-extension'
-$AwgProfile = Join-Path $env:LOCALAPPDATA 'AWG Training\chrome-for-testing'
+$AwgProfile = Join-Path $env:LOCALAPPDATA 'AWG Testing\chrome-for-testing'
 & $AwgBrowser "--user-data-dir=$AwgProfile" "--load-extension=$AwgExtension" --no-first-run
 ```
 
@@ -376,7 +381,7 @@ HAR export behavior, manual egress settings and the supported credentials format
 
 ## Details and sources
 
-The bundled source was imported from the clean 1.7.6 package and updated to 1.8.0
+The bundled source was imported from the clean 1.7.6 package and updated to 1.10.0
 for this repository, including corrected CLI permission text, a tenant placeholder
 in the example configuration, screenshots and documentation. Source checksums
 are included. The helper and worker have offline tests; the browser harness uses

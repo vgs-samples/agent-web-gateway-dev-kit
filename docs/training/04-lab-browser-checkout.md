@@ -15,8 +15,8 @@ an extended browsing task.
 
 ## What you need
 
-1. macOS or Linux (x86-64), with `curl`, `jq`, `openssl` and `unzip`.
-2. A service account and tenant id, as in lab 3. Storing the card needs one more scope, for `POST /cards`; ask your VGS contact which.
+1. macOS (Apple silicon or Intel) or Linux on x86-64, with `curl`, `jq`, `openssl` and `unzip`.
+2. A service account and tenant id, as in lab 3. Storing the card needs one more scope, for `POST /cards`. The [control panel's README](../../tools/vgs-proxy-controls/README.md) names it as `cards:create`, or `cards:write` on older accounts; confirm with your VGS contact.
 3. A residential egress proxy you are authorized to use. The kit will not run without one.
 
 ## Set up, once
@@ -41,7 +41,8 @@ Use plain `KEY=value` lines, with no quotes and no `export`.
 |---|---|
 | `VGS_CLIENT_ID`, `VGS_CLIENT_SECRET` | Your service account |
 | `VGS_TENANT` | Your tenant id |
-| `EGRESS_PROXY` | Your egress proxy URL |
+| `EGRESS_PROXY` | Your egress proxy URL, in the form `http://user:password@host:port` |
+| `EGRESS_ALLOWED_HOST`, `EGRESS_ALLOWED_PORT` | The host and port of that same proxy. The kit refuses any egress that does not match them |
 | `VGS_API`, `VGS_AUTH_URL` | Leave as they are for Sandbox |
 
 ## Run a checkout
@@ -96,6 +97,7 @@ When you are done with the kit, delete its `.state/` folder. Ending a session do
 |---|---|
 | The script stops at the card step | The kit insists on a newly stored card each time. If the tenant already holds that card, the run stops. See "Details" |
 | The script says an egress proxy is required | Set `EGRESS_PROXY` in `.env` |
+| The script says the egress must match `EGRESS_ALLOWED_HOST:EGRESS_ALLOWED_PORT` | Set both in `.env` to the host and port of your egress proxy |
 | No `vgs-request-id` on the merchant's pages | That host is not in the session. Start again with it in the host list |
 | The site blocks you (`403`) | That is the merchant's bot protection. Page 6 shows how to tell whether the gateway path caused it |
 | `reveal_count` stays `0` after you submit | The payment host was not allowed, or the provider encrypts the card in the browser and needs an adapter (page 5) |
@@ -109,7 +111,7 @@ Tip: page 10 covers a browser extension that switches between sessions and route
 - **What the kit saves.** It does not save the card number or CVC. `.state/` holds the aliases, the last four digits, BIN, expiry and card id, the full session response, and the session request including the egress proxy password.
 - **Without a terminal,** supply `CARD_PAN`, `CARD_CVC` and `CARD_EXP=MM/YY` in the environment.
 - **The card step** stops unless the card call returns `201` with both aliases and a card id different from the last one saved. If the tenant already holds the card and answers `303`, the run stops there.
-- **Egress.** With no `EGRESS_PROXY` and no `--egress-profile` the kit stops; it does not fall back to VGS's own addresses. Its default is a Byteful residential endpoint. A different endpoint needs `EGRESS_ALLOWED_HOST` and `EGRESS_ALLOWED_PORT` in `.env` plus `--egress-profile`.
+- **Egress.** With no `EGRESS_PROXY` and no `--egress-profile` the kit stops; it does not fall back to VGS's own addresses. No egress provider or endpoint is built in. Whichever way you supply the proxy, its host and port must equal `EGRESS_ALLOWED_HOST` and `EGRESS_ALLOWED_PORT` in `.env`; `--egress-profile` takes precedence over `EGRESS_PROXY`.
 - **More options.** `start.sh` passes only the host list and the URL. For anything else, run `create-fresh-session.sh` and then the launcher:
 
 ```bash

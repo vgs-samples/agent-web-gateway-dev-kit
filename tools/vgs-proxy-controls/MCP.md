@@ -104,7 +104,7 @@ MCP connection too if you change the debugging port or capture directory.
 
 ## 4. Record and inspect a request
 
-The extension also offers **Controls → Test recording** without an MCP client.
+The extension's **Recording** tab also offers **Test recording** without an MCP client.
 See [automatic test recording](README.md#automatic-test-recording). The panel and
 MCP recorders are separate; use one recorder for a test to avoid duplicate captures.
 

@@ -29,7 +29,7 @@ flowchart LR
 
 ### 1. Configure egress before browsing
 
-In **Controls → Proxy Settings → Egress proxy settings**, choose **Enter manually**
+In **Browser Settings → Proxy Settings → Egress proxy settings**, choose **Enter manually**
 and supply your authorized proxy's scheme, host, port and authentication. Save the
 settings, select **Egress Proxy**, and confirm the selected route before opening
 the merchant. If the selected session already has the intended egress, **Use
@@ -49,7 +49,7 @@ remove that bootstrap requirement.
 
 ### 2. Add the card when checkout is ready
 
-When the basket and other preparations are complete, open **Controls → New
+When the basket and other preparations are complete, open **Browser Settings → New
 session… → Add card**. Use the hosted Collect fields to create the card number
 and security code aliases, or choose **Add alias** for aliases that are already
 available in the selected tenant and environment. Use public test cards for the

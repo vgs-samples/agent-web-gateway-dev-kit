@@ -25,7 +25,8 @@ To test a checkout, add the site's address. The session then allows that site, a
 ## What you need
 
 - **A VGS Sandbox service account** on a tenant enabled for Agent Web Gateway: its tenant id, client id and client secret. Ask your VGS contact.
-- **[uv](https://docs.astral.sh/uv/)**. If it is missing, `./awg start` offers to install it. Nothing else to install: no Python setup, no browser download.
+- **[uv](https://docs.astral.sh/uv/)**. If it is missing, `./awg start` offers to install it. It supplies Python and the browser, so there is no Python setup and no browser download.
+- **`curl`, `jq` and `openssl`.** `./awg start` stops if one is missing, and `./awg doctor` says which. Install a missing one with your package manager, for example `brew install jq` on macOS.
 - **A free [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) license key.** The kit fetches the browser itself; `./awg start` asks for the key the first time.
 
 macOS and Linux. On macOS, allow the browser once in **System Settings → Privacy & Security** if it is blocked on first launch.

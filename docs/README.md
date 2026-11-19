@@ -54,6 +54,8 @@ The official documentation is at [docs.verygoodsecurity.com](https://docs.verygo
 
 | Path | What it is |
 |---|---|
+| `awg` | The launcher: `./awg start`, `./awg doctor` and the other commands `./awg --help` lists |
+| `tools/cloak/` | The script `./awg start` uses to open CloakBrowser with the control panel loaded |
 | `docs/training/` | The training pages |
 | `docs/reference/` | The Agent Web Gateway developer guide, the API error codes, and a diagram of the request path |
 | `openapi/` | The API specification |

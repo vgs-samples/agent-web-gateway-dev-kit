@@ -1,6 +1,6 @@
 # Download, build and distribute the control panel
 
-This repository includes **Agent Web Gateway Control Panel 1.8.0**: the extension
+This repository includes **Agent Web Gateway Control Panel 1.10.0**: the extension
 source, local helper, optional MCP companion, tests and illustrated setup guide. The **Build control panel**
 workflow produces a versioned source/helper ZIP and a SHA-256 checksum.
 
@@ -29,9 +29,9 @@ Verify and extract the kit on macOS:
 
 ```bash
 cd "$HOME/Downloads/awg-control-panel"
-shasum -a 256 -c vgs-agent-web-gateway-control-panel-1.8.0.zip.sha256
-unzip vgs-agent-web-gateway-control-panel-1.8.0.zip
-cd vgs-agent-web-gateway-control-panel-1.8.0
+shasum -a 256 -c vgs-agent-web-gateway-control-panel-1.10.0.zip.sha256
+unzip vgs-agent-web-gateway-control-panel-1.10.0.zip
+cd vgs-agent-web-gateway-control-panel-1.10.0
 shasum -a 256 -c SHA256SUMS
 ```
 
@@ -147,9 +147,10 @@ the browser setup route before lab 4, so learners can choose a route and see the
 PAC file without editing browser flags during checkout. Link the versioned kit
 and its browser support notes from page 10.
 
-The **Agent Web Gateway dev kit** README puts the control-panel download and
-walkthrough after the product introduction. It links the reviewed source/helper
-artifact rather than a generated private extension directory.
+The **Agent Web Gateway dev kit** README starts with `./awg start`, which runs the
+helper and opens the panel in one step. The control-panel download and manual
+walkthrough are in [The control panel in detail](../control-panel.md). It links the
+reviewed source/helper artifact rather than a generated private extension directory.
 
 For the introductory extension lab, use one pinned Chrome for Testing build.
 When reproducing an existing CloakBrowser test, keep its original browser and
