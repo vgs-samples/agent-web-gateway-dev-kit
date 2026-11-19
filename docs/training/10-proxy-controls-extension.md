@@ -49,10 +49,11 @@ still applies; first-time setup is not yet session-free.
    Testing is the recommended introductory setup.
 2. Your own Sandbox service-account credentials. Session selection needs
    `reveal-sessions:read`; creation also needs `reveal-sessions:write`.
-   Collect tokenization uses `aliases:write`, or the card-create permission
-   (`cards:write` in the CLI template). The `agent-web-gateway-admin` template also
-   includes `agent-gateway:read` and `agent-gateway:write`; it does not require
-   preferences or vault-list permissions.
+   Collect tokenization uses `aliases:write`, or `cards:create` for card creation.
+   The `agent-web-gateway-admin` template grants `cards:create`, `cards:read`,
+   and `cards:update`, plus alias creation and read/write access to reveal
+   sessions and gateway settings. It excludes card deletion and PAN/CVC reads;
+   it does not require preferences or vault-list permissions.
 3. An **active session's original creation response**, saved as `RS….json`.
    The launcher currently needs this before it can generate the extension, even
    though the panel can create later sessions. A GET/list response is insufficient.

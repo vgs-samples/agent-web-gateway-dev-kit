@@ -38,10 +38,12 @@ certificates or disable TLS verification.
 2. Copy `sandbox.env.example` to a private file outside the shareable package, and fill
    in your own tenant ID, service-account ID and secret. Session operations need both
    `reveal-sessions:read` and `reveal-sessions:write` access to the selected vault.
-   Card creation needs the account’s card-create permission (the current account
-   advertises `cards:write`); Vault API tokenization needs `aliases:write`.
-   The panel displays the exact granted scope names, including whether
-   `cards:create` is present; it does not change the account’s permissions. Use plain `KEY=value` lines, without shell `export`
+   Card creation needs `cards:create`; Vault API tokenization needs `aliases:write`.
+   The `agent-web-gateway-admin` CLI template includes `cards:create`, `cards:read`,
+   and `cards:update`, without card deletion or PAN/CVC read access. The panel
+   displays the exact granted scope names and also supports existing accounts
+   with legacy `cards:write`; it does not change the account’s permissions.
+   Use plain `KEY=value` lines, without shell `export`
    prefixes or quotes. On macOS/Linux, restrict it with `chmod 600 /path/sandbox.env`.
 3. Keep the original reveal-session creation responses in a private directory,
    named `RS….json`. The API list cannot retrieve their one-time proxy credentials.
