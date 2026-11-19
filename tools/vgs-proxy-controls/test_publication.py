@@ -25,6 +25,16 @@ class PublicationTests(unittest.TestCase):
         self.assertFalse(inspect_file('test_fixture.py', b'password = "fixture-secret"'))
         self.assertFalse(inspect_file('README.md', b'/path/to/service-account.yaml'))
 
+    def test_customer_docs_do_not_expose_internal_environment_setup(self):
+        for body in [b'Use Dev', b'KIT_ENV=dev', b'?allow_dev_env=true',
+                     b'https://sandbox.vgsapi.io', b'https://js.verygoodvault.io']:
+            with self.subTest(body=body):
+                self.assertTrue(inspect_file('guide.md', body))
+
+    def test_customer_terms_and_internal_source_gate_remain_valid(self):
+        self.assertFalse(inspect_file('README.md', b'Agent Web Gateway dev kit; Sandbox and Live. curl -o /dev/null'))
+        self.assertFalse(inspect_file('popup.js', b'allow_dev_env=true'))
+
 
 if __name__ == '__main__':
     unittest.main()

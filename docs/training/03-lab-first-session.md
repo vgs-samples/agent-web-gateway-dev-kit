@@ -12,7 +12,7 @@
 4. A website to call. Pick any site you would be happy to load in a browser.
 5. A terminal running `bash`, with `curl` and `jq`. On macOS, type `bash` first.
 
-These commands use prod sandbox. For dev, see "Details" at the end.
+These commands use Sandbox.
 
 ## Steps
 
@@ -139,7 +139,6 @@ Next: [lab 4](04-lab-browser-checkout.md) does the same with a real browser.
 
 ## Details and sources
 
-- **Dev environment.** The API is `https://sandbox.vgsapi.io` and the token URL is on `auth.verygoodsecurity.io`.
 - **CVC storage.** If the card was stored with `POST /cards`, as lab 4's script does, its CVC alias is volatile: add `"storage": "VOLATILE"` to the `cvc` part in step 3.
 - **Hosts.** The developer guide's quickstart asks for the host to be added as an agent destination as well as listed in `allowed_hosts`. This lab relies on `allowed_hosts` alone; if the request is refused, add the destination (`POST /agent-gateway-destinations`, which needs `agent-gateway:write`). Public echo and request-bin services such as `httpbin.org` are refused with `never_host`.
 - **Lifetime.** Sessions last 5 minutes unless the tenant's setting says otherwise. After `expires_at` the proxy answers `407`. The documents do not settle whether reading a session after it expires returns `state: expired` or `404`; the session kit treats `404` as "already ended or expired".

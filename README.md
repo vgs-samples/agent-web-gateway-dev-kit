@@ -1,6 +1,6 @@
 # Agent Web Gateway dev kit
 
-**Internal to VGS. Do not share outside VGS.** Only two files here are written for customers: `docs/reference/04-developer-guide.md` and `openapi/awg-tenant-api.yaml`.
+Customer setup uses **Sandbox** or **Live**. Start in Sandbox and validate your integration before using Live.
 
 Testing tools, a browser control panel and hands-on training for Agent Web Gateway.
 

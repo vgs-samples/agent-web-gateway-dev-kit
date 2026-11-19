@@ -1,6 +1,6 @@
 # Copy to sites.yaml. Secrets never go in this file: see README.md "Credentials".
 defaults:
-  env: prod-sandbox            # prod-sandbox | dev
+  env: prod-sandbox            # Sandbox
   tenant: tntXXXXXXXX          # your sandbox vault (or VGS_TENANT)
   # keychain: claude/vgs::prod-sandbox::tntXXXXXXXX   # macOS Keychain service with the VGS client (account = client id)
   egress: soax-us              # default egress profile below; "none" to go out from VGS directly

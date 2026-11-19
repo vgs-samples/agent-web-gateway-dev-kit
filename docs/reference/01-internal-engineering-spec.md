@@ -6,14 +6,13 @@ Nov 12, 2026 · @Mahmoud Abdelkader
 
 The Agent Web Gateway (AWG, AR-193) lets an AI agent pay on a merchant's website with a card stored in a VGS vault, while the agent and its browser only ever hold aliases. The agent gets a **reveal session**: a short-lived, per-tenant forward proxy credential plus a PAC file. Traffic to the hosts the session allows passes through the VGS session proxy, where the tenant's **adapter functions** (Larky) run on requests and responses. The functions swap placeholders for real card data in the merchant's own format at the moment the request leaves VGS.
 
-The Adyen client-side-encryption flow is the reference integration and is verified end to end on dev:
+The Adyen client-side-encryption flow is the reference integration:
 
 1. The agent's browser loads the merchant's Adyen secured-fields page through the session proxy. A **capture function** (`route.response`) reads the merchant's RSA public key and Adyen's `genTime` from the page and stores them in the session with `session.put`.
 2. The agent types a placeholder card into Adyen's fields; Adyen's iframe encrypts the placeholder.
 3. The checkout POST goes through the session proxy. A **re-encrypt function** (`route.request`) reveals the session card's aliases from the vault, encrypts each value as an Adyen JWE (`RSA-OAEP-256` / `A256GCM`, header `version: 1`) under the captured key, and replaces the browser's ciphertext.
 4. Only Adyen can decrypt the result. The PAN never reaches the agent, the browser or the merchant's page.
 
-Verified on dev cell `vault-cell-sd-5696` (proxy `v3.3.1-awg-stack-20`, vault-management `awg-dev-cell-20`/`-21`): a decrypted re-encrypted body carried `number=411111...1111`, the context expiry and the page's `generationtime`, for H&M, JYSK, Dunelm and Alza bindings (awg-harness runs, 2026-11-12).
 
 ![AWG request path · Adyen client-side encryption](request-path.svg)
 
@@ -38,15 +37,15 @@ Rules that hold across them:
 - **Cards are aliases.** A session card is `{label, number, cvc, expiry, holder}`, each part an alias with `alias`, `bin`, `length`, `storage` (`PERSISTENT` or `VOLATILE`). Functions reveal them with `vault.reveal`; nothing else in AWG sees the PAN. At most 20 alias parts and 20 hosts per session.
 - **Context is set by the session's creator; values are set by functions.** `session.context(key)` reads what the creator passed (at most 32 keys, values up to 512 characters). `session.put` / `session.get` hold what functions learn (e.g. `adyen_public_key`), stored per adapter; `include=values` returns `values["AD…"]["adyen_public_key"]`.
 - **A session's `adapter` scopes its bindings.** With no adapter the session matches every enabled adapter destination of the vault.
-- **A binding pins one adapter version and runs only functions of that version** (`function_not_in_adapter` otherwise). Bindings of different versions of one adapter run together in a session: on dev, H&M's checkout binding is v7 while JYSK, Dunelm and Alza are v6, and all four pair with the v7 capture binding. A binding's `when.host` must be one of the vault's agent destinations that is not blocked.
+- **A binding pins one adapter version and runs only functions of that version** (`function_not_in_adapter` otherwise). Bindings of different versions of one adapter can run together in a session. A binding's `when.host` must be one of the vault's agent destinations that is not blocked.
 - **Two enabled bindings may not run functions in the same phase on traffic both could match** (`409 destination_overlap`; the check is conservative).
 - **Inputs** are named per function and bound per binding: `constant` (`value`), `request.body` / `response.body` (`path`), `request.header` / `response.header` / `request.query` (`name`), or `session.value` (`key`, behind `vgs.agentGateway.sessionValueInputs`). A request function reads only request sources; a response function only response sources.
 - **Ownership:** functions and adapters are owned by the tenant (`owner: tenant`) or by VGS (tenant id `vgs`, `owner: vgs`). VGS rows are written only through `/admin`; tenants read VGS functions and published VGS adapters, and may bundle or pin them. The tenant id `vgs` is reserved (`400 reserved_tenant`).
-- **Functions and adapters are soft-deleted; destinations are not.** `DELETE` on a function or adapter sets `deleted_at` / `deleted_by` and keeps `status` (ACTIVE/DISABLED); the row is never returned again and its name is free. A function bundled by a live adapter returns `409 function_in_use`; an adapter used by any binding returns `409 adapter_in_use`. Agent destinations, adapter destinations and registry destinations are hard deletes. Live on dev since vault-management `awg-dev-cell-21` (2026-11-12).
+- **Functions and adapters are soft-deleted; destinations are not.** `DELETE` on a function or adapter sets `deleted_at` / `deleted_by` and keeps `status` (ACTIVE/DISABLED); the row is never returned again and its name is free. A function bundled by a live adapter returns `409 function_in_use`; an adapter used by any binding returns `409 adapter_in_use`. Agent destinations, adapter destinations and registry destinations are hard deletes.
 
 ## Tenant API reference
 
-34 tenant endpoints (49 with admin) on `https://sandbox.vgsapi.com` / `https://vgsapi.com` (dev: `https://sandbox.vgsapi.io`), JSON:API, tenant from the `VGS-Tenant` header. Read from vault-management `awg/stack-top` `d37e6452` (cell-21); every scope and error code is cited to file and line in [02-internal-api-detail.md](02-internal-api-detail.md).
+34 tenant endpoints (49 with admin) on `https://sandbox.vgsapi.com` / `https://vgsapi.com`, JSON:API, tenant from the `VGS-Tenant` header. Read from vault-management `awg/stack-top` `d37e6452` (cell-21); every scope and error code is cited to file and line in [02-internal-api-detail.md](02-internal-api-detail.md).
 
 Conventions: write scopes do not imply read. Errors are `{"errors":[{status, code, title, detail, href}]}`. `400` validation and `409` conflict carry a `code`; `403` (missing scope) and `404` carry a message only. Tenant AWG endpoints other than sessions refuse the reserved tenant `vgs` with `400 reserved_tenant`.
 
@@ -136,13 +135,13 @@ The session proxy (`awg-http-proxy`, proxy in `awg` mode) refuses unless every c
 
 **Unlisted hosts** (`UnlistedMode`, read-only on the session; the request may not set it). vault-management derives it at creation from the tenant's preferences: `agentGatewayAutoGuardedRoutes = true` gives `guarded`; else a step-up webhook URL (`agentGatewayStepUpWebhookUrl`, hold 5 to 30 s, default 20) gives `step_up`; else an explicit `false` gives `strict`; unset gives `guarded`. `STRICT` refuses, `GUARDED` reveals under the reveal guard's caps, `STEP_UP` holds the request for the customer's approval through the webhook and `/reveal-session-approvals`. A held request blocks a processing thread, so concurrent holds are capped and step-up needs the separate client event loop; otherwise it is refused `STEP_UP_UNAVAILABLE`.
 
-**PAC split** (`GET` the session's `proxy.pac_url`, vault-management #823). The PAC sends the session's `allowed_hosts` and the `when.host` of every enabled adapter destination through VGS, in every unlisted-host mode; every other host goes to the session's egress proxy when one is set, else `DIRECT`. It fails closed (everything through VGS) for stateless sessions, lookup failures and unsafe host patterns. Chrome passes only the host to `FindProxyForURL` for HTTPS URLs, so the split cannot select paths. Example served on dev for the `adyen` adapter: 7 hosts through `HTTPS YOUR_TENANT_ID.sandbox.verygoodproxy.io:3443`, the rest `DIRECT`.
+**PAC split** (`GET` the session's `proxy.pac_url`, vault-management #823). The PAC sends the session's `allowed_hosts` and the `when.host` of every enabled adapter destination through VGS, in every unlisted-host mode; every other host goes to the session's egress proxy when one is set, else `DIRECT`. It fails closed (everything through VGS) for stateless sessions, lookup failures and unsafe host patterns. Chrome passes only the host to `FindProxyForURL` for HTTPS URLs, so the split cannot select paths.
 
 **Egress.** `egress_proxy_settings` (`type`, `scheme`, `hostname`, `port`, `username`, `password` write-only) chains the session's outbound traffic through the tenant's own proxy (e.g. a residential provider), so the merchant sees one IP for VGS-routed and PAC-direct traffic (`SessionEgressChainedProxy`).
 
 ## Function runtime
 
-A function is a Larky module with one entry point, `process(input, ctx)`, that returns the (possibly changed) message. It runs in the proxy on every request or response its binding matches. Larky 1.1.0 is the runtime on dev (no load-once: every script is evaluated per use).
+A function is a Larky module with one entry point, `process(input, ctx)`, that returns the (possibly changed) message. It runs in the proxy on every request or response its binding matches. The reference runtime is Larky 1.1.0 (no load-once: every script is evaluated per use).
 
 ```python
 load("@vgs//agent_gateway", session="session")   # session API: a module, never a global
@@ -174,7 +173,7 @@ def process(input, ctx):
 | `vault.reveal([aliases])` | Plaintext values, same order | Each reveal is a reveal decision and counts in `reveal_count` |
 | `fail(msg)` | Stops the function | The client gets `422 Request processing error. Request id: <id>`; the message does not reach the client |
 
-Behaviours to design for, each seen on dev on 2026-11-12:
+Behaviours to design for:
 
 - **Returning the input unchanged is silent.** H&M's function only acts on `adyenData.encryptedAdyenForm` with H&M's field names; on a standard Adyen Web body (`paymentMethod.encryptedCardNumber`) it returns the body untouched, with `reveal_count=0` and no error.
 - **A missing alias fails the whole request.** H&M's function reveals CVC whenever the form has `encryptedAdyenSecurityCode`; with a CVC-less card, `getattr(card, "cvc", None)` passes `None` to `vault.reveal` and the checkout gets `422`.
@@ -191,20 +190,19 @@ Every AWG call passes two independent checks, the JWT scope check in the control
 | Scopes (tenant) | `reveal-sessions:read` / `reveal-sessions:write` for sessions and approvals; `agent-gateway:read` / `agent-gateway:write` for destinations, registry, functions, invocations, adapters and bindings. Write does not imply read. | `helpers/SecurityRoles.java`, `agentgateway/AgentGatewayScopes.java` |
 | Roles (admin) | Client roles of `vault-mgmt-http-api`: `admin/agent-gateway:*`, `admin/agent-destinations:*` | `AgentGatewayScopes.java:44-69` |
 | OPA | `opa/policies/http/reveal_sessions.rego`, `agent_gateway.rego` (vault resource permission `read` / `write`), `admin_access.rego:62-89`; only `GET /reveal-sessions/*.pac` is excluded | vault-management `opa/`, `application.yaml:343-370` |
-| Gateway route | Each public path needs a route on the VGS API gateway (vgs-charts `gateway-routes`) and the matching OPA bundle in vgs-charts | vgs-charts; DELETE on dev rides #7837 (`a2f010f08`) |
+| Gateway route | Each public path needs a route on the VGS API gateway (vgs-charts `gateway-routes`) and the matching OPA bundle in vgs-charts | vgs-charts |
 | Feature gates | `vgs.revealSessions.enabled`, `vgs.agentGateway.enabled` (paths unmapped, `404`, when off); reveal sessions need OPA or `vgs.revealSessions.allowWithoutOpa` | `application.yaml:261-266` |
 | Preferences | `agentGateway*` preference writes need `agent-gateway:write` as well as the preferences scope | vault-preferences |
 
-Two consequences seen in practice: the dev smoke service account has the tenant scopes but not `access-logs:read`, so it cannot read the audits API (`403`); and the `/functions` path 403'd on dev until both the OPA policy and the gateway route were in vgs-charts.
 
 ## Observability and debugging
 
-A failed function reaches the client as `422 Request processing error. Request id: <id>`, with no stage, function or reason; everything else has to be looked up by that request id. Reproduced on dev on 2026-11-12: H&M's re-encrypt function with a CVC-less card, request `59a9b553830331c9f2bc55d04112300d`.
+A failed function reaches the client as `422 Request processing error. Request id: <id>`, with no stage, function or reason; everything else has to be looked up by that request id.
 
 | Source | What it shows | How | Who can use it |
 | --- | --- | --- | --- |
 | Request id | Correlates everything below | `vgs-request-id` response header; in the 422 body | Anyone with the response |
-| Access log | The request as VGS saw it | audits API `GET access-logs/{request id}`; CLI `vgs logs access -R <id>` | Credentials with `access-logs:read` (the dev smoke service account gets `403`) |
+| Access log | The request as VGS saw it | audits API `GET access-logs/{request id}`; CLI `vgs logs access -R <id>` | Credentials with `access-logs:read` |
 | Operation logs | Functions and operations run for the request | audits API `GET op-pipeline-logs?filter[tenant_id]=…&filter[trace_id]=<id>`; CLI `vgs logs operations -V <vault> -R <id>` | Same |
 | Reveal decisions | Each reveal allowed or refused, and why | audits API `GET access-logs/{id}/reveal-decisions`; CLI `vgs logs reveal-decisions -V <vault> -R <id>` (vgs-cli #350) | Same |
 | Session | Counters and what functions stored | `GET /reveal-sessions/{id}?include=values` (values keyed by adapter id), `reveal_count`, `refusal_count` | Tenant API |
@@ -212,25 +210,17 @@ A failed function reaches the client as `422 Request processing error. Request i
 | Proxy app logs | Everything, including Larky stack traces | Grafana Cloud (OTLP) for the cell; `kubectl logs -c app` is empty on cells | VGS engineers only |
 | awg-harness | Per-field result of a function on a merchant body, decrypted | `awg_harness.py verify merchants/<m>.json [--function FN…=file.star]` | Tenant credentials |
 
-The audits API base is `https://audits.verygoodsecurity.io` (dev) and `https://audits.apps.verygood.systems` (prod). Not yet checked: whether `op-pipeline-logs` carries the text passed to `fail()`.
+The customer audits API base is `https://audits.apps.verygood.systems`. Not yet checked: whether `op-pipeline-logs` carries the text passed to `fail()`.
 
 **Planned: session request log** (design `session-request-log/2026-11-11-session-request-log-design.md`). The `RevealDecision` audit event becomes the per-request record (new fields `request_id`, method, path, phase, `route_id`, `filter_id`, `adapter_id`, `function_id`, stage, `error_class`, outcomes `FORWARD` and `ERROR`). vault-management's consumer writes the protobuf events to Redis `rs:{tenant}:log:{sid}` (RPUSH, LTRIM 500, EXPIRE 3600), served by `GET /reveal-sessions/{id}?include=requests`; auditit stays the history. The 422 page then names the failed stage. Step 1 (events and error page) is assigned; the vault-management writer and the dashboard panel follow.
 
-## Environments and release state
+## Customer environments
 
-Dev runs the current AWG stack; prod sandbox runs a build from 2026-11-05 that predates the PAC split, soft delete, session values reads and the Adyen 500 fix. Both are custom pre-release builds, not released versions. Read from vgs-gitops `main` at `bd7130fe6` (2026-11-12).
-
-|  | Dev (`dev/vault/sandbox`, us-west-2) | Prod sandbox (`prod/vault/sandbox`, us-east-1) |
-| --- | --- | --- |
-| Cell | `vault-cell-sd-5696` | `vault-cell-sd-5696` |
-| Session proxy (`awg-http-proxy`) | `v3.3.1-awg-stack-20` (gitops #43570, 2026-11-12) | `v3.3.1-awg-dev-cell-11` (gitops 2026-11-05) |
-| vault-management | `awg-dev-cell-21` (#818 soft delete) | `awg-dev-cell-3`, in the shared vault-management release |
-| vault-preferences in the cell | `3.2.2-awg.2` | `3.2.2-awg.2` (its removal, #43138, was reverted on 2026-11-06) |
-| proxy-ingress | `0.28.0-awg.1` |  |
-| OPA / gateway routes | vgs-charts #7837 (`a2f010f08`) pinned by commit via gitops #43605 for DELETE | gateway-routes `0.1.152` |
-| Who reaches the cell | The dev smoke tenant `YOUR_TENANT_ID` | Only tenants on the cell's Global Accelerator list resolve `{tenant}.sandbox.verygoodproxy.com` to it; others get `407` from the shared proxy |
-
-How a change reaches dev: each repo's work lands as a stacked PR on `main`; the repo's `awg/stack-top` branch integrates the open stack, and `awg_cd.py` tags it (`v3.3.1-awg-stack-N` for proxy, `awg-dev-cell-N` for vault-management), waits for the image, opens a signed gitops PR for the dev cell and runs the 11-check dev smoke. A proxy or vault-management PR that needs unreleased library pins carries "DO NOT MERGE". Libraries go through releases: Larky `1.1.0`, operation-pipeline `2.5.11-awg.6`, vault-proxy-common `4.3.0-awg.6` on the current stack.
+Use Sandbox for integration tests and Live for authorized production activity.
+The tenant API bases are `https://sandbox.vgsapi.com` and `https://vgsapi.com`,
+respectively. Use the proxy URL, port, PAC URL and CA returned by the session API;
+do not construct or substitute those values. Confirm feature availability for
+your tenant with VGS before relying on a feature described in this dated reference.
 
 ## Known gaps and open work
 
@@ -244,8 +234,6 @@ The biggest gap is that nothing past the gateway has been proven: no Adyen autho
 | First page load through VGS met Akamai `403` | Seen in both visible-browser runs that completed; later pages loaded | Measure again with residential egress (`egress_proxy_settings`) |
 | H&M's function is H&M-specific | Hardcoded `adyenData.encryptedAdyenForm` and H&M field names; no-op on standard Adyen Web bodies | A general Adyen function with the form path and field names as inputs |
 | A CVC field with a CVC-less card fails the request | `422` instead of leaving the field or a clear message | Function checks `card.cvc` before revealing |
-| Prod sandbox is a 2026-11-05 build | None of the work above is on prod sandbox | Release vault-management, proxy and preferences instead of custom builds; promote |
-| vgs-charts #7837 unreleased | Dev pins OPA by commit | Review, chart tag, dev back on a released tag |
 | Larky stateful types (hashes, ciphers) are mutable after freeze | Later hardening, not a known exploit | Freeze audit (`larky-stateful-types-freeze-audit`) |
 | Reads are not audited; `RevealSessionAudit` to the customer trail and the registry actor are deferred | Audit trail gaps | AWG audit fast-follows |
 

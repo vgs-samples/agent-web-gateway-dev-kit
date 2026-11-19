@@ -6,7 +6,7 @@ The training pages in `docs/training/` were written on 2026-11-16 from the files
 
 | Path here | Origin | Dated | Changed? |
 |---|---|---|---|
-| `docs/reference/01…04-*.md`, `request-path.svg`, `api-inventory-full.md` | AWG docs bundle (`awg-docs-bundle`), written from vault-management `awg/stack-top` at `d37e6452` and proxy `awg/stack-top` at `a02ccd315` | 2026-11-12 | Replaced an internal tenant example with a placeholder |
+| `docs/reference/01…04-*.md`, `request-path.svg`, `api-inventory-full.md` | AWG docs bundle (`awg-docs-bundle`), written from vault-management `awg/stack-top` at `d37e6452` and proxy `awg/stack-top` at `a02ccd315` | 2026-11-12 | Removed internal environment/deployment details and replaced an account example with a placeholder |
 | `openapi/` | Same bundle | 2026-11-12 | No |
 | `examples/functions/` | Same bundle, `harness/examples/` | 2026-11-12 | No |
 | `docs/images/*.png` | Two slides exported from VGS's Google Slides deck "Agent Web Gateway" (dated Nov 2026, marked confidential): the token-swap flow and the client-side-encryption flow | 2026-11 | No |
@@ -29,21 +29,18 @@ Local changes in `tools/sitecheck/` relative to the 2026-11-14 release:
 | Session lifetime | Bundle: default 300 s, set per vault | Test kit README (2026-11-07): sessions on its sandbox vault "last about an hour (vault setting)" | Both stated: 300 s is the default, a vault can be set longer |
 | What prod sandbox runs | Engineering spec, Environments (2026-11-12): a 2026-11-05 build that predates the PAC split, soft delete, session `values` reads and the Adyen 500 fix | `lessons.md`: an H&M US purchase on prod sandbox on 2026-11-14 that checked `include=values` | Both stated; the update between them is not recorded. Ask the AWG team |
 | First real-merchant checkout | Engineering spec (2026-11-12): none yet | `lessons.md` (2026-11-14): H&M US order placed, $29.31 | Stated in date order |
-| Destination and approval paths | October set: `/agent-gateway/destinations`, `/reveal-sessions/{id}/approvals/{approvalId}` | Bundle: `/agent-gateway-destinations`, `/reveal-session-approvals/{id}` | Training uses the bundle's paths only |
 | Adyen `generationtime` | v6 functions (JYSK, Dunelm, Alza) read it from session context | H&M's v7 function uses the page's `genTime` | Training recommends the page's time, as the bundle and `adapters/README.md` do |
 | Stripe | `tools/sitecheck/adapters/README.md`: Stripe Elements needs no adapter | Skill `provider-notes.md`: a custom Stripe function exists for scoped reveal and space-formatted stand-ins | Page 5 states both: no adapter is the default, not a guarantee |
-| Larky runtime | Engineering spec: Larky 1.1.0 on dev | Skill `local-larky.md`: local tests pinned to the Larky 1.0.0 Linux binary | Not reconciled. Page 5 states both versions in its testing table |
+| Larky runtime | Engineering spec: Larky 1.1.0 | Skill `local-larky.md`: local tests pinned to the Larky 1.0.0 Linux binary | Not reconciled. Page 5 states both versions in its testing table |
 
 ## Stated in a source but not verified by anyone here
 
-- The `403 reveal_refused` body and its reason list come from the October set; the 2026-11-12 bundle and the OpenAPI spec do not mention them. Sandbox test notes of 2026-11-10 (not in this repository) record `reveal_refused` with `session_store_unavailable`.
 - The test kit README says an unlisted payment host gets `403 reveal_refused`. Per the bundle that holds only when VGS sees the request and the vault's mode refuses it; page 4 gives the full picture.
 - That `session.card()` and aliases always fail in a dry run is stated in the developer guide and engineering spec, but its enforcement is open question 7 in `02-internal-api-detail.md`.
 - Whether reading a session after `expires_at` returns `state: expired` or `404`.
-- The `502` for an unusable egress proxy comes from the October set only.
 - The commit hashes and origin paths in the first table come from the original bundle and its README, which are not copied here.
 - The developer guide says three values are "returned only once", including the CA bundle, while its own API table lists `GET /reveal-sessions/proxy-ca`. The training says the CA bundle can also be read from that endpoint.
-- The harness README says that without `--card` the harness uses the dev smoke card; the code needs a module that is not in this repository. Page 6 says to always pass `--card`.
+- The harness requires an explicit `--card` alias file for customer use. No card or account is bundled.
 - The list of PSPs that need no adapter (Stripe, Braintree, Checkout.com, Shopify and others) comes from `tools/sitecheck/adapters/README.md`. Only Adyen CSE is recorded as tested end to end.
 - 3-D Secure through AWG was listed as untested on 2026-11-12.
 - Whether operation logs carry the text passed to `fail()` was listed as not yet checked.
@@ -65,7 +62,7 @@ Only reviewed source was imported; private generated configuration and captures
 were excluded. Documentation uses the official browser references linked in the
 extension chapter and distribution guide.
 
-Local verification passed 116 helper/privacy tests, 31 extension-worker tests and
+Local verification passed 118 helper/privacy tests, 31 extension-worker tests and
 24 session-kit tests. GitHub Actions passed isolated Chromium fixtures for MCP
 capture, panel recording, gateway navigation, session aliases, activation and CA
 downloads. The source and downloadable ZIP passed publication and secret scans.

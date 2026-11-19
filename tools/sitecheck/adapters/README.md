@@ -14,7 +14,7 @@ signatures).
 
 ## Writing a CSE adapter
 
-1. **Find the key.** Use the browser's dev tools (or the probe's `video` and the HAR you save) to find the response
+1. **Find the key.** Use the browser's DevTools (or the probe's `video` and the HAR you save) to find the response
    that delivers the public key. For Adyen it is the Secured Fields page on `checkoutshopper-live.adyen.com`, with
    `window.adyen = {key: '10001|…'}` and a `genTime`. Save that response as a fixture.
 2. **Find the checkout request.** This is the request that carries the encrypted fields: its host, method and path,

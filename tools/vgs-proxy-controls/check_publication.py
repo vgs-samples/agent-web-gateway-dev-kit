@@ -42,6 +42,12 @@ def inspect_file(name, data):
             errors.append(label)
     if path.name == 'background.js' and 'const INITIAL_SESSION =' in value:
         errors.append('generated extension worker')
+    if path.suffix in {'.md', '.mdx', '.rst'}:
+        # The product name and the Unix null device are unrelated to environments.
+        customer_text = re.sub(r'\bdev[ -]kit\b|/dev/null', '', value, flags=re.I)
+        if (re.search(r'\bdev\b|allow_dev_env', customer_text, re.I)
+                or re.search(r'(?:vgsapi|verygoodsecurity|verygoodproxy|verygoodvault)\.io\b', value, re.I)):
+            errors.append('internal environment reference in customer documentation')
     return errors
 
 

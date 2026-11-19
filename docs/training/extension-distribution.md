@@ -165,7 +165,7 @@ The package does not start a merchant test or submit a payment.
 ## Verified scope
 
 The source began with the clean 1.7.6 package and is updated to 1.10.0 in this
-repository. Local verification passed 116 helper/privacy tests, 31 extension-worker
+repository. Local verification passed 118 helper/privacy tests, 31 extension-worker
 tests and 24 session-kit tests. GitHub Actions also passed isolated Chromium
 fixtures for MCP capture, panel recording, gateway views, session aliases and CA
 downloads. The five walkthrough screenshots come from synthetic Sandbox fixtures.

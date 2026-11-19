@@ -75,7 +75,6 @@ AWG is pre-release. Ask the AWG team which build an environment runs before you 
 
 | Date | What the documents record |
 |---|---|
-| 2026-11-12 | On dev, the test harness confirmed the re-encrypt step for H&M, JYSK, Dunelm and Alza. No real-merchant authorization through AWG yet. |
 | 2026-11-12 | Prod sandbox ran an older build, from 2026-11-05. |
 | 2026-11-14 | An H&M US order was placed through the gateway on prod sandbox ($29.31). |
 

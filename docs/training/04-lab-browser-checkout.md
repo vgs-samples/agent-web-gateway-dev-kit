@@ -122,7 +122,7 @@ bash ./create-fresh-session.sh --hosts payments.example-psp.com \
 
 - **`--adapter AD…`** sets the session's `adapter` and sends the card as `cards`, which functions that call `session.card()` need. The id must be registered in the tenant. The named forms `--adapter adyen` and `--adapter stripe` need a registration ledger file; none is bundled.
 - **Expiry.** Use the card's real expiry unless the adapter requires an override.
-- **A second environment.** Create `.env.<name>` and prefix every command with `KIT_ENV=<name>`; its state goes to `.state-<name>/`. Dev uses the `.io` hosts. Variables already exported in your shell override the file.
+- **A second environment.** Create `.env.<name>` and prefix every command with `KIT_ENV=<name>`; its state goes to `.state-<name>/`. Use the API and authentication endpoints for your Sandbox or Live account. Variables already exported in your shell override the file.
 - **Which traffic goes through VGS.** The hosts in the session's PAC file. On a build without the PAC split, all of it.
 - **If the payment host is not allowed,** what happens depends on the tenant's unlisted-host mode: the request may bypass VGS and deliver the worthless tokens, be refused (the October 2026 doc set gives `403 reveal_refused`, reason `session_host_not_allowed`), be revealed within the guard's limits, or be held for approval. Page 2 explains the modes.
 - **The CVC alias is volatile.** A new session does not bring back a CVC alias that is no longer available; store the card again.

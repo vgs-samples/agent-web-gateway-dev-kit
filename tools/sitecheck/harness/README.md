@@ -32,21 +32,22 @@ merchant is never contacted.
 
 ```sh
 pip install cryptography
-export VGS_TENANT=YOUR_TENANT_ID                                   # the dev vault
-export VGS_CLIENT_ID=... VGS_CLIENT_SECRET=...                  # or VGS_ACCESS_TOKEN=...
-python3 awg_harness.py verify merchants/hm.json
+export VGS_API=https://sandbox.vgsapi.com
+export VGS_TENANT=YOUR_TENANT_ID
+export VGS_ACCESS_TOKEN=...  # token for this Sandbox tenant
+python3 awg_harness.py verify merchants/hm.json --card card.json
 python3 awg_harness.py verify merchants/*.json --card card.json
 ```
 
 `card.json` is the card the session uses (copy `card.example.json`): `{"number": {"alias": "tok_...", "bin": "411111", "length": 16},
-"cvc": {"alias": "tok_...", "length": 3}}`. Without `--card` the harness uses the dev smoke card. That card has no CVC
-alias, so CVC fields are reported `UNTESTED` and left out of the body. `--keep-cvc` sends them anyway, to see the
+"cvc": {"alias": "tok_...", "length": 3}}`. Always pass `--card` with your own aliases. If the supplied card has no CVC
+alias, CVC fields are reported `UNTESTED` and left out of the body. `--keep-cvc` sends them anyway, to see the
 failure a CVC-less card causes.
 
 ## Iterate on a function
 
 ```sh
-python3 awg_harness.py verify merchants/hm.json --function FNKmPAAB78LRi9LJmpBA1ijh=hm_reencrypt.star
+python3 awg_harness.py verify merchants/hm.json --card card.json --function FNKmPAAB78LRi9LJmpBA1ijh=hm_reencrypt.star
 ```
 
 This uploads the edited source as a temporary copy of that function, under a temporary adapter of its own; the mirrored bindings use it for this run
