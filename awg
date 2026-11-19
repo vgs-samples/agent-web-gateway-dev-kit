@@ -322,7 +322,8 @@ cmd_start() {
   kit_python "$PANEL_DIR/start-proxy-controls.py" --session "$session" \
     --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" > "$HELPER_LOG" 2>&1 &
   helper_pid=$!
-  trap 'kill "$helper_pid" 2>/dev/null || true' EXIT
+  # Expand the pid now: helper_pid is local and no longer set when the EXIT trap runs.
+  trap "kill $helper_pid 2>/dev/null || true" EXIT
   for _ in $(seq 1 60); do
     grep -q 'Proxy controls are ready' "$HELPER_LOG" 2>/dev/null && break
     kill -0 "$helper_pid" 2>/dev/null || { cat "$HELPER_LOG"; fail "the control panel helper stopped. Its message is above."; }
