@@ -70,7 +70,11 @@ def main():
         name = type(error).__name__
         if "License" in name:
             sys.exit("CloakBrowser needs a license key (the free tier is enough).\nGet one and save it with:  ./awg cloak-login")
-        sys.exit(f"CloakBrowser could not start ({name}). On macOS, allow the browser once if Gatekeeper blocked it, then try again.")
+        lines = str(error).strip().splitlines()
+        detail = lines[0][:200] if lines else name
+        sys.exit(f"CloakBrowser could not start: {detail}\n"
+                 "If a browser from an earlier run is still open, close it and try again.\n"
+                 "On macOS, if the browser was blocked, allow it once in System Settings → Privacy & Security.")
 
     try:
         worker = context.service_workers[0] if context.service_workers else context.wait_for_event("serviceworker", timeout=20000)

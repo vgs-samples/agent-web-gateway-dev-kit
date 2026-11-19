@@ -27,6 +27,7 @@ SESSIONS_DIR="$STATE_DIR/sessions"
 CARD_FILE="$STATE_DIR/card.json"
 LATEST="$STATE_DIR/latest-session"
 HELPER_LOG="$STATE_DIR/helper.log"
+PROFILE_DIR="$STATE_DIR/cloak-profile"
 
 API="https://sandbox.vgsapi.com"
 AUTH="https://auth.verygoodsecurity.com/auth/realms/vgs/protocol/openid-connect/token"
@@ -278,12 +279,33 @@ cmd_cloak_login() {
   cloak_python cloakbrowser login
 }
 
+# A browser left open by an earlier ./awg start still holds the profile, so a second one cannot start.
+close_earlier_browser() {
+  local lock pid answer=""
+  lock=$(readlink "$PROFILE_DIR/SingletonLock" 2>/dev/null) || return 0
+  pid=${lock##*-}
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 0
+  kill -0 "$pid" 2>/dev/null || return 0
+  ps -p "$pid" -o command= 2>/dev/null | grep -qF -- "--user-data-dir=$PROFILE_DIR" || return 0
+  say "CloakBrowser from an earlier ./awg start is still open. Only one can run at a time."
+  [ -t 0 ] || fail "close that browser window, then run ./awg start again."
+  read -r -p "Close it and continue? [Y/n] " answer
+  case "$answer" in
+    ""|y|Y|yes|Yes) ;;
+    *) fail "left it open. Close that browser window, then run ./awg start again." ;;
+  esac
+  kill "$pid" 2>/dev/null || true
+  for _ in $(seq 1 20); do kill -0 "$pid" 2>/dev/null || return 0; sleep 0.5; done
+  fail "that browser did not close. Quit it yourself, then run ./awg start again."
+}
+
 cmd_start() {
   local url="${1:-}" host="" session helper_pid
   for tool in curl jq openssl; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
   need_uv
   [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
   need_cloak_license
+  close_earlier_browser
   [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
   session=$(latest_session)
   if session_alive "$session" && { [ -z "$host" ] || jq -e --arg h "$host" '(.data.attributes.allowed_hosts // []) | index($h)' "$session" >/dev/null; }; then
@@ -309,7 +331,7 @@ cmd_start() {
   grep -q 'Proxy controls are ready' "$HELPER_LOG" || { cat "$HELPER_LOG"; fail "the control panel helper did not become ready in 30 seconds."; }
   say "Helper is running. Opening CloakBrowser..."
   say ""
-  if [ -n "$url" ]; then cmd_browser --session "$session" "$url"; else cmd_browser --session "$session"; fi
+  if [ -n "$url" ]; then cmd_browser --profile "$PROFILE_DIR" --session "$session" "$url"; else cmd_browser --profile "$PROFILE_DIR" --session "$session"; fi
 }
 
 cmd_sitecheck() {
