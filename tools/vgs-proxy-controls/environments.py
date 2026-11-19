@@ -9,7 +9,7 @@ ENVIRONMENTS = {
     'dev': {'label': 'Dev', 'api': 'https://sandbox.vgsapi.io', 'authHost': 'auth.verygoodsecurity.io',
             'proxySuffix': 'sandbox.verygoodproxy.io', 'proxyPort': 3443, 'vaultSuffix': 'sandbox.vault-api.verygoodvault.io'},
     'sandbox': {'label': 'Sandbox', 'api': 'https://sandbox.vgsapi.com', 'authHost': 'auth.verygoodsecurity.com',
-                'proxySuffix': 'sandbox.verygoodproxy.com', 'proxyPort': 8443, 'vaultSuffix': 'sandbox.vault-api.verygoodvault.com'},
+                'proxySuffix': 'sandbox.verygoodproxy.com', 'proxyPort': 3443, 'sessionProxyPorts': (3443, 8443), 'vaultSuffix': 'sandbox.vault-api.verygoodvault.com'},
     'live': {'label': 'Live', 'api': 'https://vgsapi.com', 'pacHosts': ('vgsapi.com', 'live.vgsapi.com'), 'authHost': 'auth.verygoodsecurity.com',
              'proxySuffix': 'live.verygoodproxy.com', 'proxyPort': 8443, 'sessionProxyPorts': (3443, 8443), 'vaultSuffix': 'live.vault-api.verygoodvault.com'},
 }

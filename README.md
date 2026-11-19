@@ -6,20 +6,23 @@ Testing tools, a browser control panel and hands-on training for Agent Web Gatew
 
 ## Quick start
 
-Install one thing, [uv](https://docs.astral.sh/uv/). It supplies the right Python by itself, so the Python that ships with your system does not matter.
+**With a coding agent:** open this repository in your agent (Claude Code, Codex, Cursor) and say "set up this dev kit". It follows [AGENTS.md](AGENTS.md).
+
+**By hand,** three commands:
 
 ```sh
-brew install uv
-./awg doctor
-./awg test
+brew install uv          # the only thing to install
+./awg setup              # once: your Sandbox tenant id, client id and secret, at hidden prompts
+./awg start https://www.example-shop.com/
 ```
 
-- `./awg doctor` checks this machine is ready and tells you what to install if it is not.
-- `./awg test` runs the kit's offline tests. It needs no credentials and sends nothing to VGS.
-- `./awg panel [options]` starts the control panel helper. It takes the same options as `start-proxy-controls.py`.
-- `./awg sitecheck [args]` runs the site-testing tool. It takes the same arguments as `awg-sitecheck`.
+`./awg start` creates a reveal session for the VGS test card, starts the control panel, and opens a browser with the control panel in the first tab and your site in the second.
 
-Wherever this kit's pages say `python3 start-proxy-controls.py …`, you can run `./awg panel …` instead and skip installing Python.
+What you need from VGS: a Sandbox service account (client id and secret) on a tenant enabled for Agent Web Gateway, and its tenant id.
+
+The browser is [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), fetched automatically the first time. It needs a license key; the free tier is enough. If `./awg start` asks for one, get it from the CloakBrowser page and run `./awg cloak-login` once. On macOS, allow the browser once in **System Settings → Privacy & Security** if Gatekeeper blocks it.
+
+`./awg doctor` checks your machine, `./awg test` runs the kit's offline tests, and `./awg --help` lists the rest.
 
 ## What AWG does
 
