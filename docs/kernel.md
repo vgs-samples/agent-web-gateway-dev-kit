@@ -1,8 +1,8 @@
 # Use a Kernel cloud browser
 
-`./awg start` opens CloakBrowser on your machine. `./awg kernel` is an alternative for teams that run their agents on [Kernel](https://kernel.sh): the browser runs in Kernel's cloud and its traffic passes through your reveal session. Nothing is installed locally beyond `curl` and `jq`.
+`./awg start` opens CloakBrowser on your machine. `./awg kernel` is an alternative for teams that run their agents on [Kernel](https://kernel.sh): the browser runs in Kernel's cloud and its traffic passes through your reveal session. No browser or Docker is needed locally; the kit uses `curl`, `jq` and `uv`.
 
-> This command has offline tests only. It has not yet been run against Kernel's service. Treat it as experimental until that note is removed.
+> Run against Kernel's service once: the browser started on the session's proxy and the Control Panel loaded and opened. The panel's controls and a full checkout have not been exercised there yet.
 
 ## What you need
 
