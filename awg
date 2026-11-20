@@ -87,8 +87,8 @@ need_vgs_cli() {
   fi
   # Local help validates the installed command surface without authentication.
   # The first run compiles the CLI; keep its own SyntaxWarning out of the developer's terminal.
-  env PYTHONWARNINGS=ignore::SyntaxWarning -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET "$CLI_ENV/bin/vgs" get tenants --help >/dev/null
-  env PYTHONWARNINGS=ignore::SyntaxWarning -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET "$CLI_ENV/bin/vgs" apply service-account --help >/dev/null
+  env -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET PYTHONWARNINGS=ignore::SyntaxWarning "$CLI_ENV/bin/vgs" get tenants --help >/dev/null
+  env -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET PYTHONWARNINGS=ignore::SyntaxWarning "$CLI_ENV/bin/vgs" apply service-account --help >/dev/null
 }
 
 # ---------------------------------------------------------------- offline tests
