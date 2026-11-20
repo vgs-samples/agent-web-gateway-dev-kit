@@ -104,7 +104,11 @@ else exit 93; fi''')
         self.assertIn('Helper is running.', result.stdout)
         self.assertNotIn('fixture-token', result.stdout + result.stderr)
         self.assertTrue((self.state / 'sessions/RSFixture.json').exists())
-        self.assertIn('https://example.com/checkout', (self.root / 'browser-args').read_text())
+        browser_args = (self.root / 'browser-args').read_text()
+        self.assertIn('https://example.com/checkout', browser_args)
+        # Each start loads the panel from its own folder, which is removed afterwards.
+        self.assertIn('--extension ' + str(self.state / 'panel-extension') + '/', browser_args)
+        self.assertFalse((self.state / 'panel-extension').exists())
         pid = int((self.root / 'helper-pid').read_text())
         # The wrapper owns the helper for the lifetime of the browser.
         with self.assertRaises(ProcessLookupError): os.kill(pid, 0)

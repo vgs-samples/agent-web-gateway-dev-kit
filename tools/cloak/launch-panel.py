@@ -31,25 +31,6 @@ def ca_pin(session_path):
     return base64.b64encode(hashlib.sha256(der).digest()).decode()
 
 
-def helper_address(extension):
-    """The helper address written into the generated extension, or None."""
-    try:
-        for line in (extension / "background.js").read_text().splitlines()[:5]:
-            if line.startswith("const CATALOG = "):
-                return (json.loads(line[len("const CATALOG = "):].rstrip(";")) or {}).get("url")
-    except (OSError, ValueError, AttributeError):
-        pass
-    return None
-
-
-def worker_address(worker):
-    """The helper address the running extension worker holds, or None."""
-    try:
-        return worker.evaluate("typeof CATALOG === 'undefined' || !CATALOG ? null : CATALOG.url")
-    except Exception:
-        return None
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("url", nargs="?", help="Page to open in a second tab")
@@ -104,23 +85,6 @@ def main():
 
     try:
         worker = context.service_workers[0] if context.service_workers else context.wait_for_event("serviceworker", timeout=20000)
-        # The profile can keep the worker from an earlier start, which still points at that start's
-        # helper. Reload the extension from disk until the worker has this start's helper address.
-        expected = helper_address(extension)
-        if expected and worker_address(worker) != expected:
-            try:
-                with context.expect_event("serviceworker", timeout=20000) as reloaded:
-                    try:
-                        worker.evaluate("chrome.runtime.reload()")
-                    except Exception:
-                        pass  # the reload ends the worker that was asked
-                worker = reloaded.value
-            except Exception:
-                pass
-            if worker_address(worker) != expected:
-                print("The browser kept an older copy of the control panel, so it shows 'Helper unavailable'.\n"
-                      "Open chrome://extensions, click Reload on Agent Web Gateway Control Panel, then reopen the panel.",
-                      file=sys.stderr, flush=True)
         extension_id = worker.url.split("/")[2]
         page = context.pages[0] if context.pages else context.new_page()
         page.goto(f"chrome-extension://{extension_id}/popup.html")

@@ -350,7 +350,7 @@ close_earlier_browser() {
 }
 
 cmd_start() {
-  local url="${1:-}" host="" session helper_pid
+  local url="${1:-}" host="" session helper_pid extension
   for tool in curl jq openssl; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
   need_uv
   [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
@@ -369,13 +369,20 @@ cmd_start() {
   say ""
   say "Starting the control panel helper..."
   : > "$HELPER_LOG"
+  # The browser profile keeps an extension's background worker for as long as the extension keeps
+  # its identity, and that worker holds one start's helper address and session. An unpacked
+  # extension's identity is its folder, so each start generates the panel into a new one.
+  rm -rf "$STATE_DIR/panel-extension"
+  extension="$STATE_DIR/panel-extension/$(date +%s)-$$"
+  mkdir -p "$STATE_DIR/panel-extension"
+  chmod 700 "$STATE_DIR/panel-extension"
   PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
-    python "$PANEL_DIR/start-proxy-controls.py" --session "$session" \
+    python "$PANEL_DIR/start-proxy-controls.py" --session "$session" --output "$extension" \
     --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
   helper_pid=$!
   # Capture the PID now: EXIT runs after this function's locals leave scope. uv runs the helper as
   # a child, so stop that too; --exit-with-pid covers the case where this script is killed outright.
-  trap "pkill -P '$helper_pid' 2>/dev/null || true; kill '$helper_pid' 2>/dev/null || true; wait '$helper_pid' 2>/dev/null || true" EXIT
+  trap "pkill -P '$helper_pid' 2>/dev/null || true; kill '$helper_pid' 2>/dev/null || true; wait '$helper_pid' 2>/dev/null || true; rm -rf '$STATE_DIR/panel-extension'" EXIT
   for _ in $(seq 1 60); do
     grep -q 'Proxy controls are ready' "$HELPER_LOG" 2>/dev/null && break
     kill -0 "$helper_pid" 2>/dev/null || { fail "the control panel helper stopped. Inspect the private log at $HELPER_LOG locally."; }
@@ -384,7 +391,7 @@ cmd_start() {
   grep -q 'Proxy controls are ready' "$HELPER_LOG" || { fail "the control panel helper did not become ready in 30 seconds. Inspect $HELPER_LOG locally."; }
   say "Helper is running. Opening CloakBrowser..."
   say ""
-  if [ -n "$url" ]; then cmd_browser --profile "$PROFILE_DIR" --session "$session" "$url"; else cmd_browser --profile "$PROFILE_DIR" --session "$session"; fi
+  if [ -n "$url" ]; then cmd_browser --profile "$PROFILE_DIR" --extension "$extension" --session "$session" "$url"; else cmd_browser --profile "$PROFILE_DIR" --extension "$extension" --session "$session"; fi
 }
 
 cmd_sitecheck() {
