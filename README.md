@@ -37,6 +37,7 @@ The kit comes with:
 - **An [Agent Web Gateway Control Panel Chromium extension](docs/control-panel.md)** for testing, debugging, and building adapters for new vendors and sites. [Download the build artifact](https://github.com/mottersheadt/agent-web-gateway-dev-kit/actions/runs/44633655018/artifacts/14581949539), or use the [download and build guide](docs/training/extension-distribution.md) to find the latest successful build. GitHub artifacts require sign-in and expire after 30 days.
 - **An [MCP companion](docs/mcp.md)** so your assistant can capture browser traffic, inspect HARs, and work with functions, adapters, destinations, and bindings. Writes must be enabled before it can modify those resources.
 - **[Adapter-authoring skills](skills/vgs-checkout-adapter/SKILL.md)** for reading HAR evidence, creating synthetic fixtures, writing VGS Compute functions, testing locally in Starlarky, and registering and verifying an adapter. Start with the [provider examples](examples/adapters/README.md).
+- **A [Kernel cloud browser option](docs/kernel.md)** that runs the session and the Control Panel in Kernel's cloud with one command, for teams whose agents run on Kernel.
 - **Browser setup instructions** for [CloakBrowser](#agent-web-gateway-control-panel-chromium-extension), [Chrome for Testing, Chromium, Chrome, Edge, and Brave](docs/training/10-proxy-controls-extension.md#browser-launch-examples). Browser installation and extension loading differ; the guide covers each. Follow [Browser proxying best practices](docs/browser-proxying.md) for egress, PAC routing, and when to create the payment session.
 
 Clone the repo and open it in your coding assistant:
@@ -88,7 +89,20 @@ This creates or reuses an active test-card session and opens CloakBrowser with t
 
 If your coding assistant's sandbox blocks the browser or local helper, run the command yourself rather than retrying it inside the sandbox. In Claude Code, you can use `! ./awg start`. For other browsers, follow the [browser launch examples](docs/training/10-proxy-controls-extension.md#browser-launch-examples).
 
-If you run agents on [Kernel](https://kernel.sh), `KERNEL_API_KEY=… ./awg kernel` starts a Kernel cloud browser routed through the session instead of a local one. It loads the Control Panel without its local helper, so session details and route switching work and the rest does not; see [Use a Kernel cloud browser](docs/kernel.md).
+### Start the browser in Kernel
+
+If your agents run on [Kernel](https://kernel.sh), or you cannot run a browser locally, run this instead:
+
+```sh
+export KERNEL_API_KEY=…
+./awg kernel
+# Or open a test website in the first tab:
+./awg kernel https://the-shop-you-are-testing.com/
+```
+
+This creates or reuses an active test-card session, registers it with Kernel as a custom proxy, and starts a Kernel cloud browser with the Control Panel open in a tab. It prints a live view link for watching and driving the browser. Nothing is installed locally and Docker is not needed. You need a Kernel API key on a Start-Up or Enterprise plan.
+
+In a Kernel browser the panel shows the session and switches routes. Creating sessions, adding cards, scopes and recording need the local helper, so use `./awg start` for those. Session proxy credentials and browser traffic go to Kernel in this mode. The [Kernel guide](docs/kernel.md) covers the details.
 
 ### Create sessions for cards
 

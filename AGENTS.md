@@ -15,6 +15,12 @@ Help the developer set up and use the VGS Agent Web Gateway dev kit. `./awg` wra
    - `uv` supplies Python for the kit, the browser and VGS CLI. Do not substitute a system or unrelated existing VGS CLI installation.
    - Nothing is compiled, so no build prerequisites are needed. If credentials, tenant enablement, or permissions fail, report the failure without exposing private CLI output.
    - If CloakBrowser needs a license key, the developer saves it locally with `./awg cloak-login`.
+4. Only if the developer asks for a Kernel browser, run `./awg kernel` (or `./awg kernel https://<the site to test>/`) instead of step 3. It creates or reuses an active test-card session, registers it with Kernel as a custom proxy, and starts a Kernel cloud browser with the Control Panel open in a tab. It runs until the browser closes, so run it in the background or the developer's terminal.
+   - It needs `KERNEL_API_KEY` in the environment, from a Kernel account on a Start-Up or Enterprise plan. Never ask for the key in chat; the developer exports it in their own terminal.
+   - It sends the session's proxy credentials and the browser's traffic to Kernel. Do not choose it on the developer's behalf, and never use it outside Sandbox.
+   - Give the developer the live view link it prints, and nobody else: the link controls the browser.
+   - In a Kernel browser the panel shows the session and switches routes. Creating sessions, adding cards, scopes and recording need `./awg start`.
+   - `insufficient_plan` means the Kernel account's plan lacks custom proxies. Report it; do not work around it. See [docs/kernel.md](docs/kernel.md).
 
 ## If a call is refused with 403
 
@@ -34,6 +40,7 @@ Do not work around a `403` by editing the kit, hand-writing `card.json` or `sand
 - Setup reports that Sandbox credentials authenticated and can read Agent Web Gateway resources.
 - Offline tests pass. Report skipped optional tests; do not call them end-to-end validation.
 - `./awg start` reports that the helper is running and opens the Control Panel.
+- `./awg kernel` prints a live view link and `Control Panel: open in a tab of the Kernel browser.`
 - The session appears in the panel, a route can be selected, and observed requests through VGS have a `vgs-request-id` response header. Verify actual routing and transformation separately.
 
 ## Rules

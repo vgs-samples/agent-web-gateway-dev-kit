@@ -31,7 +31,7 @@ Type the session's stand-ins into the payment form, as in any other session. Rea
 |---|---|---|
 | Browser | CloakBrowser on your machine | Kernel's cloud, viewed through a link |
 | Needs | CloakBrowser license key | Kernel API key |
-| Control Panel | Loaded, with the local helper | Loaded without the helper; open it from the browser's extensions menu |
+| Control Panel | Loaded, with the local helper | Loaded without the helper and opened in a tab |
 | Session details and route switching | In the panel | In the panel |
 | Creating sessions, adding cards, scopes, recording, gateway views | In the panel | Not available: they need the helper, which a cloud browser cannot reach |
 
