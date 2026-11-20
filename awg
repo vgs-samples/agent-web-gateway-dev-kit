@@ -163,7 +163,23 @@ latest_session() { [ -f "$LATEST" ] && cat "$LATEST" || true; }
 # Scopes carried by an access token, space-separated; empty if the token cannot be read.
 token_scopes() {  # token_scopes <token>
   printf '%s' "$1" | jq -rR '(split(".")[1] | gsub("-";"+") | gsub("_";"/")) as $p
-    | ($p + ("==="[0:((4 - ($p | length) % 4) % 4)])) | @base64d | fromjson | .scope // ""' 2>/dev/null || true
+    | ($p + ("==="[0:((4 - ($p | length) % 4) % 4)])) | @base64d | fromjson
+    | [(.scope // ""), ((.resource_access // {}) | [.[].roles[]?] | join(" "))] | join(" ")' 2>/dev/null || true
+}
+
+# The account may not have been created by this kit. Say what it lacks before any call is refused.
+report_account_scopes() {  # report_account_scopes <token>
+  local scopes scope missing=""
+  scopes=" $(token_scopes "$1") "
+  [ -n "${scopes// /}" ] || return 0
+  [[ "$scopes" != *" cards:write "* ]] || scopes="$scopes cards:create cards:update "
+  for scope in cards:create cards:read cards:update aliases:write reveal-sessions:read reveal-sessions:write agent-gateway:read agent-gateway:write; do
+    [[ "$scopes" = *" $scope "* ]] || missing="$missing${missing:+, }$scope"
+  done
+  [ -n "$missing" ] || return 0
+  say "Note: this service account lacks: $missing."
+  say "      The kit works with what the account has. If a step below is refused, that is the reason;"
+  say "      './awg setup --force' creates an account with every scope the kit uses."
 }
 
 # Why the Cards API refused, in terms the developer can act on.
@@ -171,7 +187,7 @@ explain_card_refusal() {  # explain_card_refusal <token>
   local scopes
   [[ "$CARD_ERROR" = "HTTP 403"* ]] || return 0
   scopes=" $(token_scopes "$1") "
-  [ "$scopes" != "  " ] || return 0
+  [ -n "${scopes// /}" ] || return 0
   if [[ "$scopes" = *" cards:create "* || "$scopes" = *" cards:write "* ]]; then
     say "  This service account has the card scope, so the Cards API itself is not enabled for tenant $2. Only VGS can enable it."
   else
@@ -226,6 +242,7 @@ cmd_session() {
   mkdir -p "$SESSIONS_DIR"
   tenant=$(cred VGS_TENANT)
   token=$(access_token)
+  report_account_scopes "$token"
 
   if store_test_card "$token"; then
     say "Stored the VGS test card (4111 … 1111) and got fresh aliases."
@@ -261,6 +278,7 @@ cmd_session() {
     say "VGS answered HTTP $code:"
     jq -c '.errors // .' "$response" 2>/dev/null | cut -c1-500 || true
     rm -f "$response"
+    [ "$code" != 403 ] || say "A 403 here means the service account lacks reveal-sessions:write, or Agent Web Gateway is not enabled for tenant $tenant."
     fail "the session was not created."
   fi
   id=$(jq -r .data.id "$response")

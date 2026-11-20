@@ -134,6 +134,12 @@ else exit 94; fi''')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('HTTP 403', result.stdout)
         self.assertIn('created without cards:create', result.stdout)
+        # An account the kit did not create is told what it lacks before anything is refused.
+        note = result.stdout.split('Note: this service account lacks: ')[1].splitlines()[0]
+        self.assertIn('cards:create', note)
+        self.assertIn('agent-gateway:read', note)
+        self.assertNotIn('aliases:write', note)
+        self.assertLess(result.stdout.index('Note:'), result.stdout.index('HTTP 403'))
         request = (self.root / 'session-request').read_text()
         self.assertIn('tok_fixture_pan', request)
         self.assertIn('tok_fixture_cvc', request)
