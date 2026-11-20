@@ -58,6 +58,16 @@ The assistant needs file and terminal access. You can also run account setup you
 
 Setup installs [VGS CLI](https://docs.verygoodsecurity.com/vault/developer-tools/vgs-cli/getting-started) with `uv`, runs `vgs login`, and asks which organization to use. It selects a Sandbox tenant, creates the service account, saves the credentials locally, and checks access. Your organization needs a Sandbox tenant with Agent Web Gateway enabled. See the [setup guide](docs/setup.md) for dependencies and recovery.
 
+### If the service account is missing scopes
+
+`./awg setup` and `./awg start` print `Note: … lacks: …` with the exact scope names when the account is missing any. The kit carries on with the scopes the account has. Scopes cannot be added to an existing service account, so to get one with every scope the kit uses, run:
+
+```sh
+./awg setup --force
+```
+
+You can do this yourself if your VGS login is allowed to create service accounts in the organization; otherwise ask your organization's administrator. If the new account is still missing scopes, your organization has not been granted them, and only VGS can enable them. See [missing scopes](docs/setup.md#missing-scopes).
+
 ## Agent Web Gateway Control Panel Chromium Extension
 
 The [Control Panel](docs/control-panel.md) gives you a place to create and select reveal sessions, inspect session aliases, choose a browser route, record traffic, and inspect gateway configuration. Use it to work through a checkout, diagnose a failing transformation, or collect the evidence for a new adapter.
