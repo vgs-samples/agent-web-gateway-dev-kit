@@ -10,7 +10,7 @@
 #   ./awg cloak-login          save your CloakBrowser license key (once)
 #   ./awg sitecheck [args]     run the awg-sitecheck tool (arguments of awg-sitecheck)
 #
-# Setup installs VGS CLI with pyenv. uv supplies the kit/browser runtime.
+# uv supplies Python for the kit, the browser and VGS CLI; nothing is compiled.
 # Private files live in ~/.awg-dev-kit, readable only by you.
 set -euo pipefail
 umask 077
@@ -19,7 +19,6 @@ KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PANEL_DIR="$KIT_DIR/tools/vgs-proxy-controls"
 SITECHECK_DIR="$KIT_DIR/tools/sitecheck"
 PYTHON_VERSION="3.12"
-CLI_PYTHON_VERSION="3.12.12"
 VGS_CLI_VERSION="1.36.0"
 
 STATE_DIR="${AWG_HOME:-$HOME/.awg-dev-kit}"
@@ -73,33 +72,19 @@ cloak_python() {
   PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" --with cloakbrowser "$@"
 }
 
-# VGS CLI always uses a pyenv-managed Python, never an arbitrary vgs on PATH.
+# VGS CLI gets a private environment on a prebuilt Python from uv, never an arbitrary vgs on PATH.
+# Nothing is compiled, so setup does not depend on the machine's compiler or OpenSSL.
 need_vgs_cli() {
   mkdir -p "$STATE_DIR"
   chmod 700 "$STATE_DIR"
-  if ! have pyenv; then
-    if [ -x "${PYENV_ROOT:-$HOME/.pyenv}/bin/pyenv" ]; then
-      export PATH="${PYENV_ROOT:-$HOME/.pyenv}/bin:$PATH"
-    elif have brew; then
-      say "Installing pyenv..."
-      brew install pyenv
-    else
-      have git || fail "git is required to install pyenv. Install it with your package manager."
-      export PYENV_ROOT="$STATE_DIR/pyenv"
-      [ -d "$PYENV_ROOT" ] || git clone --depth 1 https://github.com/pyenv/pyenv.git "$PYENV_ROOT"
-      export PATH="$PYENV_ROOT/bin:$PATH"
-    fi
+  need_uv
+  CLI_ENV="$STATE_DIR/vgs-cli-$VGS_CLI_VERSION-uv-py$PYTHON_VERSION"
+  if [ ! -x "$CLI_ENV/bin/vgs" ]; then
+    say "Installing VGS CLI $VGS_CLI_VERSION (private to this kit)..."
+    rm -rf "$CLI_ENV"
+    uv venv --quiet --python "$PYTHON_VERSION" "$CLI_ENV" || fail "uv could not prepare Python $PYTHON_VERSION for VGS CLI. Check your network connection and retry."
+    uv pip install --quiet --python "$CLI_ENV/bin/python" "vgs-cli==$VGS_CLI_VERSION" || { rm -rf "$CLI_ENV"; fail "could not install VGS CLI $VGS_CLI_VERSION from PyPI. Check your network connection and retry."; }
   fi
-  have pyenv || fail "pyenv installation failed. See https://github.com/pyenv/pyenv#installation"
-  say "Preparing pyenv Python $CLI_PYTHON_VERSION and VGS CLI $VGS_CLI_VERSION..."
-  pyenv install -s "$CLI_PYTHON_VERSION" || fail "pyenv could not build Python. Install the build dependencies listed at https://github.com/pyenv/pyenv/wiki#suggested-build-environment and retry."
-  local cli_python
-  cli_python=$(PYENV_VERSION="$CLI_PYTHON_VERSION" pyenv which python)
-  CLI_ENV="$STATE_DIR/vgs-cli-$VGS_CLI_VERSION-py$CLI_PYTHON_VERSION"
-  if [ ! -x "$CLI_ENV/bin/python" ]; then
-    "$cli_python" -m venv "$CLI_ENV"
-  fi
-  "$CLI_ENV/bin/python" -m pip --disable-pip-version-check install --quiet "vgs-cli==$VGS_CLI_VERSION"
   # Local help validates the installed command surface without authentication.
   env -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET "$CLI_ENV/bin/vgs" get tenants --help >/dev/null
   env -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET "$CLI_ENV/bin/vgs" apply service-account --help >/dev/null

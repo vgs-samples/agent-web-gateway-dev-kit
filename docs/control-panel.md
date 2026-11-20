@@ -71,7 +71,7 @@ certificates or disable TLS verification.
 
    Keep the folder intact. Run the commands below from that folder.
 2. If you cloned the full dev kit, run `./awg setup` at its root. It installs VGS CLI
-   through pyenv, runs `vgs login`, asks for your organization, and creates the
+   with `uv`, runs `vgs login`, asks for your organization, and creates the
    Sandbox service credentials automatically. Use `~/.awg-dev-kit/sandbox.env`.
    See the [setup guide](setup.md).
    For this standalone package, use an existing private credentials file or copy

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Provision Sandbox credentials through the pyenv-installed VGS CLI.
+"""Provision Sandbox credentials through the kit's private VGS CLI.
 
 CLI YAML (including tenant links and one-time secrets) stays in a private journal.
-A saved apply attempt is never repeated automatically after an uncertain result.
+An attempt whose one-time secret never reached disk is started again, naming the unused account.
 """
 import argparse
 import base64
@@ -174,6 +174,15 @@ def credentials_from_result(result, tenant):
             "VGS_CLIENT_SECRET": data["clientSecret"], "VGS_API": API, "VGS_AUTH_URL": AUTH}
 
 
+def output_is_complete(path, tenant):
+    """True when a saved apply output holds usable credentials for the tenant."""
+    try:
+        credentials_from_result(read_yaml(path), tenant)
+        return True
+    except SetupError:
+        return False
+
+
 def onboard(state, executable, organization=None, tenant=None, force=False):
     credentials_file = state / "sandbox.env"
     pending = state / "setup-pending.json"
@@ -192,19 +201,25 @@ def onboard(state, executable, organization=None, tenant=None, force=False):
     if pending.exists():
         attempt = json.loads(pending.read_text())
         earlier = Path(attempt["directory"])
-        if not (earlier / "created.yaml").exists() and apply_was_rejected(earlier):
-            # VGS answered the earlier attempt with an error and no credentials, so there is nothing to recover.
-            print("The earlier attempt ended with an error from VGS and no account details. Starting again.", flush=True)
-            pending.unlink()
-            organization = organization or attempt["organization"]
+        if not (earlier / "created.yaml").exists():
+            if output_is_complete(earlier / "apply-output.yaml", attempt["tenant"]):
+                # Setup stopped after VGS answered: the account details are on disk, so use them.
+                (earlier / "apply-output.yaml").replace(earlier / "created.yaml")
+            else:
+                # The one-time secret never reached this machine, so that attempt cannot be recovered.
+                if not apply_was_rejected(earlier):
+                    print("An earlier setup stopped before VGS returned the account's one-time secret. If a service "
+                          f"account named awg-kit-{earlier.name[:12]} exists in the organization, it is unused and "
+                          "an administrator can delete it.")
+                print("Starting again.", flush=True)
+                pending.unlink()
+                organization = organization or attempt["organization"]
 
     if pending.exists():
         if ((organization and organization != attempt["organization"])
                 or (tenant and tenant != attempt["tenant"]) or force):
             raise SetupError("A previous creation attempt needs recovery first. Rerun setup without --force or a different selection.")
         directory = Path(attempt["directory"])
-        if not (directory / "created.yaml").exists():
-            raise SetupError("Service-account creation was interrupted. Inspect the organization and private setup journal before retrying; do not create another account blindly.")
         tenant = attempt["tenant"]
     else:
         directory = state / "setup" / uuid.uuid4().hex

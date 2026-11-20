@@ -5,14 +5,14 @@ Help the developer set up and use the VGS Agent Web Gateway dev kit. `./awg` wra
 ## Set it up
 
 1. Run `./awg test` for offline setup, helper, and extension coverage. Runtime/package downloads may be needed; test fixtures send nothing to VGS.
-2. Run `./awg setup`. It always installs VGS CLI with pyenv-managed Python, runs `vgs login`, discovers organizations, and asks which organization to use. The developer completes browser authentication. Never ask for a client ID or secret in chat.
+2. Run `./awg setup`. It installs its own VGS CLI on a prebuilt Python from `uv`, runs `vgs login`, discovers organizations, and asks which organization to use. The developer completes browser authentication. Never ask for a client ID or secret in chat.
    - Confirm only the organization. If the developer already chose it in this conversation, pass `--organization AC…`; do not ask again.
    - Setup automatically selects an existing Sandbox tenant in that organization, creates a tenant-scoped service account with the CLI, stores the output privately, and checks authentication and Agent Web Gateway read access. It never selects Live. An explicit `--tenant tnt…` may override the documented selection rule.
    - Reruns reuse saved credentials. An incomplete creation attempt must be recovered before another write; follow the setup guide. Do not blindly retry with `--force`.
    - A documentation or code-editing task does not authorize actually provisioning an account. Test bootstrap offline when that is the task.
 3. Run `./awg start` (or `./awg start https://<the site to test>/`). It creates or reuses an active test-card session, starts the helper, and opens CloakBrowser with the Control Panel and optional website tab. It runs until the browser closes, so run it in the background or the developer's terminal.
    - It opens a browser window and starts a helper on a local port. If your sandbox or permission mode refuses the command or blocks either of those, do not retry or work around it: ask the developer to run `./awg start` in their own terminal (in Claude Code, by typing `! ./awg start`).
-   - `uv` supplies the kit/browser runtime. Setup uses pyenv for VGS CLI; do not substitute a system, uv, or unrelated existing VGS CLI installation.
+   - `uv` supplies Python for the kit, the browser and VGS CLI. Do not substitute a system or unrelated existing VGS CLI installation.
    - Install missing platform build prerequisites as needed. If credentials, tenant enablement, or permissions fail, report the failure without exposing private CLI output.
    - If CloakBrowser needs a license key, the developer saves it locally with `./awg cloak-login`.
 

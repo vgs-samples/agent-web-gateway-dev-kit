@@ -31,7 +31,7 @@ class WrapperTests(unittest.TestCase):
                               capture_output=True, text=True, timeout=20)
 
     def test_help_and_invalid_setup_do_not_install_anything(self):
-        self.script('pyenv', 'echo unexpected-install >&2; exit 99')
+        self.script('uv', 'echo unexpected-install >&2; exit 99')
         help_result = self.run_awg('--help')
         self.assertEqual(help_result.returncode, 0)
         self.assertNotIn('doctor', help_result.stdout)
@@ -40,27 +40,34 @@ class WrapperTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertNotIn('unexpected-install', result.stderr)
 
-    def test_setup_uses_pyenv_not_path_vgs_and_forwards_choice(self):
-        self.script('fixture-python', '''
-if [ "${1:-}" = -m ] && [ "${2:-}" = venv ]; then
-  mkdir -p "$3/bin"
-  cp "$0" "$3/bin/python"
-  cp "$FIXTURE_ROOT/bin/fixture-vgs" "$3/bin/vgs"
-elif [ "${1:-}" = -m ] && [ "${2:-}" = pip ]; then
-  printf '%s\\n' "$*" > "$FIXTURE_ROOT/pip-args"
-else
-  printf '%s\\n' "$@" > "$FIXTURE_ROOT/setup-args"
-fi''')
+    def test_setup_installs_cli_with_uv_not_path_vgs_and_forwards_choice(self):
+        self.script('fixture-python', 'printf "%s\\n" "$@" > "$FIXTURE_ROOT/setup-args"')
         self.script('fixture-vgs', 'exit 0')
         self.script('vgs', 'echo wrong-vgs >&2; exit 98')
-        self.script('pyenv', 'printf "%s\\n" "$*" >> "$FIXTURE_ROOT/pyenv-args"\nif [ "$1" = which ]; then printf "%s\\n" "$FIXTURE_ROOT/bin/fixture-python"; fi')
+        # Nothing may be compiled: a pyenv on PATH must never be called.
+        self.script('pyenv', 'echo unexpected-pyenv >&2; exit 99')
+        self.script('uv', '''
+printf '%s\\n' "$*" >> "$FIXTURE_ROOT/uv-args"
+if [ "$1" = venv ]; then
+  for last; do :; done
+  mkdir -p "$last/bin"
+  cp "$FIXTURE_ROOT/bin/fixture-python" "$last/bin/python"
+elif [ "$1" = pip ]; then
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = --python ]; then cp "$FIXTURE_ROOT/bin/fixture-vgs" "$(dirname "$2")/vgs"; fi
+    shift
+  done
+else exit 93; fi''')
         result = self.run_awg('setup', '--organization', 'ACExample', '--tenant', 'tntSandbox')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('install -s 3.12.12', (self.root / 'pyenv-args').read_text())
-        self.assertIn('vgs-cli==1.36.0', (self.root / 'pip-args').read_text())
+        uv_args = (self.root / 'uv-args').read_text()
+        self.assertIn('venv --quiet --python 3.12', uv_args)
+        self.assertIn('vgs-cli==1.36.0', uv_args)
+        self.assertNotIn('unexpected-pyenv', result.stderr)
         self.assertIn('--organization\nACExample\n--tenant\ntntSandbox', (self.root / 'setup-args').read_text())
-        # Bash 3.2 + set -u also needs to handle no setup arguments.
+        # Bash 3.2 + set -u also needs to handle no setup arguments; the CLI is installed once.
         self.assertEqual(self.run_awg('setup').returncode, 0)
+        self.assertEqual((self.root / 'uv-args').read_text(), uv_args)
 
     def test_start_builds_session_and_cleans_up_helper(self):
         (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')

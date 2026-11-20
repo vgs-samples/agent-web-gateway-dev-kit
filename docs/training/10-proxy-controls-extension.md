@@ -53,7 +53,7 @@ still applies; first-time setup is not yet session-free.
 1. Python 3.10 or later and a dedicated Chromium browser profile. Chrome for
    Testing is the recommended introductory setup.
 2. Sandbox service-account credentials from `./awg setup` at the repository root.
-   Setup uses pyenv and `vgs login`, confirms your organization, and creates the
+   Setup uses `uv` and `vgs login`, confirms your organization, and creates the
    account through the CLI. Session selection needs
    `reveal-sessions:read`; creation also needs `reveal-sessions:write`.
    Collect tokenization uses `aliases:write`, or `cards:create` for card creation.
