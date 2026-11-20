@@ -136,6 +136,14 @@ else exit 94; fi''')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('HTTP 403', result.stdout)
         self.assertIn('created without cards:create', result.stdout)
+        # The success line comes first, so the 403 does not read as a failure.
+        self.assertLess(result.stdout.index('through the alias API'), result.stdout.index('HTTP 403'))
+        # The Cards API can be skipped outright.
+        skipped = subprocess.run(['/bin/bash', str(KIT / 'awg'), 'session'], env={**self.env, 'AWG_CARD_STORE': 'aliases'},
+                                 capture_output=True, text=True, timeout=20)
+        self.assertEqual(skipped.returncode, 0, skipped.stderr)
+        self.assertIn('through the alias API', skipped.stdout)
+        self.assertNotIn('HTTP 403', skipped.stdout)
         # An account the kit did not create is told what it lacks before anything is refused.
         note = result.stdout.split('Note: this service account lacks: ')[1].splitlines()[0]
         self.assertIn('cards:create', note)

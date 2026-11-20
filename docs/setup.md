@@ -27,7 +27,7 @@ VGS CLI 1.36.0 supports `vgs generate service-account --template vgs-cli --tenan
 - `reveal-sessions:read`, `reveal-sessions:write`
 - `agent-gateway:read`, `agent-gateway:write`
 
-If the Cards API answers `403` for the test card, `./awg start` stores the same test card through the vault alias API (`aliases:write`) instead, so the session still has the number and the CVC. It prints whether the account lacks `cards:create` or the tenant lacks the Cards API. Setup also lists any requested scope that VGS did not issue.
+If the Cards API answers `403` for the test card, `./awg start` stores the same test card through the vault alias API (`aliases:write`) instead, so the session still has the number and the CVC. It prints whether the account lacks `cards:create` or the tenant lacks the Cards API. Setup also lists any requested scope that VGS did not issue. `AWG_CARD_STORE=aliases ./awg start` skips the Cards API and goes straight to the alias API.
 
 If the saved credentials belong to a service account that setup did not create, `./awg start` lists the scopes it lacks before making any call and works with the ones it has. Sessions need `reveal-sessions:write`; the test card needs `cards:create`, `cards:write` or `aliases:write`.
 

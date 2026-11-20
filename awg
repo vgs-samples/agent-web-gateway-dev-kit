@@ -168,7 +168,7 @@ token_scopes() {  # token_scopes <token>
 }
 
 # The APIs read the token's scope claim. An account can hold a scope as a role and still get a token without it.
-SCOPES_HELD=""; SCOPES_GRANTED=""
+SCOPES_HELD=""; SCOPES_GRANTED=""; CARD_ERROR=""; ALIAS_ERROR=""
 read_token_scopes() {  # read_token_scopes <token>
   SCOPES_HELD=" $(token_scopes "$1") "
   SCOPES_GRANTED=" $(token_scopes "$1" roles) "
@@ -262,12 +262,15 @@ cmd_session() {
   token=$(access_token)
   report_account_scopes "$token"
 
-  if store_test_card "$token"; then
+  # AWG_CARD_STORE=aliases skips the Cards API, for tenants without it.
+  if [ "${AWG_CARD_STORE:-}" != aliases ] && store_test_card "$token"; then
     say "Stored the VGS test card (4111 … 1111) and got fresh aliases."
   elif store_test_aliases "$token" "$tenant"; then
-    say "The Cards API refused the test card ($CARD_ERROR)."
-    explain_card_refusal "$token" "$tenant"
-    say "Stored the test card (4111 … 1111) as vault aliases instead; the session has both the number and the CVC."
+    say "Stored the test card (4111 … 1111) through the alias API. The session has the number and the CVC; this is not an error and nothing else is needed."
+    if [ -n "${CARD_ERROR:-}" ]; then
+      say "  For reference, the Cards API was not used because it answered $CARD_ERROR."
+      explain_card_refusal "$token" "$tenant"
+    fi
   elif [ -f "$CARD_FILE" ]; then
     jq '.fresh = false' "$CARD_FILE" > "$CARD_FILE.tmp" && mv "$CARD_FILE.tmp" "$CARD_FILE"
     say "Could not store the test card just now (Cards API: $CARD_ERROR; alias API: $ALIAS_ERROR)."
