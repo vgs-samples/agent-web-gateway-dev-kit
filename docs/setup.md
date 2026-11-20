@@ -48,6 +48,19 @@ Private state lives in `~/.awg-dev-kit` (override with `AWG_HOME`):
 
 Directories use mode 0700 and files use mode 0600. VGS CLI also maintains its own login/keyring state. Do not commit or share either location. Choose an `AWG_HOME` outside the repository.
 
+## Missing scopes
+
+Setup and `./awg start` read the access token and print the kit scopes the account lacks. What each gap means:
+
+| Missing | Effect | Who can fix it |
+| --- | --- | --- |
+| `cards:create` (and no `cards:write`) | The Cards API answers `403`. The kit stores the test card through the alias API instead. | You, with `./awg setup --force` |
+| `cards:create` and `aliases:write` | The kit cannot store a test card. | You, with `./awg setup --force` |
+| `reveal-sessions:write` | Session creation answers `403`. | You, with `./awg setup --force` |
+| Any scope, again, on the account `--force` just created | VGS has not granted that scope to your organization. | VGS |
+
+Scopes cannot be added to an existing service account. `./awg setup --force` creates a new one with every scope the kit uses, and keeps the old credentials until the new account verifies. It needs a VGS login that is allowed to create service accounts in the organization; if yours is not, VGS rejects the creation and an organization administrator has to grant that permission or run setup. The previous account is left in place, unused, until an administrator deletes it.
+
 ## Reruns and recovery
 
 A normal rerun verifies saved credentials and reuses them. `./awg setup --force` provisions a replacement after organization selection and retains the old credentials until the new account verifies. It does not delete the previous service account; an organization administrator can remove unused accounts separately.
