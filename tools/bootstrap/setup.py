@@ -129,6 +129,9 @@ def missing_scopes(token):
         granted = set(claims.get("scope", "").split())
     except (IndexError, ValueError, AttributeError):
         return []
+    if "cards:write" in granted:
+        # Older accounts carry the broad card scope, which covers creating and updating cards.
+        granted |= {"cards:create", "cards:update"}
     return [scope for scope in SCOPES if scope not in granted] if granted else []
 
 

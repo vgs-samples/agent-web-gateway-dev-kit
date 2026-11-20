@@ -86,8 +86,9 @@ need_vgs_cli() {
     uv pip install --quiet --python "$CLI_ENV/bin/python" "vgs-cli==$VGS_CLI_VERSION" || { rm -rf "$CLI_ENV"; fail "could not install VGS CLI $VGS_CLI_VERSION from PyPI. Check your network connection and retry."; }
   fi
   # Local help validates the installed command surface without authentication.
-  env -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET "$CLI_ENV/bin/vgs" get tenants --help >/dev/null
-  env -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET "$CLI_ENV/bin/vgs" apply service-account --help >/dev/null
+  # The first run compiles the CLI; keep its own SyntaxWarning out of the developer's terminal.
+  env -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET PYTHONWARNINGS=ignore::SyntaxWarning "$CLI_ENV/bin/vgs" get tenants --help >/dev/null
+  env -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET PYTHONWARNINGS=ignore::SyntaxWarning "$CLI_ENV/bin/vgs" apply service-account --help >/dev/null
 }
 
 # ---------------------------------------------------------------- offline tests

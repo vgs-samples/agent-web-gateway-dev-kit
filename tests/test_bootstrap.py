@@ -1,4 +1,5 @@
 """Offline onboarding tests: no VGS login, credentials, or network needed."""
+import base64
 import contextlib
 import importlib.util
 import io
@@ -197,6 +198,15 @@ class ExternalBoundaryTests(unittest.TestCase):
                 with self.assertRaises(bootstrap.SetupError) as caught:
                     cli.run(['apply', 'service-account'], 'output.yaml')
             self.assertNotIn('fixture-secret', str(caught.exception) + output.getvalue())
+
+    def test_missing_scopes_accepts_the_broad_card_scope(self):
+        def token(scope):
+            payload = base64.urlsafe_b64encode(json.dumps({'scope': scope}).encode()).decode().rstrip('=')
+            return 'e30.' + payload + '.sig'
+        others = ' '.join(s for s in bootstrap.SCOPES if not s.startswith('cards:'))
+        self.assertEqual(bootstrap.missing_scopes(token(others + ' cards:write cards:read')), [])
+        self.assertEqual(bootstrap.missing_scopes(token(others + ' cards:read')), ['cards:create', 'cards:update'])
+        self.assertEqual(bootstrap.missing_scopes('not-a-token'), [])
 
     def test_verify_uses_only_sandbox_read_endpoints(self):
         # Use the actual verifier, independent of the onboarding tests' mock.
