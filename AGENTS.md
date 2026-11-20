@@ -59,3 +59,4 @@ Do not work around a `403` by editing the kit, hand-writing `card.json` or `sand
 | Provider adapters | `skills/vgs-checkout-adapter/SKILL.md`, `docs/training/05-adapters-and-functions.md` |
 | Merchant tests | `docs/training/06-testing-merchant-sites.md`, `tools/sitecheck/AGENTS.md` |
 | Control Panel and MCP | `docs/control-panel.md`, `docs/mcp.md`, `docs/browser-proxying.md` |
+| Kernel cloud browser (experimental, only when the developer asks for it) | `docs/kernel.md` |

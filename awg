@@ -5,6 +5,7 @@
 #   ./awg setup [--organization AC…]  log in and provision Sandbox credentials
 #   ./awg session [hosts]      create a reveal session for a test card (hosts: comma-separated)
 #   ./awg start [url]          one step: session + control panel helper + CloakBrowser
+#   ./awg kernel [url]         session + a Kernel cloud browser routed through it (needs KERNEL_API_KEY)
 #   ./awg panel [options]      start only the control panel helper (options of start-proxy-controls.py)
 #   ./awg browser [options]    open only CloakBrowser with the control panel (--session FILE [url])
 #   ./awg cloak-login          save your CloakBrowser license key (once)
@@ -394,18 +395,103 @@ cmd_start() {
   if [ -n "$url" ]; then cmd_browser --profile "$PROFILE_DIR" --extension "$extension" --session "$session" "$url"; else cmd_browser --profile "$PROFILE_DIR" --extension "$extension" --session "$session"; fi
 }
 
+# ---------------------------------------------------------------- Kernel cloud browser
+
+KERNEL_API="${KERNEL_API_URL:-https://api.onkernel.com}"
+KERNEL_CODE=""; KERNEL_BODY=""
+
+kernel_call() {  # kernel_call <method> <path> [json body]; sets KERNEL_CODE and KERNEL_BODY (a private file)
+  [ -n "$KERNEL_BODY" ] || KERNEL_BODY=$(mktemp "$STATE_DIR/kernel.XXXXXX")
+  # The body carries the session's proxy password, so it goes over stdin, not the command line.
+  KERNEL_CODE=$(printf '%s' "${3:-}" | curl -sS -o "$KERNEL_BODY" -w '%{http_code}' -X "$1" "$KERNEL_API$2" \
+    -H "Authorization: Bearer $KERNEL_API_KEY" -H 'Content-Type: application/json' ${3:+--data-binary @-}) || KERNEL_CODE=000
+}
+
+kernel_refused() {  # kernel_refused <what was attempted>
+  say "Kernel answered HTTP $KERNEL_CODE:"
+  jq -c '{code, message} | with_entries(select(.value != null))' "$KERNEL_BODY" 2>/dev/null | cut -c1-400 || true
+  [ "$KERNEL_CODE" != 401 ] || say "Kernel did not accept KERNEL_API_KEY. Check the key in your Kernel account."
+  fail "$1"
+}
+
+# Kernel (kernel.sh) runs the browser in its cloud. The reveal session's proxy and certificate are
+# registered there as a custom proxy, so the browser's traffic passes through the same session.
+cmd_kernel() {
+  local url="${1:-}" host="" session body proxy_id browser_id live
+  for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
+  [ -n "${KERNEL_API_KEY:-}" ] || fail "KERNEL_API_KEY is not set. Create an API key in your Kernel account (https://kernel.sh), then run:
+       KERNEL_API_KEY=… ./awg kernel"
+  [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
+  [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
+  session=$(latest_session)
+  if session_alive "$session" && { [ -z "$host" ] || jq -e --arg h "$host" '(.data.attributes.allowed_hosts // []) | index($h)' "$session" >/dev/null; }; then
+    say "Using the current session: $(basename "$session" .json)"
+  else
+    say "Creating a reveal session${host:+ for $host}..."
+    cmd_session "$host"
+    session=$(latest_session)
+  fi
+
+  body=$(jq --arg name "awg-$(basename "$session" .json)-$(date +%s)" '
+    def unpct: gsub("%(?<h>[0-9A-Fa-f]{2})"; (.h | ascii_downcase | explode
+      | map(if . > 96 then . - 87 else . - 48 end) | [.[0] * 16 + .[1]] | implode));
+    .data.attributes.proxy as $p
+    | ($p.url | capture("^(?<scheme>https?)://(?<user>[^:@/]+):(?<pass>[^@/]+)@(?<host>[^:/@]+):(?<port>[0-9]+)")) as $u
+    | {type: "custom", name: $name, protocol: $u.scheme,
+       config: {host: $u.host, port: ($u.port | tonumber), username: ($u.user | unpct),
+                password: ($u.pass | unpct), ca_bundle: $p.ca_bundle}}' "$session" 2>/dev/null) \
+    || fail "the saved session has no usable proxy details. Create a new one with ./awg session"
+
+  say ""
+  say "Registering the session with Kernel as a custom proxy..."
+  trap 'rm -f "$KERNEL_BODY"' EXIT
+  kernel_call POST /proxies "$body"
+  [ "$KERNEL_CODE" = 201 ] || [ "$KERNEL_CODE" = 200 ] || kernel_refused "Kernel did not create the proxy."
+  proxy_id=$(jq -r '.id // empty' "$KERNEL_BODY")
+  [ -n "$proxy_id" ] || fail "Kernel returned no proxy id."
+  # The proxy entry holds this session's credentials, so it is removed again on the way out.
+  trap "kernel_call DELETE '/proxies/$proxy_id'; rm -f \"\$KERNEL_BODY\"" EXIT
+
+  say "Starting a Kernel browser..."
+  kernel_call POST /browsers "$(jq -n --arg id "$proxy_id" --arg url "$url" \
+    '{proxy: {id: $id}, timeout_seconds: 1800} + (if $url == "" then {} else {start_url: $url} end)')"
+  [ "$KERNEL_CODE" = 201 ] || [ "$KERNEL_CODE" = 200 ] || kernel_refused "Kernel did not start the browser."
+  browser_id=$(jq -r '.session_id // empty' "$KERNEL_BODY")
+  live=$(jq -r '.browser_live_view_url // empty' "$KERNEL_BODY")
+  [ -n "$browser_id" ] || fail "Kernel returned no browser session id."
+  trap "kernel_call DELETE '/browsers/$browser_id'; kernel_call DELETE '/proxies/$proxy_id'; rm -f \"\$KERNEL_BODY\"" EXIT
+
+  say ""
+  say "A Kernel browser is running through session $(basename "$session" .json)."
+  if [ -n "$live" ]; then
+    say "Watch and control it here (keep this link private; it controls the browser):"
+    say "  $live"
+  else
+    say "Kernel returned no live view link. Open the browser from your Kernel dashboard."
+  fi
+  say ""
+  if [ -t 0 ]; then
+    read -r -p "Press Enter to close the Kernel browser and remove the proxy. " _ || true
+  else
+    say "This command runs until the Kernel browser closes (30 minutes idle) or it is stopped."
+    while kernel_call GET "/browsers/$browser_id"; [ "$KERNEL_CODE" = 200 ]; do sleep 30; done
+  fi
+  say "Closing the Kernel browser and removing the proxy..."
+}
+
 cmd_sitecheck() {
   need_uv
   (cd "$SITECHECK_DIR" && uv run awg-sitecheck "$@")
 }
 
-usage() { sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 case "${1:-}" in
   test)        shift; cmd_test "$@" ;;
   setup)       shift; cmd_setup "$@" ;;
   session)     shift; cmd_session "$@" ;;
   start)       shift; cmd_start "$@" ;;
+  kernel)      shift; cmd_kernel "$@" ;;
   panel)       shift; cmd_panel "$@" ;;
   browser)     shift; cmd_browser "$@" ;;
   cloak-login) shift; cmd_cloak_login "$@" ;;
