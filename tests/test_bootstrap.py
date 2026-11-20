@@ -93,6 +93,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(self.applied['data']['vaults'], ['tntSandbox'])
         scopes = {x['name'] for x in self.applied['data']['scopes']}
         self.assertEqual(scopes, set(bootstrap.SCOPES))
+        self.assertLessEqual(len(self.applied['data']['name']), 20)
         self.assertNotIn('vaults:write', scopes)
         self.assertNotIn('cards:read-pci', scopes)
         credentials = self.state / 'sandbox.env'

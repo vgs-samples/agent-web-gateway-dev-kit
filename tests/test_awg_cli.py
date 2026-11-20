@@ -100,5 +100,36 @@ else exit 93; fi''')
         # The wrapper owns the helper for the lifetime of the browser.
         with self.assertRaises(ProcessLookupError): os.kill(pid, 0)
 
+    def test_session_uses_alias_api_when_cards_api_refuses(self):
+        (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
+        # Token payload: {"scope":"aliases:write reveal-sessions:write"} - no card scope.
+        self.script('curl', '''
+out=""
+args="$*"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -o ]; then shift; out="$1"; fi
+  shift
+done
+if [[ "$args" = *openid-connect/token* ]]; then
+  printf '%s' '{"access_token":"e30.eyJzY29wZSI6ImFsaWFzZXM6d3JpdGUgcmV2ZWFsLXNlc3Npb25zOndyaXRlIn0.sig"}'
+elif [[ "$args" = *sandbox.vgsapi.com/cards* ]]; then
+  printf '%s' '{"errors":[{"status":"403","title":"Forbidden"}]}' > "$out"
+  printf 403
+elif [[ "$args" = *tntFixture.sandbox.vault-api.verygoodvault.com/aliases* ]]; then
+  printf '%s' '{"data":[{"aliases":[{"alias":"tok_fixture_pan","format":"UUID"}]},{"aliases":[{"alias":"tok_fixture_cvc","format":"UUID"}]}]}' > "$out"
+  printf 201
+elif [[ "$args" = *sandbox.vgsapi.com/reveal-sessions* ]]; then
+  printf '%s' "$args" > "$FIXTURE_ROOT/session-request"
+  printf '%s' '{"data":{"id":"RSFixture","attributes":{"expires_at":"2099-01-01T00:00:00Z"}}}' > "$out"
+  printf 201
+else exit 94; fi''')
+        result = self.run_awg('session')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('HTTP 403', result.stdout)
+        self.assertIn('created without cards:create', result.stdout)
+        request = (self.root / 'session-request').read_text()
+        self.assertIn('tok_fixture_pan', request)
+        self.assertIn('tok_fixture_cvc', request)
+
 
 if __name__ == '__main__': unittest.main()

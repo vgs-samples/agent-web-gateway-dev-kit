@@ -27,6 +27,8 @@ VGS CLI 1.36.0 supports `vgs generate service-account --template vgs-cli --tenan
 - `reveal-sessions:read`, `reveal-sessions:write`
 - `agent-gateway:read`, `agent-gateway:write`
 
+If the Cards API answers `403` for the test card, `./awg start` stores the same test card through the vault alias API (`aliases:write`) instead, so the session still has the number and the CVC. It prints whether the account lacks `cards:create` or the tenant lacks the Cards API. Setup also lists any requested scope that VGS did not issue.
+
 These scopes support test-card storage, sessions, and gateway authoring. They do not grant PCI card reads, card deletion, or tenant-preference changes. Your personal login needs permission to create the service account in that organization. See the [VGS service-account CLI documentation](https://docs.verygoodsecurity.com/enterprise-platform/access-management/service-accounts-for-programmatic-access/creating-service-accounts-using-the-vgs-cli).
 
 The creation response contains the one-time client secret. Setup captures stdout and stderr privately, authenticates the new account, and checks read access to Sandbox sessions and destinations. It only replaces the kit's saved credentials after those checks succeed. It does not create a reveal session, tokenize a card, enable a binding, or submit a payment during setup.

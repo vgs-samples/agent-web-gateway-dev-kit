@@ -5,6 +5,7 @@ CLI YAML (including tenant links and one-time secrets) stays in a private journa
 A saved apply attempt is never repeated automatically after an uncertain result.
 """
 import argparse
+import base64
 import fcntl
 import json
 import os
@@ -107,6 +108,27 @@ def choose_tenant(document, organization, requested=None):
     return requested or sorted(candidates)[0][1]
 
 
+def missing_scopes(token):
+    """Requested scopes the issued token does not carry; empty if the token cannot be read."""
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(token.split(".")[1] + "==="))
+        granted = set(claims.get("scope", "").split())
+    except (IndexError, ValueError, AttributeError):
+        return []
+    return [scope for scope in SCOPES if scope not in granted] if granted else []
+
+
+def report_missing_scopes(token):
+    missing = missing_scopes(token)
+    if not missing:
+        return
+    print("Note: VGS issued this service account without: " + ", ".join(missing) + ".")
+    if "cards:create" in missing:
+        print("      The kit will store the test card through the alias API (aliases:write) instead of the Cards API."
+              if "aliases:write" not in missing else
+              "      The kit cannot store a test card with this account. Ask your VGS administrator to enable these scopes for the organization.")
+
+
 def verify(credentials):
     """Read-only authentication and Agent Web Gateway permission checks; never echo responses."""
     try:
@@ -115,6 +137,7 @@ def verify(credentials):
                           "client_secret": credentials["VGS_CLIENT_SECRET"]}).encode())
         with urlopen(request, timeout=30) as response:
             token = json.load(response)["access_token"]
+        report_missing_scopes(token)
         headers = {"Authorization": "Bearer " + token,
                    "VGS-Tenant": credentials["VGS_TENANT"], "Accept": "application/vnd.api+json"}
         for endpoint in ("/reveal-sessions?limit=1", "/agent-gateway-destinations?limit=1"):
@@ -172,7 +195,8 @@ def onboard(state, executable, organization=None, tenant=None, force=False):
         # The released CLI lacks the Agent Web Gateway template. Generate a supported template,
         # then replace its permissions before any remote write.
         template = read_yaml(cli.run(["generate", "service-account", "--template", "vgs-cli", "--tenant", tenant], "generated.yaml"))
-        template["data"] = {"name": "awg-dev-kit-" + directory.name[:12], "vaults": [tenant],
+        # VGS rejects service-account names longer than 20 characters.
+        template["data"] = {"name": "awg-kit-" + directory.name[:12], "vaults": [tenant],
                             "scopes": [{"name": scope} for scope in SCOPES]}
         definition = directory / "service-account.yaml"
         private_write(definition, yaml.safe_dump(template))

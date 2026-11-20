@@ -174,6 +174,46 @@ session_alive() {  # session_alive <file>
 
 latest_session() { [ -f "$LATEST" ] && cat "$LATEST" || true; }
 
+# Scopes carried by an access token, space-separated; empty if the token cannot be read.
+token_scopes() {  # token_scopes <token>
+  printf '%s' "$1" | jq -rR '(split(".")[1] | gsub("-";"+") | gsub("_";"/")) as $p
+    | ($p + ("==="[0:((4 - ($p | length) % 4) % 4)])) | @base64d | fromjson | .scope // ""' 2>/dev/null || true
+}
+
+# Why the Cards API refused, in terms the developer can act on.
+explain_card_refusal() {  # explain_card_refusal <token>
+  local scopes
+  [[ "$CARD_ERROR" = "HTTP 403"* ]] || return 0
+  scopes=" $(token_scopes "$1") "
+  [ "$scopes" != "  " ] || return 0
+  if [[ "$scopes" = *" cards:create "* || "$scopes" = *" cards:write "* ]]; then
+    say "  This service account has the card scope, so the Cards API itself is not enabled for tenant $2. Only VGS can enable it."
+  else
+    say "  This service account was created without cards:create. Scopes cannot be added later; './awg setup --force' makes a new account."
+  fi
+}
+
+# Same test card through the vault alias API (aliases:write), for tenants where the Cards API refuses.
+store_test_aliases() {  # store_test_aliases <token> <tenant>
+  local response code
+  response=$(mktemp "$STATE_DIR/card.XXXXXX")
+  code=$(curl -sS -o "$response" -w '%{http_code}' -X POST "https://$2.sandbox.vault-api.verygoodvault.com/aliases" \
+    -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
+    -d '{"data":[{"value":"4111111111111111","format":"UUID","storage":"PERSISTENT"},{"value":"123","format":"UUID","storage":"VOLATILE"}]}') || code=000
+  if [ "$code" = 201 ] && jq -e '.data | length == 2' "$response" >/dev/null 2>&1; then
+    jq '[.data[] | (.aliases | map(select(.format == "UUID")) | .[0].alias)] as $a
+        | {pan_alias: $a[0], cvc_alias: $a[1], bin: "411111", length: 16, fresh: true}' "$response" > "$CARD_FILE"
+    rm -f "$response"
+    jq -e '.pan_alias and .cvc_alias' "$CARD_FILE" >/dev/null 2>&1 && return 0
+    rm -f "$CARD_FILE"
+    ALIAS_ERROR="HTTP 201 without aliases"
+    return 1
+  fi
+  ALIAS_ERROR="HTTP $code $(jq -c '[.errors[]? | {code, title, detail}] // .' "$response" 2>/dev/null | cut -c1-400)"
+  rm -f "$response"
+  return 1
+}
+
 # Stores the standard VGS test card so the session has fresh aliases. Never a real card.
 store_test_card() {  # store_test_card <token>
   local response code year
@@ -203,13 +243,21 @@ cmd_session() {
 
   if store_test_card "$token"; then
     say "Stored the VGS test card (4111 … 1111) and got fresh aliases."
+  elif store_test_aliases "$token" "$tenant"; then
+    say "The Cards API refused the test card ($CARD_ERROR)."
+    explain_card_refusal "$token" "$tenant"
+    say "Stored the test card (4111 … 1111) as vault aliases instead; the session has both the number and the CVC."
   elif [ -f "$CARD_FILE" ]; then
     jq '.fresh = false' "$CARD_FILE" > "$CARD_FILE.tmp" && mv "$CARD_FILE.tmp" "$CARD_FILE"
-    say "Could not store the test card just now ($CARD_ERROR); using the card number alias saved earlier (no CVC)."
+    say "Could not store the test card just now (Cards API: $CARD_ERROR; alias API: $ALIAS_ERROR)."
+    explain_card_refusal "$token" "$tenant"
+    say "Using the card number alias saved earlier (no CVC)."
   else
-    say "VGS answered: $CARD_ERROR"
-    fail "could not store a test card. The service account may lack permission to create cards (POST /cards).
-       Ask your VGS contact, or save your own aliases as $CARD_FILE:
+    say "Cards API answered: $CARD_ERROR"
+    say "Alias API answered: $ALIAS_ERROR"
+    explain_card_refusal "$token" "$tenant"
+    fail "could not store a test card with either API.
+       Or save your own aliases as $CARD_FILE:
        {\"pan_alias\": \"tok_sandbox_…\", \"bin\": \"411111\", \"length\": 16}"
   fi
 
