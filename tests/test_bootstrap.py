@@ -2,6 +2,7 @@
 import contextlib
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
 import stat
@@ -48,7 +49,8 @@ class BootstrapTests(unittest.TestCase):
                 elif args[:2] == ['apply', 'service-account']:
                     value = yaml.safe_load(Path(args[-1]).read_text())
                     owner.applied = value
-                    if owner.fail_apply: raise bootstrap.SetupError('synthetic uncertain creation')
+                    if owner.fail_apply:
+                        raise (bootstrap.SetupError if owner.fail_apply is True else owner.fail_apply)('synthetic failed creation')
                     value['data'].update(clientId='fixture-client', clientSecret='fixture-secret-never-print')
                 else: raise AssertionError(args)
                 output = self.directory / filename
@@ -133,6 +135,26 @@ class BootstrapTests(unittest.TestCase):
         for kwargs in ({}, {'force': True}, {'organization': 'ACOther'}):
             with self.assertRaises(bootstrap.SetupError): self.run_setup(**kwargs)
         self.assertEqual(len(self.calls), count)
+
+    def test_rejected_apply_can_be_retried(self):
+        self.fail_apply = bootstrap.CLIRejected
+        with self.assertRaises(bootstrap.SetupError): self.run_setup(organization='ACExample')
+        self.assertFalse((self.state / 'setup-pending.json').exists())
+        self.fail_apply = False
+        self.run_setup(organization='ACExample')
+        self.assertIn('tntSandbox', (self.state / 'sandbox.env').read_text())
+
+    def test_attempt_rejected_by_an_older_kit_is_not_stuck(self):
+        # Older kits left the marker behind when VGS refused the 24-character account name.
+        earlier = self.state / 'setup' / 'earlier'
+        earlier.mkdir(parents=True)
+        (earlier / 'apply-output.yaml').write_text('')
+        (earlier / 'apply-output.yaml.stderr').write_text('name too long')
+        (self.state / 'setup-pending.json').write_text(
+            json.dumps({'organization': 'ACExample', 'tenant': 'tntSandbox', 'directory': str(earlier)}))
+        self.run_setup()
+        self.assertIn('tntSandbox', (self.state / 'sandbox.env').read_text())
+        self.assertFalse((self.state / 'setup-pending.json').exists())
 
     def test_new_selection_requires_force(self):
         self.run_setup(organization='ACExample')

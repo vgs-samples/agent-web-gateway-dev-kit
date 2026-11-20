@@ -50,6 +50,19 @@ def read_yaml(path):
         raise SetupError("VGS CLI returned unexpected output. Inspect the private setup files locally.") from None
 
 
+class CLIRejected(SetupError):
+    """The CLI ran to completion and reported an error."""
+
+
+def apply_was_rejected(directory):
+    """True when an earlier apply finished with an error and printed no account."""
+    try:
+        return ((directory / "apply-output.yaml").stat().st_size == 0
+                and (directory / "apply-output.yaml.stderr").stat().st_size > 0)
+    except OSError:
+        return False
+
+
 class CLI:
     def __init__(self, executable, directory):
         self.executable, self.directory = executable, directory
@@ -62,7 +75,8 @@ class CLI:
             result = subprocess.run([self.executable, *args], cwd=self.directory,
                                     env=self.environment, stdout=stdout, stderr=stderr)
         if result.returncode:
-            raise SetupError(f"VGS CLI {' '.join(args[:2])} failed. Inspect {output.name}.stderr in the private setup directory.")
+            # A positive exit code is the CLI reporting an error; a signal is an interruption.
+            raise (CLIRejected if result.returncode > 0 else SetupError)(f"VGS CLI {' '.join(args[:2])} failed. Inspect {output.name}.stderr in the private setup directory.")
         return output
 
     def login(self):
@@ -177,6 +191,14 @@ def onboard(state, executable, organization=None, tenant=None, force=False):
 
     if pending.exists():
         attempt = json.loads(pending.read_text())
+        earlier = Path(attempt["directory"])
+        if not (earlier / "created.yaml").exists() and apply_was_rejected(earlier):
+            # VGS answered the earlier attempt with an error and no credentials, so there is nothing to recover.
+            print("The earlier attempt ended with an error from VGS and no account details. Starting again.", flush=True)
+            pending.unlink()
+            organization = organization or attempt["organization"]
+
+    if pending.exists():
         if ((organization and organization != attempt["organization"])
                 or (tenant and tenant != attempt["tenant"]) or force):
             raise SetupError("A previous creation attempt needs recovery first. Rerun setup without --force or a different selection.")
@@ -203,7 +225,14 @@ def onboard(state, executable, organization=None, tenant=None, force=False):
         attempt = {"organization": organization, "tenant": tenant, "directory": str(directory)}
         # Persist before apply: the CLI create API has no idempotency key.
         private_write(pending, json.dumps(attempt))
-        output = cli.run(["apply", "service-account", "-O", organization, "--file", str(definition)], "apply-output.yaml")
+        try:
+            output = cli.run(["apply", "service-account", "-O", organization, "--file", str(definition)], "apply-output.yaml")
+        except CLIRejected:
+            # The CLI finished and returned no credentials: nothing to recover, so the next run may try again.
+            pending.unlink()
+            raise SetupError("VGS did not create the service account. The reason is in "
+                             f"{directory / 'apply-output.yaml.stderr'}. Your login may lack permission to create "
+                             "service accounts in this organization. Rerun ./awg setup once that is resolved.") from None
         credentials_from_result(read_yaml(output), tenant)
         output.replace(directory / "created.yaml")
 
