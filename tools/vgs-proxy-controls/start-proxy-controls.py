@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--credentials-file', required=True, type=Path, help='Private service-account export or environment file; see sandbox.env.example')
     parser.add_argument('--sessions-dir', type=Path, help='Directory of RS….json creation responses and matching .request.json files')
     parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parent / '.private-extension', help='Private generated extension directory')
+    parser.add_argument('--exit-with-pid', type=int, help='Stop when this process is gone')
     parser.add_argument('--egress-profile', type=Path, help='Private JSON egress profile for new sessions')
     parser.add_argument('--tokenizer-socket', type=Path, help='Private card tokenizer Unix socket')
     parser.add_argument('--capture-profile', type=Path, help='Browser profile used to report sensitive-HAR preference status')
@@ -99,7 +100,12 @@ def main():
         if args.enable_mcp:
             print('MCP client configuration: ' + str(directory / 'mcp-client.json'), flush=True)
             print('MCP capture is available for a selected tab. See Diagnostics and the MCP guide.', flush=True)
-        threading.Event().wait()
+        # Stop with the process that started this helper, so no helper outlives its browser.
+        while not threading.Event().wait(2):
+            if args.exit_with_pid:
+                try: os.kill(args.exit_with_pid, 0)
+                except ProcessLookupError: break
+                except OSError: pass
     except KeyboardInterrupt:
         print('\nLocal session helper stopped. Restart this command and reload the extension to reconnect.')
     except Exception:
