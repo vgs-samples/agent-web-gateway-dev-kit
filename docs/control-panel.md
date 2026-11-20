@@ -79,8 +79,8 @@ certificates or disable TLS verification.
    `reveal-sessions:read` and `reveal-sessions:write` access to the selected vault.
    Card creation needs `cards:create`; Vault API tokenization needs `aliases:write`.
    The dev kit's setup definition includes `cards:create`, `cards:read`, and
-   `cards:update`, without card deletion or PAN/CVC read access. It works with
-   VGS CLI 1.36.0, which does not include an `agent-web-gateway-admin` template. The panel
+   `cards:update`, without card deletion or PAN/CVC read access. It uses
+   VGS CLI 1.37.0, which includes the `agent-web-gateway-admin` template. The panel
    displays the exact granted scope names and also supports existing accounts
    with legacy `cards:write`; it does not change the account’s permissions.
    **Settings → Service account → Permissions** lists all eight scopes the kit uses

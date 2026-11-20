@@ -64,7 +64,7 @@ else exit 93; fi''')
         self.assertEqual(result.returncode, 0, result.stderr)
         uv_args = (self.root / 'uv-args').read_text()
         self.assertIn('venv --quiet --python 3.12', uv_args)
-        self.assertIn('vgs-cli==1.36.0', uv_args)
+        self.assertIn('vgs-cli==1.37.0', uv_args)
         self.assertNotIn('unexpected-pyenv', result.stderr)
         self.assertIn('--organization\nACExample\n--tenant\ntntSandbox', (self.root / 'setup-args').read_text())
         # Bash 3.2 + set -u also needs to handle no setup arguments; the CLI is installed once.

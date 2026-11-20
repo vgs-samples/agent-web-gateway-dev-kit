@@ -19,7 +19,7 @@ KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PANEL_DIR="$KIT_DIR/tools/vgs-proxy-controls"
 SITECHECK_DIR="$KIT_DIR/tools/sitecheck"
 PYTHON_VERSION="3.12"
-VGS_CLI_VERSION="1.36.0"
+VGS_CLI_VERSION="1.37.0"
 
 STATE_DIR="${AWG_HOME:-$HOME/.awg-dev-kit}"
 CREDENTIALS="$STATE_DIR/sandbox.env"

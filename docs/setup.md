@@ -1,6 +1,6 @@
 # Set up the dev kit
 
-Run `./awg setup` from the repository on macOS or Linux. Setup installs VGS CLI into a private virtual environment even if another `vgs` executable is already on PATH. It uses a prebuilt Python **3.12** from `uv` and the stable **VGS CLI 1.36.0** release. Nothing is compiled, and your global Python is not changed.
+Run `./awg setup` from the repository on macOS or Linux. Setup installs VGS CLI into a private virtual environment even if another `vgs` executable is already on PATH. It uses a prebuilt Python **3.12** from `uv` and the stable **VGS CLI 1.37.0** release. Nothing is compiled, and your global Python is not changed.
 
 If `uv` is absent, setup installs it with Homebrew when available, otherwise with the official installer. The kit and browser runtime use the same `uv`. `./awg start` also checks for `curl`, `jq`, and `openssl`, with installation guidance if one is missing.
 
@@ -20,7 +20,7 @@ The ID in this example is a placeholder; use the actual `AC…` ID. The script v
 
 ## Automatic service-account creation
 
-VGS CLI 1.36.0 supports `vgs generate service-account --template vgs-cli --tenant …` and `vgs apply service-account -O … --file …`, but does not ship the `agent-web-gateway-admin` template. Setup asks the CLI for that template first and uses it when the CLI has it. Otherwise it generates the supported template and replaces its permissions. Either way the account gets exactly the following scope list, never the broader `cards:write`, and is applied to the selected tenant:
+VGS CLI 1.37.0 ships the `agent-web-gateway-admin` service-account template. Setup generates the account from it with `vgs generate service-account --template agent-web-gateway-admin --tenant …` and creates it with `vgs apply service-account -O … --file …`. If a CLI without that template is used, setup generates the `vgs-cli` template and replaces its permissions. Either way the account gets exactly the following scope list, never the broader `cards:write`, and is applied to the selected tenant:
 
 - `cards:create`, `cards:read`, `cards:update`
 - `aliases:write`
