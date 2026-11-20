@@ -371,10 +371,11 @@ cmd_start() {
   : > "$HELPER_LOG"
   PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
     python "$PANEL_DIR/start-proxy-controls.py" --session "$session" \
-    --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" > "$HELPER_LOG" 2>&1 &
+    --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
   helper_pid=$!
-  # Capture the PID now: EXIT runs after this function's locals leave scope.
-  trap "kill '$helper_pid' 2>/dev/null || true; wait '$helper_pid' 2>/dev/null || true" EXIT
+  # Capture the PID now: EXIT runs after this function's locals leave scope. uv runs the helper as
+  # a child, so stop that too; --exit-with-pid covers the case where this script is killed outright.
+  trap "pkill -P '$helper_pid' 2>/dev/null || true; kill '$helper_pid' 2>/dev/null || true; wait '$helper_pid' 2>/dev/null || true" EXIT
   for _ in $(seq 1 60); do
     grep -q 'Proxy controls are ready' "$HELPER_LOG" 2>/dev/null && break
     kill -0 "$helper_pid" 2>/dev/null || { fail "the control panel helper stopped. Inspect the private log at $HELPER_LOG locally."; }
