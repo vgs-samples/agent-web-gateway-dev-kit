@@ -73,6 +73,21 @@ class OperationsTests(unittest.TestCase):
         scopes={s['name']:s['granted'] for s in v['scopes']}
         self.assertFalse(scopes['cards:create']); self.assertFalse(scopes['aliases:write']); self.assertTrue(scopes['reveal-sessions:write'])
         self.assertNotIn('not-real',json.dumps(v))
+        # cards:write covers create and update, so only the scopes truly absent are reported.
+        self.assertEqual(v['missingScopes'], ['cards:read', 'aliases:write', 'agent-gateway:read', 'agent-gateway:write'])
+    def test_scope_held_only_as_a_role_is_reported_missing(self):
+        every = ['cards:create','cards:read','cards:update','aliases:write','reveal-sessions:read','reveal-sessions:write','agent-gateway:read','agent-gateway:write']
+        claims = {'scope': ' '.join(s for s in every if s not in ('cards:create','cards:update')), 'resource_access': {'fixture': {'roles': every}}}
+        token = 'header.' + base64.urlsafe_b64encode(json.dumps(claims).encode()).decode() + '.sig'
+        with patch.object(self.client,'token',return_value=token): v=self.operations.account()
+        self.assertEqual(v['missingScopes'], ['cards:create', 'cards:update'])
+        scopes={s['name']:s for s in v['scopes']}
+        self.assertFalse(scopes['cards:create']['granted']); self.assertTrue(scopes['cards:create']['roleOnly'])
+        self.assertTrue(scopes['aliases:write']['granted']); self.assertFalse(scopes['aliases:write']['roleOnly'])
+        self.assertTrue(v['creationAvailable'])
+        # A token with no scope claim falls back to its roles.
+        token = 'header.' + base64.urlsafe_b64encode(json.dumps({'resource_access': {'fixture': {'roles': every}}}).encode()).decode() + '.sig'
+        with patch.object(self.client,'token',return_value=token): self.assertEqual(self.operations.account()['missingScopes'], [])
     def test_collect_token_is_tenant_bound_scope_checked_and_never_persisted(self):
         with self.assertRaises(ValueError): self.operations.collect_token({'tenantId':self.operations.tenant,'method':'aliases'})
         claims = base64.urlsafe_b64encode(json.dumps({'scope':'aliases:write'}).encode()).decode()

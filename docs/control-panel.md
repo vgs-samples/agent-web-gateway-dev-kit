@@ -83,6 +83,12 @@ certificates or disable TLS verification.
    VGS CLI 1.36.0, which does not include an `agent-web-gateway-admin` template. The panel
    displays the exact granted scope names and also supports existing accounts
    with legacy `cards:write`; it does not change the account’s permissions.
+   **Settings → Service account → Permissions** lists all eight scopes the kit uses
+   and whether each is in the token's `scope` claim, which is what the APIs check.
+   If any is missing, the panel shows `Scope error: … token is missing …` in
+   Settings and on the main view, and says whether a new account
+   (`./awg setup --force`) fixes it or whether VGS left a granted scope out of
+   the token. The MCP `gateway_account` tool returns the same list as `missingScopes`.
    Use plain `KEY=value` lines, without shell `export`
    prefixes or quotes. On macOS/Linux, restrict it with `chmod 600 /path/sandbox.env`.
 3. Keep the original reveal-session creation responses in a private directory,
