@@ -1,0 +1,5 @@
+{
+  "label": "harness",
+  "number": {"alias": "tok_sandbox_REPLACE_WITH_PAN_ALIAS", "bin": "411111", "length": 16},
+  "cvc": {"alias": "tok_sandbox_REPLACE_WITH_CVC_ALIAS", "length": 3}
+}

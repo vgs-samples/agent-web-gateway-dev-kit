@@ -1,0 +1,11 @@
+.test-results/
+runtime/
+__pycache__/
+# Only these authored fixtures may be published; content hashes are checked too.
+!adyen/fixtures/capture.synthetic.har
+!adyen/fixtures/encrypt.synthetic.har
+!cybersource/fixtures/bridge-sdk.synthetic.har
+!cybersource/fixtures/capture.synthetic.har
+!cybersource/fixtures/encrypt.synthetic.har
+!oppwa/fixtures/reveal.synthetic.har
+!stripe/fixtures/reveal.synthetic.har

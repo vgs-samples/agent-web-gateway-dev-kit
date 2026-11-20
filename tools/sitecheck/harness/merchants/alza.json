@@ -1,0 +1,24 @@
+{
+  "name": "Alza (www.alza.cz)",
+  "adapter": "AD_REPLACE_WITH_YOUR_ADAPTER_ID",
+  "capture": {
+    "binding": "AX_REPLACE_WITH_YOUR_BINDING_ID",
+    "response": {"status": 200, "headers": {"Content-Type": "application/json"},
+                 "body": {"form": {"value": [{"name": "merchantAccount", "value": "AlzaCZ"},
+                                             {"name": "publicKey", "value": "$harness_key"}]}}}
+  },
+  "checkout": {
+    "binding": "AX_REPLACE_WITH_YOUR_BINDING_ID",
+    "method": "POST",
+    "url": "https://www.alza.cz/api/payment/v3/adyenpayment",
+    "headers": {"Content-Type": "application/json"},
+    "body": {
+      "encryptedCardNumber": "browser-jwe-number",
+      "encryptedExpiryMonth": "browser-jwe-expiryMonth",
+      "encryptedExpiryYear": "browser-jwe-expiryYear",
+      "encryptedSecurityCode": "browser-jwe-cvc",
+      "orderId": "test"
+    }
+  },
+  "context": {"adyen_expiry_month": "03", "adyen_expiry_year": "2030"}
+}

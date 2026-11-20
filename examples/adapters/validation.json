@@ -1,0 +1,317 @@
+{
+  "scope": "Synthetic fixtures; real function source; offline message/session/vault doubles. No gateway or merchant acceptance claim.",
+  "cases": [
+    {
+      "provider": "adyen",
+      "name": "capture",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "adyen",
+      "name": "capture-unrelated",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "adyen",
+      "name": "non-card",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "adyen",
+      "name": "missing-key",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "adyen",
+      "name": "missing-format",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "adyen",
+      "name": "encrypt-both",
+      "engine": "native",
+      "status": "limited"
+    },
+    {
+      "provider": "adyen",
+      "name": "encrypt-both",
+      "engine": "jvm",
+      "status": "passed"
+    },
+    {
+      "provider": "adyen",
+      "name": "encrypt-number",
+      "engine": "native",
+      "status": "limited"
+    },
+    {
+      "provider": "adyen",
+      "name": "encrypt-number",
+      "engine": "jvm",
+      "status": "passed"
+    },
+    {
+      "provider": "adyen",
+      "name": "encrypt-cvc",
+      "engine": "native",
+      "status": "limited"
+    },
+    {
+      "provider": "adyen",
+      "name": "encrypt-cvc",
+      "engine": "jvm",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "capture",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "capture-unrelated",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "ambiguous-context",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "sdk-bridge",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "sdk-version-guard",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "sdk-alias-guard",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "non-relay",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "missing-context",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "context-mismatch",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "alias-mismatch",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "encrypt-both",
+      "engine": "native",
+      "status": "limited"
+    },
+    {
+      "provider": "cybersource",
+      "name": "encrypt-both",
+      "engine": "jvm",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "encrypt-number",
+      "engine": "native",
+      "status": "limited"
+    },
+    {
+      "provider": "cybersource",
+      "name": "encrypt-number",
+      "engine": "jvm",
+      "status": "passed"
+    },
+    {
+      "provider": "cybersource",
+      "name": "encrypt-cvc",
+      "engine": "native",
+      "status": "limited"
+    },
+    {
+      "provider": "cybersource",
+      "name": "encrypt-cvc",
+      "engine": "jvm",
+      "status": "passed"
+    },
+    {
+      "provider": "stripe",
+      "name": "har-card-fields",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "stripe",
+      "name": "partial-cvc",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "stripe",
+      "name": "repeated-pan",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "stripe",
+      "name": "non-card",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "stripe",
+      "name": "blank-fields",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "stripe",
+      "name": "preserve-other-fields",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "stripe",
+      "name": "vault-failure",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "oppwa",
+      "name": "har-entry-0",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "oppwa",
+      "name": "har-entry-1",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "oppwa",
+      "name": "har-entry-2",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "oppwa",
+      "name": "ignore-bins",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "oppwa",
+      "name": "ignore-logs",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "oppwa",
+      "name": "ignore-payment",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "oppwa",
+      "name": "encoding-and-unrelated-fields",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "oppwa",
+      "name": "blank-fields",
+      "engine": "native",
+      "status": "passed"
+    },
+    {
+      "provider": "oppwa",
+      "name": "vault-failure",
+      "engine": "native",
+      "status": "passed"
+    }
+  ],
+  "sourceHashes": {
+    "adyen/capture.star": "d34f290097a2d7f04b99eedc2747c624e85144cc66806cf79f476e491f991577",
+    "adyen/encrypt.star": "9df2845ad4e7d1d69a48be2a6235f6c90ba56540bd6bd2b5e875dac40bcebe43",
+    "cybersource/capture.star": "a02b15c8458c265ba98cf8b78bf984162af8ec37b39420c0fd6c17ca530355fa",
+    "cybersource/bridge-sdk.star": "a208813a5d88e207205f465d8dcfeadcb19e59c87d19a7d385fb1a180fd7bc68",
+    "cybersource/encrypt.star": "dd027e2724b2e9ac4f0c3b58877fd263d47b3ad0e4b1030cd3c2573ca5b52419",
+    "stripe/reveal.star": "87e1ce4ec1087181d98c55c26ed5d4e8728b6cb04da4b377a7cb95596ed44c30",
+    "oppwa/reveal.star": "82ebce0cb272aadf5141810ee14c8f0f4f4f1b4c37600ed84026d1123a069d87"
+  },
+  "fixtureHashes": {
+    "adyen/capture": "4d36277f98fa8e4aa0b76ac81ea24307951f7ec9798b12133c7b8def8018f1af",
+    "adyen/encrypt": "4ca19658d9b27f6e83538878ada2482b113450b00d81a72d7f6011e9ad12bde0",
+    "cybersource/capture": "df14d3f8656df5ea3548bc2ff41d96bfae753e034ae11f721dffc23cc38b9036",
+    "cybersource/bridge-sdk": "c75e1e0021262af60c7fa72f7377417537e91bf2be672119915815463e3a5dd8",
+    "cybersource/encrypt": "f51a0ccd4a5d726435fff8789bf02f3ec38220bd6302271b72ce037baab945a9",
+    "stripe/reveal": "d492cee7e1565c3edac8ba9d247a2274cf84a60ba177107f74d8b05bf223f27b",
+    "oppwa/reveal": "9cd4f4b3bd4cc5c73f5e105e2a3a86c5a9689749a4159653876986021fce3726"
+  },
+  "nativeCryptoLimitations": [
+    {
+      "provider": "adyen",
+      "name": "encrypt-both",
+      "reason": "Pinned native runtime JOSE reflection failure"
+    },
+    {
+      "provider": "adyen",
+      "name": "encrypt-number",
+      "reason": "Pinned native runtime JOSE reflection failure"
+    },
+    {
+      "provider": "adyen",
+      "name": "encrypt-cvc",
+      "reason": "Pinned native runtime JOSE reflection failure"
+    },
+    {
+      "provider": "cybersource",
+      "name": "encrypt-both",
+      "reason": "Pinned native runtime JOSE reflection failure"
+    },
+    {
+      "provider": "cybersource",
+      "name": "encrypt-number",
+      "reason": "Pinned native runtime JOSE reflection failure"
+    },
+    {
+      "provider": "cybersource",
+      "name": "encrypt-cvc",
+      "reason": "Pinned native runtime JOSE reflection failure"
+    }
+  ],
+  "passed": 37,
+  "failed": 0,
+  "validatedOn": "2026-11-19",
+  "note": "Native and supplemental JVM results are separate. Each function has a synthetic HAR fixture. No gateway or merchant run performed."
+}

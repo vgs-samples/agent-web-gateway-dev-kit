@@ -1,0 +1,26 @@
+{
+  "name": "stripe",
+  "hosts": [
+    "api.stripe.com"
+  ],
+  "functions": {
+    "reveal": {
+      "file": "functions/reveal.star",
+      "extension_point": "route.request",
+      "inputs": []
+    }
+  },
+  "bindings": [
+    {
+      "key": "reveal",
+      "function": "reveal",
+      "enabled": false,
+      "when": {
+        "host": "api.stripe.com",
+        "method": "POST",
+        "path": "/v1/payment_intents/*/confirm"
+      },
+      "inputs": {}
+    }
+  ]
+}

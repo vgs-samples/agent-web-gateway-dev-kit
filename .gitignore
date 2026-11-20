@@ -1,0 +1,32 @@
+# credentials and private configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+sites.yaml
+*.bak
+card.json
+card.real.json
+*.secret.json
+state.*.json
+service-account*.yaml
+sa-created.yaml
+
+# session, run and capture output
+.state*/
+runs/
+registrations/
+browsers/
+*.har
+*netlog*.json
+*.webm
+*.mp4
+
+# build and editor files
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.idea/
+.DS_Store

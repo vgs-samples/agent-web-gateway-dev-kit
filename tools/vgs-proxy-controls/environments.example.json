@@ -1,0 +1,14 @@
+{
+  "sandbox": {
+    "credentials_file": "/absolute/private/sandbox.env",
+    "sessions_directory": "/absolute/private/sandbox/sessions",
+    "egress_file": "/absolute/private/egress.json",
+    "tokenizer_socket": "/absolute/private/sandbox-card.sock"
+  },
+  "live": {
+    "credentials_file": "/absolute/private/live.env",
+    "sessions_directory": "/absolute/private/live/sessions",
+    "egress_file": "/absolute/private/egress.json",
+    "tokenizer_socket": "/absolute/private/live-card.sock"
+  }
+}

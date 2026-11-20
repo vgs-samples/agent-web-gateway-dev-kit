@@ -1,0 +1,11 @@
+{
+  "data": {
+    "type": "agent-gateway-adapters",
+    "attributes": {
+      "name": "Example provider",
+      "functions": [
+        "FN_REPLACE_WITH_RETURNED_ID"
+      ]
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "name": "adyen",
+  "hosts": [
+    "checkoutshopper-live.adyen.com",
+    "www2.hm.com"
+  ],
+  "functions": {
+    "capture": {
+      "file": "functions/capture.star",
+      "extension_point": "route.response",
+      "inputs": []
+    },
+    "encrypt": {
+      "file": "functions/encrypt.star",
+      "extension_point": "route.request",
+      "inputs": [
+        {
+          "name": "data_type",
+          "required": false
+        },
+        {
+          "name": "data_selector",
+          "required": false
+        },
+        {
+          "name": "card_number_selector",
+          "required": false
+        },
+        {
+          "name": "card_cvc_selector",
+          "required": false
+        },
+        {
+          "name": "expiry_month_selector",
+          "required": false
+        },
+        {
+          "name": "expiry_year_selector",
+          "required": false
+        },
+        {
+          "name": "card_label",
+          "required": false
+        },
+        {
+          "name": "graphql_query",
+          "required": false
+        },
+        {
+          "name": "bin_selector",
+          "required": false
+        },
+        {
+          "name": "masked_number_selector",
+          "required": false
+        }
+      ]
+    }
+  },
+  "bindings": [
+    {
+      "key": "capture",
+      "function": "capture",
+      "enabled": false,
+      "when": {
+        "host": "checkoutshopper-live.adyen.com",
+        "method": "GET",
+        "path": "/checkoutshopper/securedfields/*/*/securedFields*html"
+      },
+      "inputs": {}
+    },
+    {
+      "key": "encrypt",
+      "function": "encrypt",
+      "enabled": false,
+      "when": {
+        "host": "www2.hm.com",
+        "method": "POST",
+        "path": "/*/v2/checkout/proceed"
+      },
+      "inputs": {
+        "data_type": {
+          "from": "constant",
+          "value": "json"
+        },
+        "data_selector": {
+          "from": "constant",
+          "value": "$.adyenData.encryptedAdyenForm"
+        },
+        "card_number_selector": {
+          "from": "constant",
+          "value": "$.encryptedCardNumber"
+        },
+        "card_cvc_selector": {
+          "from": "constant",
+          "value": "$.encryptedSecurityCode"
+        },
+        "expiry_month_selector": {
+          "from": "constant",
+          "value": "$.encryptedExpiryMonth"
+        },
+        "expiry_year_selector": {
+          "from": "constant",
+          "value": "$.encryptedExpiryYear"
+        }
+      }
+    }
+  ]
+}

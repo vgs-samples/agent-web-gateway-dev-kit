@@ -1,0 +1,123 @@
+{
+  "name": "cybersource",
+  "hosts": [
+    "www.alaskaair.com",
+    "flex.cybersource.com"
+  ],
+  "functions": {
+    "capture": {
+      "file": "functions/capture.star",
+      "extension_point": "route.response",
+      "inputs": []
+    },
+    "bridge-sdk": {
+      "file": "functions/bridge-sdk.star",
+      "extension_point": "route.response",
+      "inputs": [
+        {
+          "name": "sdk_sha256",
+          "required": false
+        },
+        {
+          "name": "session_binding_key",
+          "required": false
+        },
+        {
+          "name": "standin_number",
+          "required": false
+        },
+        {
+          "name": "standin_cvc",
+          "required": false
+        }
+      ]
+    },
+    "encrypt": {
+      "file": "functions/encrypt.star",
+      "extension_point": "route.request",
+      "inputs": [
+        {
+          "name": "session_binding_key",
+          "required": false
+        },
+        {
+          "name": "standin_number",
+          "required": false
+        },
+        {
+          "name": "standin_cvc",
+          "required": false
+        },
+        {
+          "name": "card_label",
+          "required": false
+        }
+      ]
+    }
+  },
+  "bindings": [
+    {
+      "key": "capture",
+      "function": "capture",
+      "enabled": false,
+      "when": {
+        "host": "www.alaskaair.com",
+        "method": "GET",
+        "path": "/book/checkout"
+      },
+      "inputs": {}
+    },
+    {
+      "key": "bridge-sdk",
+      "function": "bridge-sdk",
+      "enabled": false,
+      "when": {
+        "host": "flex.cybersource.com",
+        "method": "GET",
+        "path": "/microform/bundle/v2.12.1/iframe.min.js"
+      },
+      "inputs": {
+        "sdk_sha256": {
+          "from": "constant",
+          "value": "REPLACE_WITH_REVIEWED_SDK_SHA256"
+        },
+        "session_binding_key": {
+          "from": "constant",
+          "value": "REPLACE_WITH_FRESH_SESSION_BINDING_KEY"
+        },
+        "standin_number": {
+          "from": "constant",
+          "value": "REPLACE_WITH_SESSION_PAN_ALIAS"
+        },
+        "standin_cvc": {
+          "from": "constant",
+          "value": "REPLACE_WITH_SESSION_CVC_ALIAS"
+        }
+      }
+    },
+    {
+      "key": "encrypt",
+      "function": "encrypt",
+      "enabled": false,
+      "when": {
+        "host": "flex.cybersource.com",
+        "method": "POST",
+        "path": "/flex/v2/tokens"
+      },
+      "inputs": {
+        "session_binding_key": {
+          "from": "constant",
+          "value": "REPLACE_WITH_FRESH_SESSION_BINDING_KEY"
+        },
+        "standin_number": {
+          "from": "constant",
+          "value": "REPLACE_WITH_SESSION_PAN_ALIAS"
+        },
+        "standin_cvc": {
+          "from": "constant",
+          "value": "REPLACE_WITH_SESSION_CVC_ALIAS"
+        }
+      }
+    }
+  ]
+}

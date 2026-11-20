@@ -1,0 +1,334 @@
+#!/usr/bin/env bash
+# One entry point for the Agent Web Gateway dev kit.
+#
+#   ./awg test                 run the kit's offline tests (no credentials, nothing sent to VGS)
+#   ./awg setup [--organization AC…]  log in and provision Sandbox credentials
+#   ./awg session [hosts]      create a reveal session for a test card (hosts: comma-separated)
+#   ./awg start [url]          one step: session + control panel helper + CloakBrowser
+#   ./awg panel [options]      start only the control panel helper (options of start-proxy-controls.py)
+#   ./awg browser [options]    open only CloakBrowser with the control panel (--session FILE [url])
+#   ./awg cloak-login          save your CloakBrowser license key (once)
+#   ./awg sitecheck [args]     run the awg-sitecheck tool (arguments of awg-sitecheck)
+#
+# Setup installs VGS CLI with pyenv. uv supplies the kit/browser runtime.
+# Private files live in ~/.awg-dev-kit, readable only by you.
+set -euo pipefail
+umask 077
+
+KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PANEL_DIR="$KIT_DIR/tools/vgs-proxy-controls"
+SITECHECK_DIR="$KIT_DIR/tools/sitecheck"
+PYTHON_VERSION="3.12"
+CLI_PYTHON_VERSION="3.12.12"
+VGS_CLI_VERSION="1.36.0"
+
+STATE_DIR="${AWG_HOME:-$HOME/.awg-dev-kit}"
+CREDENTIALS="$STATE_DIR/sandbox.env"
+SESSIONS_DIR="$STATE_DIR/sessions"
+CARD_FILE="$STATE_DIR/card.json"
+LATEST="$STATE_DIR/latest-session"
+HELPER_LOG="$STATE_DIR/helper.log"
+PROFILE_DIR="$STATE_DIR/cloak-profile"
+
+API="https://sandbox.vgsapi.com"
+AUTH="https://auth.verygoodsecurity.com/auth/realms/vgs/protocol/openid-connect/token"
+
+say()  { printf '%s\n' "$*"; }
+fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+need_uv() {
+  have uv && return
+  say "Installing uv for the kit runtime..."
+  if have brew; then
+    brew install uv
+  else
+    have curl || fail "curl is required to install uv. Install it with your package manager."
+    local installer
+    installer=$(mktemp)
+    curl -fsSL https://astral.sh/uv/install.sh -o "$installer" || { rm -f "$installer"; fail "could not download uv installer"; }
+    sh "$installer" || { rm -f "$installer"; fail "uv installation failed"; }
+    rm -f "$installer"
+  fi
+  export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+  have uv || fail "uv installation did not put uv on PATH. See https://docs.astral.sh/uv/getting-started/installation/"
+}
+
+# CloakBrowser needs a license key on every launch; ask for it once.
+need_cloak_license() {
+  [ -n "${CLOAKBROWSER_LICENSE_KEY:-}" ] && return
+  [ -s "$HOME/.cloakbrowser/license.key" ] && return
+  if [ -t 0 ]; then cmd_cloak_login; else fail "CloakBrowser needs a license key. Run './awg cloak-login' in your own terminal."; fi
+}
+
+# Run Python from the kit with the pinned version. uv downloads it on first use.
+kit_python() {
+  need_uv
+  PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" python "$@"
+}
+
+# CloakBrowser is installed on demand by uv; nothing to set up beyond a license key.
+cloak_python() {
+  need_uv
+  PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" --with cloakbrowser "$@"
+}
+
+# VGS CLI always uses a pyenv-managed Python, never an arbitrary vgs on PATH.
+need_vgs_cli() {
+  mkdir -p "$STATE_DIR"
+  chmod 700 "$STATE_DIR"
+  if ! have pyenv; then
+    if [ -x "${PYENV_ROOT:-$HOME/.pyenv}/bin/pyenv" ]; then
+      export PATH="${PYENV_ROOT:-$HOME/.pyenv}/bin:$PATH"
+    elif have brew; then
+      say "Installing pyenv..."
+      brew install pyenv
+    else
+      have git || fail "git is required to install pyenv. Install it with your package manager."
+      export PYENV_ROOT="$STATE_DIR/pyenv"
+      [ -d "$PYENV_ROOT" ] || git clone --depth 1 https://github.com/pyenv/pyenv.git "$PYENV_ROOT"
+      export PATH="$PYENV_ROOT/bin:$PATH"
+    fi
+  fi
+  have pyenv || fail "pyenv installation failed. See https://github.com/pyenv/pyenv#installation"
+  say "Preparing pyenv Python $CLI_PYTHON_VERSION and VGS CLI $VGS_CLI_VERSION..."
+  pyenv install -s "$CLI_PYTHON_VERSION" || fail "pyenv could not build Python. Install the build dependencies listed at https://github.com/pyenv/pyenv/wiki#suggested-build-environment and retry."
+  local cli_python
+  cli_python=$(PYENV_VERSION="$CLI_PYTHON_VERSION" pyenv which python)
+  CLI_ENV="$STATE_DIR/vgs-cli-$VGS_CLI_VERSION-py$CLI_PYTHON_VERSION"
+  if [ ! -x "$CLI_ENV/bin/python" ]; then
+    "$cli_python" -m venv "$CLI_ENV"
+  fi
+  "$CLI_ENV/bin/python" -m pip --disable-pip-version-check install --quiet "vgs-cli==$VGS_CLI_VERSION"
+  # Local help validates the installed command surface without authentication.
+  env -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET "$CLI_ENV/bin/vgs" get tenants --help >/dev/null
+  env -u VGS_CLIENT_ID -u VGS_CLIENT_SECRET "$CLI_ENV/bin/vgs" apply service-account --help >/dev/null
+}
+
+# ---------------------------------------------------------------- offline tests
+
+cmd_test() {
+  say "Bootstrap and CLI tests (offline synthetic fixtures)..."
+  need_uv
+  PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" --with PyYAML==6.0.3 \
+    python -m unittest discover -s "$KIT_DIR/tests" -p 'test_*.py'
+  say "Control panel helper tests (Python $PYTHON_VERSION)..."
+  (cd "$PANEL_DIR" && kit_python -m unittest discover -p 'test_*.py')
+  if have node; then
+    say ""
+    say "Extension tests (node)..."
+    (cd "$PANEL_DIR" && node --test test_session_proxy_extension.mjs)
+  else
+    say ""
+    say "Skipped the extension tests: node is not installed."
+  fi
+}
+
+# ---------------------------------------------------------------- credentials
+
+cred() { grep -E "^$1=" "$CREDENTIALS" | head -1 | cut -d= -f2-; }
+
+need_credentials() {
+  [ -f "$CREDENTIALS" ] || fail "no saved credentials. Run:  ./awg setup"
+}
+
+access_token() {
+  local token
+  token=$(curl -sS -X POST "$AUTH" -d grant_type=client_credentials \
+    --data-urlencode "client_id=$(cred VGS_CLIENT_ID)" \
+    --data-urlencode "client_secret=$(cred VGS_CLIENT_SECRET)" | jq -r '.access_token // empty') || true
+  [ -n "$token" ] || fail "VGS did not issue an access token. Check the client id and secret, then run ./awg setup --force"
+  printf '%s' "$token"
+}
+
+cmd_setup() {
+  # Validate flags before downloading anything or opening login.
+  local arg
+  local -a SETUP_ARGS=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --help|-h) say "Usage: ./awg setup [--organization AC…] [--tenant tnt…] [--force]
+Log in with VGS, confirm the organization, and provision a Sandbox service account.
+--organization records your confirmed choice; --tenant overrides automatic Sandbox selection.
+--force replaces saved credentials (does not delete the old service account)."; return ;;
+      --organization|--tenant)
+        [ $# -ge 2 ] && [ -n "$2" ] && [[ "$2" != --* ]] || fail "$1 needs a value"
+        arg="$1"; shift
+        SETUP_ARGS+=("$arg" "$1") ;;
+      --force) SETUP_ARGS+=("$1") ;;
+      *) fail "unknown option for setup: $1" ;;
+    esac
+    shift
+  done
+  need_vgs_cli
+  "$CLI_ENV/bin/python" "$KIT_DIR/tools/bootstrap/setup.py" --state-dir "$STATE_DIR" \
+    --vgs "$CLI_ENV/bin/vgs" ${SETUP_ARGS[@]+"${SETUP_ARGS[@]}"}
+  [ "${AWG_IN_START:-}" = 1 ] || say "Next: ./awg start"
+}
+
+# ---------------------------------------------------------------- session
+
+session_alive() {  # session_alive <file>
+  [ -f "$1" ] && jq -e '(.data.attributes.expires_at | fromdateiso8601) > (now + 60)' "$1" >/dev/null 2>&1
+}
+
+latest_session() { [ -f "$LATEST" ] && cat "$LATEST" || true; }
+
+# Stores the standard VGS test card so the session has fresh aliases. Never a real card.
+store_test_card() {  # store_test_card <token>
+  local response code year
+  response=$(mktemp "$STATE_DIR/card.XXXXXX")
+  year=$(( ($(date +%Y) + 3) % 100 ))   # the cards API takes a two-digit year
+  code=$(curl -sS -o "$response" -w '%{http_code}' -X POST "$API/cards" \
+    -H "Authorization: Bearer $1" -H 'Content-Type: application/vnd.api+json' -H 'Accept: application/vnd.api+json' \
+    -d "$(jq -n --argjson y "$year" '{data:{attributes:{pan:"4111111111111111",cvc:"123",exp_month:12,exp_year:$y}}}')") || code=000
+  if { [ "$code" = 201 ] || [ "$code" = 303 ]; } && jq -e '.data.attributes.pan_alias' "$response" >/dev/null 2>&1; then
+    jq '.data | {card_id: .id, pan_alias: .attributes.pan_alias, cvc_alias: .attributes.cvc_alias,
+                 bin: (.attributes.bin // "411111"), length: 16, fresh: true}' "$response" > "$CARD_FILE"
+    rm -f "$response"
+    return 0
+  fi
+  CARD_ERROR="HTTP $code $(jq -c '[.errors[]? | {code, title, detail}] // .' "$response" 2>/dev/null | cut -c1-400)"
+  rm -f "$response"
+  return 1
+}
+
+cmd_session() {
+  local hosts="${1:-}" token tenant body response code id file
+  for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
+  need_credentials
+  mkdir -p "$SESSIONS_DIR"
+  tenant=$(cred VGS_TENANT)
+  token=$(access_token)
+
+  if store_test_card "$token"; then
+    say "Stored the VGS test card (4111 … 1111) and got fresh aliases."
+  elif [ -f "$CARD_FILE" ]; then
+    jq '.fresh = false' "$CARD_FILE" > "$CARD_FILE.tmp" && mv "$CARD_FILE.tmp" "$CARD_FILE"
+    say "Could not store the test card just now ($CARD_ERROR); using the card number alias saved earlier (no CVC)."
+  else
+    say "VGS answered: $CARD_ERROR"
+    fail "could not store a test card. The service account may lack permission to create cards (POST /cards).
+       Ask your VGS contact, or save your own aliases as $CARD_FILE:
+       {\"pan_alias\": \"tok_sandbox_…\", \"bin\": \"411111\", \"length\": 16}"
+  fi
+
+  body=$(jq -n --arg hosts "$hosts" --slurpfile c "$CARD_FILE" '
+    ($c[0]) as $card
+    | {label: "main", number: {alias: $card.pan_alias, bin: $card.bin, length: $card.length}}
+      + (if $card.fresh == true and $card.cvc_alias then {cvc: {alias: $card.cvc_alias, length: 3, storage: "VOLATILE"}} else {} end) as $entry
+    | {data: {type: "reveal-sessions", attributes:
+        ({cards: [$entry]} + (if $hosts == "" then {} else {allowed_hosts: ($hosts | split(","))} end))}}')
+  response=$(mktemp "$SESSIONS_DIR/new.XXXXXX")
+  code=$(curl -sS -o "$response" -w '%{http_code}' "$API/reveal-sessions" \
+    -H "Authorization: Bearer $token" -H "VGS-Tenant: $tenant" \
+    -H 'Content-Type: application/vnd.api+json' -d "$body") || code=000
+  if [ "$code" != 201 ]; then
+    say "VGS answered HTTP $code:"
+    jq -c '.errors // .' "$response" 2>/dev/null | cut -c1-500 || true
+    rm -f "$response"
+    fail "the session was not created."
+  fi
+  id=$(jq -r .data.id "$response")
+  file="$SESSIONS_DIR/$id.json"
+  mv "$response" "$file"
+  printf '%s' "$file" > "$LATEST"
+  jq '{id: .data.id, expires_at: .data.attributes.expires_at, allowed_hosts: (.data.attributes.allowed_hosts // []),
+       unlisted_host_mode: .data.attributes.unlisted_host_mode}' "$file"
+  say "Session saved to $file"
+}
+
+# ---------------------------------------------------------------- panel / browser
+
+cmd_panel() {
+  [ -f "$PANEL_DIR/start-proxy-controls.py" ] || fail "control panel not found in $PANEL_DIR"
+  kit_python "$PANEL_DIR/start-proxy-controls.py" "$@"
+}
+
+cmd_browser() {
+  have openssl || fail "openssl is required to trust the session's certificate. Install it with your package manager."
+  cloak_python python "$KIT_DIR/tools/cloak/launch-panel.py" "$@"
+}
+
+cmd_cloak_login() {
+  say "CloakBrowser needs a license key. The free tier allows one browser at a time."
+  say "Get a key at https://github.com/CloakHQ/CloakBrowser, then paste it below."
+  cloak_python cloakbrowser login
+}
+
+# A browser left open by an earlier ./awg start still holds the profile, so a second one cannot start.
+close_earlier_browser() {
+  local lock pid answer=""
+  lock=$(readlink "$PROFILE_DIR/SingletonLock" 2>/dev/null) || return 0
+  pid=${lock##*-}
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 0
+  kill -0 "$pid" 2>/dev/null || return 0
+  ps -p "$pid" -o command= 2>/dev/null | grep -qF -- "--user-data-dir=$PROFILE_DIR" || return 0
+  say "CloakBrowser from an earlier ./awg start is still open. Only one can run at a time."
+  [ -t 0 ] || fail "close that browser window, then run ./awg start again."
+  read -r -p "Close it and continue? [Y/n] " answer
+  case "$answer" in
+    ""|y|Y|yes|Yes) ;;
+    *) fail "left it open. Close that browser window, then run ./awg start again." ;;
+  esac
+  kill "$pid" 2>/dev/null || true
+  for _ in $(seq 1 20); do kill -0 "$pid" 2>/dev/null || return 0; sleep 0.5; done
+  fail "that browser did not close. Quit it yourself, then run ./awg start again."
+}
+
+cmd_start() {
+  local url="${1:-}" host="" session helper_pid
+  for tool in curl jq openssl; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
+  need_uv
+  [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
+  need_cloak_license
+  close_earlier_browser
+  [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
+  session=$(latest_session)
+  if session_alive "$session" && { [ -z "$host" ] || jq -e --arg h "$host" '(.data.attributes.allowed_hosts // []) | index($h)' "$session" >/dev/null; }; then
+    say "Using the current session: $(basename "$session" .json)"
+  else
+    say "Creating a reveal session${host:+ for $host}..."
+    cmd_session "$host"
+    session=$(latest_session)
+  fi
+
+  say ""
+  say "Starting the control panel helper..."
+  : > "$HELPER_LOG"
+  PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
+    python "$PANEL_DIR/start-proxy-controls.py" --session "$session" \
+    --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" > "$HELPER_LOG" 2>&1 &
+  helper_pid=$!
+  # Capture the PID now: EXIT runs after this function's locals leave scope.
+  trap "kill '$helper_pid' 2>/dev/null || true; wait '$helper_pid' 2>/dev/null || true" EXIT
+  for _ in $(seq 1 60); do
+    grep -q 'Proxy controls are ready' "$HELPER_LOG" 2>/dev/null && break
+    kill -0 "$helper_pid" 2>/dev/null || { fail "the control panel helper stopped. Inspect the private log at $HELPER_LOG locally."; }
+    sleep 0.5
+  done
+  grep -q 'Proxy controls are ready' "$HELPER_LOG" || { fail "the control panel helper did not become ready in 30 seconds. Inspect $HELPER_LOG locally."; }
+  say "Helper is running. Opening CloakBrowser..."
+  say ""
+  if [ -n "$url" ]; then cmd_browser --profile "$PROFILE_DIR" --session "$session" "$url"; else cmd_browser --profile "$PROFILE_DIR" --session "$session"; fi
+}
+
+cmd_sitecheck() {
+  need_uv
+  (cd "$SITECHECK_DIR" && uv run awg-sitecheck "$@")
+}
+
+usage() { sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+case "${1:-}" in
+  test)        shift; cmd_test "$@" ;;
+  setup)       shift; cmd_setup "$@" ;;
+  session)     shift; cmd_session "$@" ;;
+  start)       shift; cmd_start "$@" ;;
+  panel)       shift; cmd_panel "$@" ;;
+  browser)     shift; cmd_browser "$@" ;;
+  cloak-login) shift; cmd_cloak_login "$@" ;;
+  sitecheck)   shift; cmd_sitecheck "$@" ;;
+  ""|-h|--help|help) usage ;;
+  *) usage; fail "unknown command: $1" ;;
+esac

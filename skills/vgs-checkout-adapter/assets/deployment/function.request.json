@@ -1,0 +1,12 @@
+{
+  "data": {
+    "type": "functions",
+    "attributes": {
+      "name": "Example card transformation",
+      "language": "larky",
+      "extension_point": "route.request",
+      "source": "REPLACE_WITH_EXACT_LOCALLY_TESTED_SOURCE",
+      "inputs": []
+    }
+  }
+}

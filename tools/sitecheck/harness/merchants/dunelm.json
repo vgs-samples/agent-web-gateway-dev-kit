@@ -1,0 +1,30 @@
+{
+  "name": "Dunelm (was.dunelm.com)",
+  "adapter": "AD_REPLACE_WITH_YOUR_ADAPTER_ID",
+  "capture": {
+    "binding": "AX_REPLACE_WITH_YOUR_BINDING_ID",
+    "response": {"status": 200, "headers": {"Content-Type": "text/html; charset=utf-8"},
+                 "body_file": "fixtures/adyen-securedfields-hm.html"}
+  },
+  "checkout": {
+    "binding": "AX_REPLACE_WITH_YOUR_BINDING_ID",
+    "method": "POST",
+    "url": "https://was.dunelm.com/graphql",
+    "headers": {"Content-Type": "application/json"},
+    "body": {
+      "query": "$binding_input:graphql_query",
+      "variables": {
+        "input": {
+          "paymentMethod": {
+            "type": "scheme",
+            "encryptedCardNumber": "browser-jwe-number",
+            "encryptedExpiryMonth": "browser-jwe-expiryMonth",
+            "encryptedExpiryYear": "browser-jwe-expiryYear",
+            "encryptedSecurityCode": "browser-jwe-cvc"
+          }
+        }
+      }
+    }
+  },
+  "context": {"adyen_expiry_month": "03", "adyen_expiry_year": "2030"}
+}

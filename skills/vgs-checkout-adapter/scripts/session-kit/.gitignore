@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+.state*/
+registrations/
+browsers/
+__pycache__/
+*.pyc

@@ -1,0 +1,26 @@
+# TEMPLATE: copy this folder to adapters/<psp>-<site>/ and fill in every TODO.
+name: TODO-site-psp
+hosts: [TODO.merchant-checkout-host.com, TODO.psp-key-host.com]
+functions:
+  capture:
+    file: capture.star
+    extension_point: route.response
+    name: "TODO PSP: capture public key"
+    inputs: [{name: key_marker}, {name: key_end}, {name: key_json}, {name: session_key}]
+  encrypt:
+    file: encrypt.star
+    extension_point: route.request
+    name: "TODO PSP: re-encrypt card form from the session card"
+    inputs: [{name: form, required: true}, {name: card_label}]
+bindings:
+  - key: capture
+    function: capture
+    when: {host: TODO.psp-key-host.com, method: GET, path: "/TODO/path/that/returns/the/key*"}
+    inputs:
+      key_marker: {from: constant, value: "TODO text right before the key"}
+      key_end: {from: constant, value: "'"}
+      session_key: {from: constant, value: psp_public_key}
+  - key: checkout
+    function: encrypt
+    when: {host: TODO.merchant-checkout-host.com, method: POST, path: "/TODO/checkout/path"}
+    inputs: {form: {from: request.body, path: "$.TODO.path.to.encrypted.fields"}}

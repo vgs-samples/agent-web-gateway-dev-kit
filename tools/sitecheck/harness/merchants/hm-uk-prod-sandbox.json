@@ -1,0 +1,38 @@
+{
+ "name": "H&M UK (www2.hm.com/en_gb), Sandbox fixture",
+ "adapter": "AD_EXAMPLE",
+ "capture": {
+  "binding": "AX_EXAMPLE",
+  "response": {
+   "status": 200,
+   "headers": {
+    "Content-Type": "text/html; charset=utf-8"
+   },
+   "body_file": "fixtures/adyen-securedfields-hm.html"
+  }
+ },
+ "checkout": {
+  "binding": "AX_EXAMPLE",
+  "method": "POST",
+  "url": "https://www2.hm.com/en_gb/v2/checkout/proceed",
+  "headers": {
+   "Content-Type": "application/json"
+  },
+  "body": {
+   "adyenData": {
+    "encryptedAdyenForm": {
+     "encryptedAdyenCardNumber": "browser-jwe-number",
+     "encryptedAdyenExpiryMonth": "browser-jwe-expiryMonth",
+     "encryptedAdyenExpiryYear": "browser-jwe-expiryYear",
+     "encryptedAdyenSecurityCode": "browser-jwe-cvc"
+    },
+    "cardPaymentId": ""
+   },
+   "firstName": "Test"
+  }
+ },
+ "context": {
+  "adyen_expiry_month": "03",
+  "adyen_expiry_year": "2030"
+ }
+}

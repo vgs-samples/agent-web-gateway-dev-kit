@@ -1,0 +1,26 @@
+{
+  "name": "oppwa",
+  "hosts": [
+    "eu-prod.oppwa.com"
+  ],
+  "functions": {
+    "reveal": {
+      "file": "functions/reveal.star",
+      "extension_point": "route.request",
+      "inputs": []
+    }
+  },
+  "bindings": [
+    {
+      "key": "reveal",
+      "function": "reveal",
+      "enabled": false,
+      "when": {
+        "host": "eu-prod.oppwa.com",
+        "method": "POST",
+        "path": "/v1/checkouts/*"
+      },
+      "inputs": {}
+    }
+  ]
+}
