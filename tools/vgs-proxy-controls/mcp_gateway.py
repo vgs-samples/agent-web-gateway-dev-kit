@@ -77,7 +77,7 @@ class GatewayBridge:
             op = value.get('operation')
             if op == 'account':
                 account = catalog.operations.account()
-                return {key: account.get(key) for key in ('tenantId', 'connected', 'scopes')} | {
+                return {key: account.get(key) for key in ('tenantId', 'connected', 'scopes', 'missingScopes')} | {
                     'environment': self.environment, 'writesEnabled': self.allow_writes}
             if value.get('tenantId') != catalog.tenant:
                 raise ValueError('Tenant changed or does not match. Read gateway_account and select the intended account.')

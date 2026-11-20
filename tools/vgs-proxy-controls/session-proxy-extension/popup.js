@@ -167,13 +167,29 @@ function renderAccount() {
     for (const scope of account?.scopes || []) {
         const row = document.createElement("div"); row.className = "scope";
         const name = document.createElement("code"); name.textContent = scope.name;
-        const status = document.createElement("span"); status.textContent = scope.granted ? "Granted" : "Not in token";
-        if (!scope.granted) status.className = "missing";
+        const covered = !scope.granted && account.cardsWriteGranted && ["cards:create", "cards:update"].includes(scope.name);
+        const status = document.createElement("span");
+        status.textContent = scope.granted ? "In token" : covered ? "Covered by cards:write"
+            : scope.roleOnly ? "Missing from token (granted only as a role)" : "Missing";
+        if (!scope.granted && !covered) status.className = "missing";
         row.append(name, status); scopeList.append(row);
     }
+    // An account with the wrong scopes is an error, shown outside the collapsed list.
+    const missingScopes = account?.connected ? account.missingScopes || [] : [];
+    const roleOnly = (account?.scopes || []).filter(scope => scope.roleOnly).map(scope => scope.name);
+    const scopeError = document.getElementById("account-scope-error");
+    scopeError.hidden = !missingScopes.length;
+    scopeError.textContent = !missingScopes.length ? "" : `Scope error: this service account's token is missing ${missingScopes.join(", ")}. VGS refuses calls that need them with 403. `
+        + (roleOnly.length === missingScopes.length
+            ? "They are granted to the account as roles, but VGS left them out of the token, so a new account will not fix this. Report it to VGS with your organization and tenant IDs."
+            : "Scopes cannot be added to an existing account. Create one with the scopes listed under Permissions (./awg setup --force) and connect it."
+              + (roleOnly.length ? ` ${roleOnly.join(", ")} are granted as roles but left out of the token; report that to VGS.` : ""));
+    if (missingScopes.length) document.getElementById("account-permissions").open = true;
+    if (missingScopes.length && account?.creationAvailable)
+        document.getElementById("creation-availability").textContent = `Scope error: the service account's token is missing ${missingScopes.join(", ")}. See Settings.`;
     document.getElementById("account-note").textContent = account?.cardsWriteGranted
-        ? "This account also grants cards:write. Scope names above are read from its token; the API still checks tenant access."
-        : "Scope names come from the account token. API authorization is checked on each operation.";
+        ? "This account also grants cards:write. Scopes above are read from its token's scope claim; the API still checks tenant access."
+        : "Scopes are read from the token's scope claim, which is what the APIs check. A role without the matching scope is refused.";
     renderCreation();
     document.getElementById("capture-status").textContent = account?.sensitiveHarEnabled === true
         ? "Sensitive HAR export enabled" : account?.sensitiveHarEnabled === false

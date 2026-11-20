@@ -15,7 +15,9 @@ from awg_dev_api import TENANT, ApiError
 from environments import domains
 from session_form import validate_dashboard_options, valid_alias
 
-REQUIRED_SCOPES = ('cards:create', 'aliases:write', 'reveal-sessions:write', 'reveal-sessions:read')
+# The scopes the dev kit's setup requests; the same list as the CLI's agent-web-gateway-admin template.
+REQUIRED_SCOPES = ('cards:create', 'cards:read', 'cards:update', 'aliases:write',
+                   'reveal-sessions:read', 'reveal-sessions:write', 'agent-gateway:read', 'agent-gateway:write')
 
 
 def private_json(path, value):
@@ -126,15 +128,18 @@ class Operations:
         self.lock = threading.Lock()
 
     def account(self):
-        granted, connected = set(), False
+        granted, roles, connected = set(), set(), False
         try:
             token = self.client.token()
             claims = json.loads(base64.urlsafe_b64decode(token.split('.')[1] + '==='))
-            granted.update(claims.get('scope', '').split())
             for resource in claims.get('resource_access', {}).values():
-                granted.update(resource.get('roles', []))
+                roles.update(resource.get('roles', []))
+            # The APIs authorize on the scope claim. A scope held only as a role is refused with 403.
+            granted = set(claims.get('scope', '').split()) or set(roles)
             connected = True
-        except Exception: pass
+        except Exception: granted, roles = set(), set()
+        # Legacy cards:write covers creating and updating cards.
+        covered = granted | ({'cards:create', 'cards:update'} if 'cards:write' in granted else set())
         egress = load_egress(self.egress_file)
         sensitive = None
         if self.capture_profile:
@@ -143,7 +148,8 @@ class Operations:
                 sensitive = pref.get('devtools', {}).get('synced_preferences_sync_disabled', {}).get('network.show-options-to-generate-har-with-sensitive-data') == 'true' or pref.get('devtools', {}).get('synced_preferences', {}).get('network.show-options-to-generate-har-with-sensitive-data') == 'true'
             except (OSError, ValueError): pass
         return {'tenantId': self.tenant, 'environment': self.environment, 'configured': True, 'domains': domains(self.environment, self.tenant), 'connected': connected,
-                'scopes': [{'name': name, 'granted': name in granted} for name in REQUIRED_SCOPES],
+                'scopes': [{'name': name, 'granted': name in granted, 'roleOnly': name not in covered and name in roles} for name in REQUIRED_SCOPES],
+                'missingScopes': [name for name in REQUIRED_SCOPES if name not in covered] if connected else [],
                 'cardsWriteGranted': 'cards:write' in granted,
                 'tokenizerReady': bool(self.tokenizer_socket and Path(self.tokenizer_socket).exists()),
                 'egress': f"{egress['scheme']}://{egress['hostname']}:{egress['port']}" if egress else None,

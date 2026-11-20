@@ -20,6 +20,7 @@ Help the developer set up and use the VGS Agent Web Gateway dev kit. `./awg` wra
 
 A `403` from VGS means the service account lacks a scope. It is not an installation problem.
 
+0. Check the scopes before debugging anything else. The Control Panel shows them under **Settings → Service account → Permissions** and prints `Scope error: … token is missing …` when the account is not correct; over MCP, `gateway_account` returns the same list as `missingScopes`. The account must have all eight scopes in [docs/setup.md](docs/setup.md#automatic-service-account-creation) in its token's `scope` claim. A scope that is only a role does not count.
 1. Read the kit's own output. `./awg setup` and `./awg start` print `Note: … lacks: …` with the exact scope names, and on a Cards API `403` they say whether the account lacks `cards:create` or the tenant lacks the Cards API.
 2. If the output says `Stored the test card … through the alias API`, the session is complete and the browser opens. The `HTTP 403` printed under it is for reference only: it is not a failure, so do not retry, debug, or call the Cards API yourself. Report the missing scopes and continue.
 3. If the kit stopped, tell the developer which scopes are missing and that `./awg setup --force` creates a new service account with every scope the kit uses. It creates an account in their organization, so run it only after they agree. Scopes cannot be added to an existing account.
