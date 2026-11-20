@@ -26,6 +26,7 @@ SCOPES = (
     "reveal-sessions:read", "reveal-sessions:write",
     "agent-gateway:read", "agent-gateway:write",
 )
+TEMPLATE = "agent-web-gateway-admin"
 
 
 class SetupError(Exception):
@@ -186,6 +187,28 @@ def output_is_complete(path, tenant):
         return False
 
 
+def account_definition(cli, tenant, name):
+    """The account to create: the CLI's Agent Web Gateway template when it has one, else the same scopes on a supported template."""
+    try:
+        template = read_yaml(cli.run(["generate", "service-account", "--template", TEMPLATE, "--tenant", tenant], "generated.yaml"))
+        data = template.get("data")
+        scopes = data.get("scopes") if isinstance(data, dict) else None
+        if not isinstance(scopes, list):
+            raise SetupError()
+        # Keep everything the template defines. Its scopes stay only if they are exactly the kit's,
+        # so a template can never widen what the kit asks for (cards:write also grants delete).
+        if {item.get("name") if isinstance(item, dict) else None for item in scopes} != set(SCOPES):
+            data["scopes"] = [{"name": scope} for scope in SCOPES]
+        data.update(name=name, vaults=[tenant])
+        return template
+    except SetupError:
+        pass
+    # CLI releases without that template: generate a supported one and replace its permissions before any remote write.
+    template = read_yaml(cli.run(["generate", "service-account", "--template", "vgs-cli", "--tenant", tenant], "generated.yaml"))
+    template["data"] = {"name": name, "vaults": [tenant], "scopes": [{"name": scope} for scope in SCOPES]}
+    return template
+
+
 def onboard(state, executable, organization=None, tenant=None, force=False):
     credentials_file = state / "sandbox.env"
     pending = state / "setup-pending.json"
@@ -232,12 +255,8 @@ def onboard(state, executable, organization=None, tenant=None, force=False):
         organization = choose_organization(read_yaml(cli.run(["get", "organizations"], "organizations.yaml")), organization)
         tenant = choose_tenant(read_yaml(cli.run(["get", "tenants"], "tenants.yaml")), organization, tenant)
         print(f"Using Sandbox tenant {tenant} in organization {organization}.", flush=True)
-        # The released CLI lacks the Agent Web Gateway template. Generate a supported template,
-        # then replace its permissions before any remote write.
-        template = read_yaml(cli.run(["generate", "service-account", "--template", "vgs-cli", "--tenant", tenant], "generated.yaml"))
         # VGS rejects service-account names longer than 20 characters.
-        template["data"] = {"name": "awg-kit-" + directory.name[:12], "vaults": [tenant],
-                            "scopes": [{"name": scope} for scope in SCOPES]}
+        template = account_definition(cli, tenant, "awg-kit-" + directory.name[:12])
         definition = directory / "service-account.yaml"
         private_write(definition, yaml.safe_dump(template))
         attempt = {"organization": organization, "tenant": tenant, "directory": str(directory)}

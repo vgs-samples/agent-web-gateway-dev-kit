@@ -36,6 +36,8 @@ class BootstrapTests(unittest.TestCase):
         self.organizations = {'data': [{'id': 'ACExample', 'attributes': {'name': 'Example'}}]}
         self.tenants = {'data': [tenant(), tenant('tntLive', environment='LIVE')]}
         self.fail_apply = False
+        # The released CLI has no Agent Web Gateway template.
+        self.templates = {'vgs-cli': {'scopes': [{'name': 'vaults:write'}]}}
         owner = self
 
         class FakeCLI:
@@ -46,7 +48,9 @@ class BootstrapTests(unittest.TestCase):
                 if args == ['get', 'organizations']: value = owner.organizations
                 elif args == ['get', 'tenants']: value = owner.tenants
                 elif args[:2] == ['generate', 'service-account']:
-                    value = {'apiVersion': '1.0.0', 'kind': 'ServiceAccount', 'data': {'scopes': [{'name': 'vaults:write'}]}}
+                    if args[3] not in owner.templates:
+                        raise bootstrap.CLIRejected('synthetic unknown template')
+                    value = {'apiVersion': '1.0.0', 'kind': 'ServiceAccount', 'data': owner.templates[args[3]]}
                 elif args[:2] == ['apply', 'service-account']:
                     value = yaml.safe_load(Path(args[-1]).read_text())
                     owner.applied = value
@@ -108,6 +112,29 @@ class BootstrapTests(unittest.TestCase):
         self.run_setup()
         self.assertEqual(len(self.calls), count)
         self.assertEqual(self.verify.call_count, 2)
+
+    def test_uses_the_agent_web_gateway_template_when_the_cli_has_one(self):
+        self.assertNotIn('cards:write', bootstrap.SCOPES)
+        self.templates[bootstrap.TEMPLATE] = {'name': 'template-name', 'kind': 'fixture-marker',
+                                              'scopes': [{'name': scope} for scope in bootstrap.SCOPES]}
+        self.run_setup(organization='ACExample')
+        generated = [call[3] for call in self.calls if call[:2] == ['generate', 'service-account']]
+        self.assertEqual(generated, [bootstrap.TEMPLATE])
+        data = self.applied['data']
+        self.assertEqual(data['kind'], 'fixture-marker')
+        self.assertEqual(data['vaults'], ['tntSandbox'])
+        self.assertTrue(data['name'].startswith('awg-kit-'))
+
+    def test_a_template_cannot_widen_the_scopes_and_older_clis_fall_back(self):
+        self.templates[bootstrap.TEMPLATE] = {'scopes': [{'name': 'cards:write'}, {'name': 'cards:read-pci'}]}
+        self.run_setup(organization='ACExample')
+        self.assertEqual({x['name'] for x in self.applied['data']['scopes']}, set(bootstrap.SCOPES))
+        del self.templates[bootstrap.TEMPLATE]
+        self.calls.clear()
+        self.run_setup(organization='ACExample', force=True)
+        generated = [call[3] for call in self.calls if call[:2] == ['generate', 'service-account']]
+        self.assertEqual(generated, [bootstrap.TEMPLATE, 'vgs-cli'])
+        self.assertEqual({x['name'] for x in self.applied['data']['scopes']}, set(bootstrap.SCOPES))
 
     def test_rejects_wrong_org_or_live_before_creation(self):
         for kwargs in ({'organization': 'ACWrong'}, {'organization': 'ACExample', 'tenant': 'tntLive'}):

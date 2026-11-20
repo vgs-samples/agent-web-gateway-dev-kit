@@ -20,7 +20,7 @@ The ID in this example is a placeholder; use the actual `AC…` ID. The script v
 
 ## Automatic service-account creation
 
-VGS CLI 1.36.0 supports `vgs generate service-account --template vgs-cli --tenant …` and `vgs apply service-account -O … --file …`, but does not ship the `agent-web-gateway-admin` template. Setup generates the supported template, replaces its permissions with the following scope list, and applies that definition to the selected tenant:
+VGS CLI 1.36.0 supports `vgs generate service-account --template vgs-cli --tenant …` and `vgs apply service-account -O … --file …`, but does not ship the `agent-web-gateway-admin` template. Setup asks the CLI for that template first and uses it when the CLI has it. Otherwise it generates the supported template and replaces its permissions. Either way the account gets exactly the following scope list, never the broader `cards:write`, and is applied to the selected tenant:
 
 - `cards:create`, `cards:read`, `cards:update`
 - `aliases:write`
