@@ -69,7 +69,14 @@ def main():
     except Exception as error:  # the license check and the first-run download both surface here
         name = type(error).__name__
         if "License" in name:
-            sys.exit("CloakBrowser needs a license key (the free tier is enough).\nGet one and save it with:  ./awg cloak-login")
+            reason = " ".join(str(error).split())
+            if "session limit" in reason:
+                # Not a missing key: the one free seat is still held by an earlier browser.
+                sys.exit("CloakBrowser allows one browser at a time on the free tier, and an earlier one still holds that seat.\n"
+                         "Close any other CloakBrowser window. If an earlier run was interrupted or killed, its seat frees itself "
+                         "within about 4 minutes; then run ./awg start again. Your license key is fine.")
+            sys.exit(f"CloakBrowser refused to start for a license reason: {reason[:300]}\n"
+                     "If the key is missing or invalid, get one (the free tier is enough) and save it with:  ./awg cloak-login")
         lines = str(error).strip().splitlines()
         detail = lines[0][:200] if lines else name
         sys.exit(f"CloakBrowser could not start: {detail}\n"
