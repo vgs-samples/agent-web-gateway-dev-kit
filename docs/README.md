@@ -85,7 +85,7 @@ The official documentation is at [docs.verygoodsecurity.com](https://docs.verygo
 
 - Start in **Sandbox** and validate your integration there before using Live.
 - The labs and tool walkthroughs are a preview: they follow the API reference and the tools' code and have not yet been validated end to end. Tell your VGS contact if a step does not behave as written.
-- The control panel has local helper, worker and browser-fixture tests. Its screenshots use synthetic data.
+- The control panel has local helper, worker and browser-fixture tests. Its screenshots use synthetic data. The Kernel browser screenshot is a capture of a real Sandbox session that has since expired.
 - Where this kit and the running system differ, the running system is right.
 
 A note on words: these pages say **tenant** for the VGS account an integration runs in, identified by its `tnt…` id. Some VGS documents say "vault" for the same thing. "Vault" here means only the place the card is stored.
