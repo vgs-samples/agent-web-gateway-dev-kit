@@ -88,6 +88,8 @@ This creates or reuses an active test-card session and opens CloakBrowser with t
 
 If your coding assistant's sandbox blocks the browser or local helper, run the command yourself rather than retrying it inside the sandbox. In Claude Code, you can use `! ./awg start`. For other browsers, follow the [browser launch examples](docs/training/10-proxy-controls-extension.md#browser-launch-examples).
 
+If you run agents on [Kernel](https://kernel.sh), `KERNEL_API_KEY=… ./awg kernel` starts a Kernel cloud browser routed through the session instead of a local one. It loads the Control Panel without its local helper, so session details and route switching work and the rest does not; see [Use a Kernel cloud browser](docs/kernel.md).
+
 ### Create sessions for cards
 
 1. Open **New session…** and add a card through VGS Collect, or use the available vault aliases. Use public test cards while working in Sandbox.

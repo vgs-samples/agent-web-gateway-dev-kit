@@ -113,6 +113,90 @@ else exit 93; fi''')
         # The wrapper owns the helper for the lifetime of the browser.
         with self.assertRaises(ProcessLookupError): os.kill(pid, 0)
 
+    def test_kernel_registers_the_session_as_a_proxy_and_cleans_up(self):
+        (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
+        self.script('curl', '''
+out=""
+args="$*"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -o ]; then shift; out="$1"; fi
+  shift
+done
+printf '%s\\n' "$args" | sed -E 's/Bearer [^ ]+/Bearer <key>/' >> "$FIXTURE_ROOT/calls"
+if [[ "$args" = *openid-connect/token* ]]; then
+  printf '%s' '{"access_token":"fixture-token"}'
+elif [[ "$args" = *sandbox.vgsapi.com/cards* ]]; then
+  printf '%s' '{"data":{"id":"CRFixture","attributes":{"pan_alias":"tok_fixture_pan","cvc_alias":"tok_fixture_cvc","bin":"411111"}}}' > "$out"
+  printf 201
+elif [[ "$args" = *sandbox.vgsapi.com/reveal-sessions* ]]; then
+  printf '%s' '{"data":{"id":"RSFixture","attributes":{"expires_at":"2099-01-01T00:00:00Z","proxy":{"url":"https://US%40fixture:fixture-proxy-secret@tntFixture.sandbox.verygoodproxy.com:3443","ca_bundle":"-----BEGIN CERTIFICATE-----\\nfixture\\n-----END CERTIFICATE-----\\n","pac_url":"https://sandbox.vgsapi.com/reveal-sessions/RSFixture.pac"}}}}' > "$out"
+  printf 201
+elif [[ "$args" = *"-X POST https://api.onkernel.com/browsers/browser_fixture/playwright/execute"* ]]; then
+  cat > "$FIXTURE_ROOT/playwright-body"
+  printf '%s' '{"success":true,"result":"extensionfixtureid"}' > "$out"
+  printf 200
+elif [[ "$args" = *"-X POST https://api.onkernel.com/extensions"* ]]; then
+  printf '%s' '{"id":"ext_fixture","name":"awg-panel"}' > "$out"
+  printf 201
+elif [[ "$args" = *"-X POST https://api.onkernel.com/proxies"* ]]; then
+  cat > "$FIXTURE_ROOT/proxy-body"
+  printf '%s' '{"id":"proxy_fixture","type":"custom"}' > "$out"
+  printf 201
+elif [[ "$args" = *"-X POST https://api.onkernel.com/browsers"* ]]; then
+  cat > "$FIXTURE_ROOT/browser-body"
+  printf '%s' '{"session_id":"browser_fixture","browser_live_view_url":"https://live.example/fixture"}' > "$out"
+  printf 201
+elif [[ "$args" = *"-X GET https://api.onkernel.com/browsers/browser_fixture"* ]]; then
+  printf 404
+elif [[ "$args" = *"-X DELETE https://api.onkernel.com/"* ]]; then
+  printf 204
+else exit 94; fi''')
+        # Stands in for building the Control Panel zip.
+        self.script('uv', '''
+args="$*"
+if [[ "$args" = *build-extension.py* ]]; then
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = --output ]; then printf fixture-zip > "$2"; fi
+    shift
+  done
+else exit 93; fi''')
+        missing = self.run_awg('kernel')
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertIn('KERNEL_API_KEY is not set', missing.stderr)
+        self.assertFalse((self.root / 'calls').exists())
+
+        self.env['KERNEL_API_KEY'] = 'fixture-kernel-key'
+        result = self.run_awg('kernel', 'https://example.com/checkout')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        proxy = json.loads((self.root / 'proxy-body').read_text())
+        self.assertEqual(proxy['type'], 'custom')
+        self.assertEqual(proxy['protocol'], 'https')
+        self.assertEqual(proxy['config']['host'], 'tntFixture.sandbox.verygoodproxy.com')
+        self.assertEqual(proxy['config']['port'], 3443)
+        self.assertEqual(proxy['config']['username'], 'US@fixture')
+        self.assertEqual(proxy['config']['password'], 'fixture-proxy-secret')
+        self.assertIn('BEGIN CERTIFICATE', proxy['config']['ca_bundle'])
+        browser = json.loads((self.root / 'browser-body').read_text())
+        self.assertEqual(browser['proxy'], {'id': 'proxy_fixture'})
+        # The Control Panel is uploaded, attached to the browser, and removed afterwards.
+        self.assertEqual(browser['extensions'], [{'id': 'ext_fixture'}])
+        self.assertIn('Control Panel: open in a tab', result.stdout)
+        self.assertIn('popup.html', json.loads((self.root / 'playwright-body').read_text())['code'])
+        self.assertIn('-X DELETE https://api.onkernel.com/extensions/ext_fixture', (self.root / 'calls').read_text())
+        self.assertEqual(list(self.state.glob('kernel-panel*')), [])
+        self.assertEqual(browser['start_url'], 'https://example.com/checkout')
+        self.assertIn('https://live.example/fixture', result.stdout)
+        self.assertIn('Kernel browser session: browser_fixture', result.stdout)
+        self.assertIn('Kernel proxy: proxy_fixture', result.stdout)
+        # Secrets stay out of the output and off the command line; the proxy and browser are removed.
+        calls = (self.root / 'calls').read_text()
+        for secret in ('fixture-kernel-key', 'fixture-proxy-secret'):
+            self.assertNotIn(secret, result.stdout + result.stderr)
+        self.assertNotIn('fixture-proxy-secret', calls)
+        self.assertIn('-X DELETE https://api.onkernel.com/browsers/browser_fixture', calls)
+        self.assertIn('-X DELETE https://api.onkernel.com/proxies/proxy_fixture', calls)
+        self.assertEqual(list(self.state.glob('kernel.*')), [])
+
     def test_session_uses_alias_api_when_cards_api_refuses(self):
         (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
         # Token payload: {"scope":"aliases:write reveal-sessions:write"} - no card scope.
