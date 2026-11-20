@@ -8,13 +8,24 @@ Help the developer set up and use the VGS Agent Web Gateway dev kit. `./awg` wra
 2. Run `./awg setup`. It installs its own VGS CLI on a prebuilt Python from `uv`, runs `vgs login`, discovers organizations, and asks which organization to use. The developer completes browser authentication. Never ask for a client ID or secret in chat.
    - Confirm only the organization. If the developer already chose it in this conversation, pass `--organization AC…`; do not ask again.
    - Setup automatically selects an existing Sandbox tenant in that organization, creates a tenant-scoped service account with the CLI, stores the output privately, and checks authentication and Agent Web Gateway read access. It never selects Live. An explicit `--tenant tnt…` may override the documented selection rule.
-   - Reruns reuse saved credentials. An incomplete creation attempt must be recovered before another write; follow the setup guide. Do not blindly retry with `--force`.
+   - Reruns reuse saved credentials. If an earlier attempt failed or was interrupted, a plain rerun recovers or restarts it; do not edit the private setup files.
    - A documentation or code-editing task does not authorize actually provisioning an account. Test bootstrap offline when that is the task.
 3. Run `./awg start` (or `./awg start https://<the site to test>/`). It creates or reuses an active test-card session, starts the helper, and opens CloakBrowser with the Control Panel and optional website tab. It runs until the browser closes, so run it in the background or the developer's terminal.
    - It opens a browser window and starts a helper on a local port. If your sandbox or permission mode refuses the command or blocks either of those, do not retry or work around it: ask the developer to run `./awg start` in their own terminal (in Claude Code, by typing `! ./awg start`).
    - `uv` supplies Python for the kit, the browser and VGS CLI. Do not substitute a system or unrelated existing VGS CLI installation.
-   - Install missing platform build prerequisites as needed. If credentials, tenant enablement, or permissions fail, report the failure without exposing private CLI output.
+   - Nothing is compiled, so no build prerequisites are needed. If credentials, tenant enablement, or permissions fail, report the failure without exposing private CLI output.
    - If CloakBrowser needs a license key, the developer saves it locally with `./awg cloak-login`.
+
+## If a call is refused with 403
+
+A `403` from VGS means the service account lacks a scope. It is not an installation problem.
+
+1. Read the kit's own output. `./awg setup` and `./awg start` print `Note: … lacks: …` with the exact scope names, and on a Cards API `403` they say whether the account lacks `cards:create` or the tenant lacks the Cards API.
+2. If the browser still opened, the kit stored the test card through the alias API and the session is complete. Report the missing scopes and continue.
+3. If the kit stopped, tell the developer which scopes are missing and that `./awg setup --force` creates a new service account with every scope the kit uses. It creates an account in their organization, so run it only after they agree. Scopes cannot be added to an existing account.
+4. If the new account is still missing scopes, or VGS rejects the creation, stop. The organization has not been granted those scopes, or the developer's login cannot create service accounts. Say which, and that it needs their organization administrator or VGS.
+
+Do not work around a `403` by editing the kit, hand-writing `card.json` or `sandbox.env`, or dropping the CVC. See [missing scopes](docs/setup.md#missing-scopes).
 
 ## What success looks like
 
