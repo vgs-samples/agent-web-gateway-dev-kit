@@ -100,6 +100,8 @@ export KERNEL_API_KEY=…
 ./awg kernel https://the-shop-you-are-testing.com/
 ```
 
+[![Agent Web Gateway Control Panel running in a Kernel cloud browser](docs/images/kernel-browser.png)](docs/images/kernel-browser.png)
+
 This creates or reuses an active test-card session, registers it with Kernel as a custom proxy, and starts a Kernel cloud browser with the Control Panel open in a tab. It prints a live view link for watching and driving the browser. Nothing is installed locally and Docker is not needed. You need a Kernel API key on a Start-Up or Enterprise plan.
 
 The full Control Panel works in the Kernel browser. Its helper stays on your machine, and the browser reaches it through Kernel's SSH tunnel, so your service-account credentials are not uploaded. The first run installs Kernel's CLI and `websocat` with Homebrew for that tunnel. Session proxy credentials and browser traffic go to Kernel in this mode. The [Kernel guide](docs/kernel.md) covers the details.
