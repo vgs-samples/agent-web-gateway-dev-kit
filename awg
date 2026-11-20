@@ -495,7 +495,31 @@ cmd_kernel() {
   # Kernel's own identifiers, for Kernel support.
   say "Kernel browser session: $browser_id"
   say "Kernel proxy: $proxy_id"
-  [ -z "$extension_id" ] || say "Control Panel: loaded (Kernel extension $extension_id). Open it from the browser's extensions menu."
+  if [ -n "$extension_id" ]; then
+    # Kernel runs this inside the browser's VM: find the panel among the loaded extensions and open it in a tab.
+    kernel_call POST "/browsers/$browser_id/playwright/execute" "$(jq -n '{timeout_sec: 45, code: "
+      let id = null;
+      for (let attempt = 0; attempt < 40 && !id; attempt++) {
+        for (const worker of context.serviceWorkers()) {
+          if (!worker.url().startsWith(\"chrome-extension://\")) continue;
+          try {
+            const name = await worker.evaluate(() => chrome.runtime.getManifest().name);
+            if (name === \"Agent Web Gateway Control Panel\") id = worker.url().split(\"/\")[2];
+          } catch (error) {}
+        }
+        if (!id) await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      if (!id) return \"not found\";
+      const panel = await context.newPage();
+      await panel.goto(\"chrome-extension://\" + id + \"/popup.html\");
+      await panel.bringToFront();
+      return id;"}')"
+    if [ "$KERNEL_CODE" = 200 ] && jq -e '.success == true and (.result | type) == "string" and .result != "not found"' "$KERNEL_BODY" >/dev/null 2>&1; then
+      say "Control Panel: open in a tab of the Kernel browser."
+    else
+      say "Control Panel: loaded, but it could not be opened automatically. Open it from the browser's extensions menu (puzzle icon)."
+    fi
+  fi
   if [ -n "$live" ]; then
     say "Watch and control it here (keep this link private; it controls the browser):"
     say "  $live"

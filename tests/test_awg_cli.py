@@ -131,6 +131,10 @@ elif [[ "$args" = *sandbox.vgsapi.com/cards* ]]; then
 elif [[ "$args" = *sandbox.vgsapi.com/reveal-sessions* ]]; then
   printf '%s' '{"data":{"id":"RSFixture","attributes":{"expires_at":"2099-01-01T00:00:00Z","proxy":{"url":"https://US%40fixture:fixture-proxy-secret@tntFixture.sandbox.verygoodproxy.com:3443","ca_bundle":"-----BEGIN CERTIFICATE-----\\nfixture\\n-----END CERTIFICATE-----\\n","pac_url":"https://sandbox.vgsapi.com/reveal-sessions/RSFixture.pac"}}}}' > "$out"
   printf 201
+elif [[ "$args" = *"-X POST https://api.onkernel.com/browsers/browser_fixture/playwright/execute"* ]]; then
+  cat > "$FIXTURE_ROOT/playwright-body"
+  printf '%s' '{"success":true,"result":"extensionfixtureid"}' > "$out"
+  printf 200
 elif [[ "$args" = *"-X POST https://api.onkernel.com/extensions"* ]]; then
   printf '%s' '{"id":"ext_fixture","name":"awg-panel"}' > "$out"
   printf 201
@@ -176,7 +180,8 @@ else exit 93; fi''')
         self.assertEqual(browser['proxy'], {'id': 'proxy_fixture'})
         # The Control Panel is uploaded, attached to the browser, and removed afterwards.
         self.assertEqual(browser['extensions'], [{'id': 'ext_fixture'}])
-        self.assertIn('Control Panel: loaded', result.stdout)
+        self.assertIn('Control Panel: open in a tab', result.stdout)
+        self.assertIn('popup.html', json.loads((self.root / 'playwright-body').read_text())['code'])
         self.assertIn('-X DELETE https://api.onkernel.com/extensions/ext_fixture', (self.root / 'calls').read_text())
         self.assertEqual(list(self.state.glob('kernel-panel*')), [])
         self.assertEqual(browser['start_url'], 'https://example.com/checkout')
