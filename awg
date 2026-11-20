@@ -407,6 +407,15 @@ kernel_call() {  # kernel_call <method> <path> [json body]; sets KERNEL_CODE and
     -H "Authorization: Bearer $KERNEL_API_KEY" -H 'Content-Type: application/json' ${3:+--data-binary @-}) || KERNEL_CODE=000
 }
 
+KERNEL_BROWSER=""; KERNEL_PROXY=""; KERNEL_EXTENSION=""; KERNEL_ZIP=""
+kernel_cleanup() {
+  [ -z "$KERNEL_BROWSER" ] || kernel_call DELETE "/browsers/$KERNEL_BROWSER"
+  [ -z "$KERNEL_EXTENSION" ] || kernel_call DELETE "/extensions/$KERNEL_EXTENSION"
+  [ -z "$KERNEL_PROXY" ] || kernel_call DELETE "/proxies/$KERNEL_PROXY"
+  [ -z "$KERNEL_BODY" ] || rm -f "$KERNEL_BODY"
+  [ -z "$KERNEL_ZIP" ] || rm -f "$KERNEL_ZIP"
+}
+
 kernel_refused() {  # kernel_refused <what was attempted>
   say "Kernel answered HTTP $KERNEL_CODE:"
   jq -c '{code, message} | with_entries(select(.value != null))' "$KERNEL_BODY" 2>/dev/null | cut -c1-400 || true
@@ -417,7 +426,7 @@ kernel_refused() {  # kernel_refused <what was attempted>
 # Kernel (kernel.sh) runs the browser in its cloud. The reveal session's proxy and certificate are
 # registered there as a custom proxy, so the browser's traffic passes through the same session.
 cmd_kernel() {
-  local url="${1:-}" host="" session body proxy_id browser_id live
+  local url="${1:-}" host="" session body proxy_id browser_id live extension_id=""
   for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
   [ -n "${KERNEL_API_KEY:-}" ] || fail "KERNEL_API_KEY is not set. Create an API key in your Kernel account (https://kernel.sh), then run:
        KERNEL_API_KEY=… ./awg kernel"
@@ -444,28 +453,49 @@ cmd_kernel() {
 
   say ""
   say "Registering the session with Kernel as a custom proxy..."
-  trap 'rm -f "$KERNEL_BODY"' EXIT
+  # The proxy entry and the panel hold this session's credentials, so everything is removed on the way out.
+  trap kernel_cleanup EXIT
   kernel_call POST /proxies "$body"
   [ "$KERNEL_CODE" = 201 ] || [ "$KERNEL_CODE" = 200 ] || kernel_refused "Kernel did not create the proxy."
   proxy_id=$(jq -r '.id // empty' "$KERNEL_BODY")
   [ -n "$proxy_id" ] || fail "Kernel returned no proxy id."
-  # The proxy entry holds this session's credentials, so it is removed again on the way out.
-  trap "kernel_call DELETE '/proxies/$proxy_id'; rm -f \"\$KERNEL_BODY\"" EXIT
+  KERNEL_PROXY="$proxy_id"
+
+  # The Control Panel without its local helper: it shows the session and switches the route.
+  say "Uploading the Control Panel to Kernel..."
+  KERNEL_ZIP="$STATE_DIR/kernel-panel.$$.zip"
+  if kit_python "$KIT_DIR/tools/kernel/build-extension.py" --session "$session" \
+       --credentials-file "$CREDENTIALS" --output "$KERNEL_ZIP" && [ -s "$KERNEL_ZIP" ]; then
+    KERNEL_CODE=$(curl -sS -o "$KERNEL_BODY" -w '%{http_code}' -X POST "$KERNEL_API/extensions" \
+      -H "Authorization: Bearer $KERNEL_API_KEY" -F "file=@$KERNEL_ZIP;type=application/zip" \
+      -F "name=awg-panel-$(date +%s)-$$") || KERNEL_CODE=000
+    if [ "$KERNEL_CODE" = 201 ] || [ "$KERNEL_CODE" = 200 ]; then
+      extension_id=$(jq -r '.id // empty' "$KERNEL_BODY")
+      KERNEL_EXTENSION="$extension_id"
+    else
+      say "Kernel did not accept the Control Panel (HTTP $KERNEL_CODE $(jq -r '.code // empty' "$KERNEL_BODY" 2>/dev/null)). Continuing without it."
+    fi
+  else
+    say "Could not build the Control Panel for Kernel. Continuing without it."
+  fi
 
   say "Starting a Kernel browser..."
-  kernel_call POST /browsers "$(jq -n --arg id "$proxy_id" --arg url "$url" \
-    '{proxy: {id: $id}, timeout_seconds: 1800} + (if $url == "" then {} else {start_url: $url} end)')"
+  kernel_call POST /browsers "$(jq -n --arg id "$proxy_id" --arg url "$url" --arg ext "$extension_id" \
+    '{proxy: {id: $id}, timeout_seconds: 1800}
+     + (if $url == "" then {} else {start_url: $url} end)
+     + (if $ext == "" then {} else {extensions: [{id: $ext}]} end)')"
   [ "$KERNEL_CODE" = 201 ] || [ "$KERNEL_CODE" = 200 ] || kernel_refused "Kernel did not start the browser."
   browser_id=$(jq -r '.session_id // empty' "$KERNEL_BODY")
   live=$(jq -r '.browser_live_view_url // empty' "$KERNEL_BODY")
   [ -n "$browser_id" ] || fail "Kernel returned no browser session id."
-  trap "kernel_call DELETE '/browsers/$browser_id'; kernel_call DELETE '/proxies/$proxy_id'; rm -f \"\$KERNEL_BODY\"" EXIT
+  KERNEL_BROWSER="$browser_id"
 
   say ""
   say "A Kernel browser is running through session $(basename "$session" .json)."
   # Kernel's own identifiers, for Kernel support.
   say "Kernel browser session: $browser_id"
   say "Kernel proxy: $proxy_id"
+  [ -z "$extension_id" ] || say "Control Panel: loaded (Kernel extension $extension_id). Open it from the browser's extensions menu."
   if [ -n "$live" ]; then
     say "Watch and control it here (keep this link private; it controls the browser):"
     say "  $live"
@@ -479,7 +509,7 @@ cmd_kernel() {
     say "This command runs until the Kernel browser closes (30 minutes idle) or it is stopped."
     while kernel_call GET "/browsers/$browser_id"; [ "$KERNEL_CODE" = 200 ]; do sleep 30; done
   fi
-  say "Closing the Kernel browser and removing the proxy..."
+  say "Closing the Kernel browser and removing what was registered..."
 }
 
 cmd_sitecheck() {

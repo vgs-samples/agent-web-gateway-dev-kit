@@ -19,8 +19,9 @@ The command:
 
 1. Creates or reuses a reveal session with the VGS test card, the same way `./awg start` does.
 2. Registers that session with Kernel as a [custom proxy](https://www.kernel.sh/docs/proxies/custom), including the session's certificate authority so the browser trusts pages re-signed by VGS.
-3. Starts a Kernel browser that uses the proxy and prints its live view link, along with Kernel's browser session ID and proxy ID in case you need Kernel support.
-4. Removes the browser and the proxy entry when you press Enter. Without a terminal, it runs until the browser closes after 30 minutes idle.
+3. Uploads the Control Panel extension to Kernel, built for this session without its local helper. If Kernel does not accept it, the command says so and continues without the panel.
+4. Starts a Kernel browser that uses the proxy and loads the panel and prints its live view link, along with Kernel's browser session ID and proxy ID in case you need Kernel support.
+5. Removes the browser, the panel and the proxy entry when you press Enter. Without a terminal, it runs until the browser closes after 30 minutes idle.
 
 Type the session's stand-ins into the payment form, as in any other session. Read them with `./awg session` output or the Control Panel.
 
@@ -30,12 +31,13 @@ Type the session's stand-ins into the payment form, as in any other session. Rea
 |---|---|---|
 | Browser | CloakBrowser on your machine | Kernel's cloud, viewed through a link |
 | Needs | CloakBrowser license key | Kernel API key |
-| Control Panel | Loaded, with the local helper | Not loaded |
-| Route switching, recording, gateway views | In the panel | Not available |
+| Control Panel | Loaded, with the local helper | Loaded without the helper; open it from the browser's extensions menu |
+| Session details and route switching | In the panel | In the panel |
+| Creating sessions, adding cards, scopes, recording, gateway views | In the panel | Not available: they need the helper, which a cloud browser cannot reach |
 
 ## What Kernel receives
 
-The session's proxy address, proxy username and password, and certificate authority are sent to Kernel's API, and the browser's traffic runs in Kernel's cloud. The live view link controls the browser, so keep it private. Use Sandbox and the public test card only. Your VGS client secret is never sent to Kernel.
+The session's proxy address, proxy username and password, and certificate authority are sent to Kernel's API, both as the proxy definition and inside the uploaded panel, and the browser's traffic runs in Kernel's cloud. The live view link controls the browser, so keep it private. Use Sandbox and the public test card only. Your VGS client secret is never sent to Kernel.
 
 ## If it fails
 

@@ -131,6 +131,9 @@ elif [[ "$args" = *sandbox.vgsapi.com/cards* ]]; then
 elif [[ "$args" = *sandbox.vgsapi.com/reveal-sessions* ]]; then
   printf '%s' '{"data":{"id":"RSFixture","attributes":{"expires_at":"2099-01-01T00:00:00Z","proxy":{"url":"https://US%40fixture:fixture-proxy-secret@tntFixture.sandbox.verygoodproxy.com:3443","ca_bundle":"-----BEGIN CERTIFICATE-----\\nfixture\\n-----END CERTIFICATE-----\\n","pac_url":"https://sandbox.vgsapi.com/reveal-sessions/RSFixture.pac"}}}}' > "$out"
   printf 201
+elif [[ "$args" = *"-X POST https://api.onkernel.com/extensions"* ]]; then
+  printf '%s' '{"id":"ext_fixture","name":"awg-panel"}' > "$out"
+  printf 201
 elif [[ "$args" = *"-X POST https://api.onkernel.com/proxies"* ]]; then
   cat > "$FIXTURE_ROOT/proxy-body"
   printf '%s' '{"id":"proxy_fixture","type":"custom"}' > "$out"
@@ -144,6 +147,15 @@ elif [[ "$args" = *"-X GET https://api.onkernel.com/browsers/browser_fixture"* ]
 elif [[ "$args" = *"-X DELETE https://api.onkernel.com/"* ]]; then
   printf 204
 else exit 94; fi''')
+        # Stands in for building the Control Panel zip.
+        self.script('uv', '''
+args="$*"
+if [[ "$args" = *build-extension.py* ]]; then
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = --output ]; then printf fixture-zip > "$2"; fi
+    shift
+  done
+else exit 93; fi''')
         missing = self.run_awg('kernel')
         self.assertNotEqual(missing.returncode, 0)
         self.assertIn('KERNEL_API_KEY is not set', missing.stderr)
@@ -162,6 +174,11 @@ else exit 94; fi''')
         self.assertIn('BEGIN CERTIFICATE', proxy['config']['ca_bundle'])
         browser = json.loads((self.root / 'browser-body').read_text())
         self.assertEqual(browser['proxy'], {'id': 'proxy_fixture'})
+        # The Control Panel is uploaded, attached to the browser, and removed afterwards.
+        self.assertEqual(browser['extensions'], [{'id': 'ext_fixture'}])
+        self.assertIn('Control Panel: loaded', result.stdout)
+        self.assertIn('-X DELETE https://api.onkernel.com/extensions/ext_fixture', (self.root / 'calls').read_text())
+        self.assertEqual(list(self.state.glob('kernel-panel*')), [])
         self.assertEqual(browser['start_url'], 'https://example.com/checkout')
         self.assertIn('https://live.example/fixture', result.stdout)
         self.assertIn('Kernel browser session: browser_fixture', result.stdout)
