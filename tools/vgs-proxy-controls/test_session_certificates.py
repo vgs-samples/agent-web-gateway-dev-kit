@@ -45,22 +45,6 @@ class CertificateTests(unittest.TestCase):
                 self.assertNotIn('secret', str(error.exception))
 
 
-class ExtensionBuildTests(unittest.TestCase):
-    def test_each_generation_has_a_new_version_so_the_browser_reloads_its_worker(self):
-        from session_proxy_extension import write_extension
-        with tempfile.TemporaryDirectory() as directory:
-            versions = []
-            for _ in range(3):
-                write_extension(Path(directory), 'https://sandbox.vgsapi.com/reveal-sessions/RSfixture.pac', {'Username': 'fixture', 'Password': 'fixture'},
-                                {'scheme': 'https', 'host': 'proxy.example.com', 'port': 3443})
-                versions.append(json.loads((Path(directory) / 'manifest.json').read_text())['version'])
-        self.assertEqual(len(set(versions)), 3)
-        for version in versions:
-            parts = [int(part) for part in version.split('.')]
-            self.assertEqual(len(parts), 4)
-            self.assertTrue(all(0 <= part <= 65535 for part in parts))
-
-
 class SessionDetailsTests(unittest.TestCase):
     def test_details_keep_standins_and_current_status_without_credentials(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -2,7 +2,6 @@
 
 import json
 from pathlib import Path
-import time
 from urllib.parse import urlsplit, urlunsplit
 
 
@@ -37,16 +36,10 @@ def write_extension(directory: Path, pac_url: str, credentials: dict,
     directory.mkdir(parents=True, exist_ok=True)
     directory.chmod(0o700)
     source = Path(__file__).resolve().parent / "session-proxy-extension"
-    # A browser keeps the service worker it registered while the extension version is unchanged,
-    # so it would keep the previous helper's address and token. A new build number makes it reload.
-    try:
-        build = int(json.loads((directory / "manifest.json").read_text())["version"].split(".")[3]) % 65535 + 1
-    except (OSError, ValueError, IndexError, KeyError, AttributeError, TypeError):
-        build = int(time.time()) % 60000 + 1
     manifest = {
         "manifest_version": 3,
         "name": "Agent Web Gateway Control Panel",
-        "version": f"1.10.0.{build}",
+        "version": "1.10.0",
         "permissions": ["proxy", "webRequest", "webRequestAuthProvider", "storage", "browsingData"],
         "host_permissions": ["<all_urls>"],
         "icons": {str(n): f"assets/icon-{n}.png" for n in (16, 32, 48)},
