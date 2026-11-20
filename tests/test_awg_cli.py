@@ -1,4 +1,6 @@
 """Exercise the real shell dispatcher with synthetic process boundaries."""
+import base64
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -143,6 +145,40 @@ else exit 94; fi''')
         request = (self.root / 'session-request').read_text()
         self.assertIn('tok_fixture_pan', request)
         self.assertIn('tok_fixture_cvc', request)
+
+    def test_scope_granted_as_a_role_but_absent_from_the_token_is_reported_as_such(self):
+        (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
+        every = ['cards:create', 'cards:read', 'cards:update', 'aliases:write', 'reveal-sessions:read',
+                 'reveal-sessions:write', 'agent-gateway:read', 'agent-gateway:write']
+        # All eight are roles; the scope claim, which the APIs read, omits two.
+        claims = {'scope': ' '.join(s for s in every if s not in ('cards:create', 'cards:update')),
+                  'resource_access': {'fixture': {'roles': every}}}
+        token = 'e30.' + base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip('=') + '.sig'
+        self.script('curl', '''
+out=""
+args="$*"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -o ]; then shift; out="$1"; fi
+  shift
+done
+if [[ "$args" = *openid-connect/token* ]]; then
+  printf '%s' '{"access_token":"''' + token + '''"}'
+elif [[ "$args" = *sandbox.vgsapi.com/cards* ]]; then
+  printf '%s' '{"errors":[{"status":"403"}]}' > "$out"
+  printf 403
+elif [[ "$args" = *vault-api.verygoodvault.com/aliases* ]]; then
+  printf '%s' '{"data":[{"aliases":[{"alias":"tok_fixture_pan","format":"UUID"}]},{"aliases":[{"alias":"tok_fixture_cvc","format":"UUID"}]}]}' > "$out"
+  printf 201
+elif [[ "$args" = *sandbox.vgsapi.com/reveal-sessions* ]]; then
+  printf '%s' '{"data":{"id":"RSFixture","attributes":{"expires_at":"2099-01-01T00:00:00Z"}}}' > "$out"
+  printf 201
+else exit 94; fi''')
+        result = self.run_awg('session')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('was granted cards:create, cards:update, but VGS leaves them out of its access token', result.stdout)
+        self.assertNotIn('service account lacks', result.stdout)
+        self.assertNotIn('setup --force', result.stdout)
+        self.assertIn('its access token does not carry it', result.stdout)
 
 
 if __name__ == '__main__': unittest.main()

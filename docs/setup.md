@@ -58,6 +58,7 @@ Setup and `./awg start` read the access token and print the kit scopes the accou
 | `cards:create` and `aliases:write` | The kit cannot store a test card. | You, with `./awg setup --force` |
 | `reveal-sessions:write` | Session creation answers `403`. | You, with `./awg setup --force` |
 | Any scope, again, on the account `--force` just created | VGS has not granted that scope to your organization. | VGS |
+| A scope the kit reports as "granted, but VGS leaves them out of its access token" | The account holds the scope as a role, but the token's `scope` claim, which the APIs read, omits it. The call is refused as if the scope were missing. A new account is likely to get the same token. | VGS |
 
 Scopes cannot be added to an existing service account. `./awg setup --force` creates a new one with every scope the kit uses, and keeps the old credentials until the new account verifies. It needs a VGS login that is allowed to create service accounts in the organization; if yours is not, VGS rejects the creation and an organization administrator has to grant that permission or run setup. The previous account is left in place, unused, until an administrator deletes it.
 

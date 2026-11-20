@@ -164,32 +164,50 @@ latest_session() { [ -f "$LATEST" ] && cat "$LATEST" || true; }
 token_scopes() {  # token_scopes <token>
   printf '%s' "$1" | jq -rR '(split(".")[1] | gsub("-";"+") | gsub("_";"/")) as $p
     | ($p + ("==="[0:((4 - ($p | length) % 4) % 4)])) | @base64d | fromjson
-    | [(.scope // ""), ((.resource_access // {}) | [.[].roles[]?] | join(" "))] | join(" ")' 2>/dev/null || true
+    | if "'"${2:-scope}"'" == "roles" then ((.resource_access // {}) | [.[].roles[]?] | join(" ")) else (.scope // "") end' 2>/dev/null || true
+}
+
+# The APIs read the token's scope claim. An account can hold a scope as a role and still get a token without it.
+SCOPES_HELD=""; SCOPES_GRANTED=""
+read_token_scopes() {  # read_token_scopes <token>
+  SCOPES_HELD=" $(token_scopes "$1") "
+  SCOPES_GRANTED=" $(token_scopes "$1" roles) "
+  [ -n "${SCOPES_HELD// /}" ] || SCOPES_HELD="$SCOPES_GRANTED"
+  [[ "$SCOPES_HELD" != *" cards:write "* ]] || SCOPES_HELD="$SCOPES_HELD cards:create cards:update "
+  [[ "$SCOPES_GRANTED" != *" cards:write "* ]] || SCOPES_GRANTED="$SCOPES_GRANTED cards:create cards:update "
 }
 
 # The account may not have been created by this kit. Say what it lacks before any call is refused.
 report_account_scopes() {  # report_account_scopes <token>
-  local scopes scope missing=""
-  scopes=" $(token_scopes "$1") "
-  [ -n "${scopes// /}" ] || return 0
-  [[ "$scopes" != *" cards:write "* ]] || scopes="$scopes cards:create cards:update "
+  local scope missing="" unissued=""
+  read_token_scopes "$1"
+  [ -n "${SCOPES_HELD// /}" ] || return 0
   for scope in cards:create cards:read cards:update aliases:write reveal-sessions:read reveal-sessions:write agent-gateway:read agent-gateway:write; do
-    [[ "$scopes" = *" $scope "* ]] || missing="$missing${missing:+, }$scope"
+    [[ "$SCOPES_HELD" != *" $scope "* ]] || continue
+    if [[ "$SCOPES_GRANTED" = *" $scope "* ]]; then unissued="$unissued${unissued:+, }$scope"
+    else missing="$missing${missing:+, }$scope"; fi
   done
-  [ -n "$missing" ] || return 0
-  say "Note: this service account lacks: $missing."
-  say "      The kit works with what the account has. If a step below is refused, that is the reason;"
-  say "      './awg setup --force' creates an account with every scope the kit uses."
+  if [ -n "$missing" ]; then
+    say "Note: this service account lacks: $missing."
+    say "      The kit works with what the account has. If a step below is refused, that is the reason;"
+    say "      './awg setup --force' creates an account with every scope the kit uses."
+  fi
+  if [ -n "$unissued" ]; then
+    say "Note: this service account was granted $unissued, but VGS leaves them out of its access token."
+    say "      The kit works with what the token has. A new account is likely to get the same token,"
+    say "      so this needs VGS: report it with your organization and tenant IDs."
+  fi
 }
 
 # Why the Cards API refused, in terms the developer can act on.
 explain_card_refusal() {  # explain_card_refusal <token>
-  local scopes
   [[ "$CARD_ERROR" = "HTTP 403"* ]] || return 0
-  scopes=" $(token_scopes "$1") "
-  [ -n "${scopes// /}" ] || return 0
-  if [[ "$scopes" = *" cards:create "* || "$scopes" = *" cards:write "* ]]; then
+  read_token_scopes "$1"
+  [ -n "${SCOPES_HELD// /}" ] || return 0
+  if [[ "$SCOPES_HELD" = *" cards:create "* ]]; then
     say "  This service account has the card scope, so the Cards API itself is not enabled for tenant $2. Only VGS can enable it."
+  elif [[ "$SCOPES_GRANTED" = *" cards:create "* ]]; then
+    say "  This service account was granted cards:create, but its access token does not carry it. Only VGS can fix that; a new account is unlikely to help."
   else
     say "  This service account was created without cards:create. Scopes cannot be added later; './awg setup --force' makes a new account."
   fi
