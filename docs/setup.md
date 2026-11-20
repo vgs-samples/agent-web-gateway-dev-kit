@@ -1,8 +1,8 @@
 # Set up the dev kit
 
-Run `./awg setup` from the repository on macOS or Linux. Setup installs VGS CLI with a pyenv-managed Python even if another `vgs` executable is already on PATH. It uses Python **3.12.12**, a private virtual environment, and the stable **VGS CLI 1.36.0** release. It does not change your global Python version.
+Run `./awg setup` from the repository on macOS or Linux. Setup installs VGS CLI into a private virtual environment even if another `vgs` executable is already on PATH. It uses a prebuilt Python **3.12** from `uv` and the stable **VGS CLI 1.36.0** release. Nothing is compiled, and your global Python is not changed.
 
-If pyenv is absent, setup uses Homebrew when available, otherwise it clones the official pyenv repository into the private kit directory. Python compilation requires the platform's compiler and libraries; a build failure links to [pyenv's build prerequisites](https://github.com/pyenv/pyenv/wiki#suggested-build-environment). The kit and browser runtime use `uv` separately. `./awg start` also checks for `curl`, `jq`, and `openssl`, with installation guidance if one is missing.
+If `uv` is absent, setup installs it with Homebrew when available, otherwise with the official installer. The kit and browser runtime use the same `uv`. `./awg start` also checks for `curl`, `jq`, and `openssl`, with installation guidance if one is missing.
 
 ## Login and organization selection
 
@@ -41,7 +41,7 @@ Private state lives in `~/.awg-dev-kit` (override with `AWG_HOME`):
 | `setup-selection.json` | Organization, tenant, and creation-journal location |
 | `setup/…/` | Private CLI output, account definition, and one-time creation response |
 | `setup-pending.json` | Recovery marker for a creation attempt |
-| `vgs-cli-…/` | VGS CLI installed under pyenv Python |
+| `vgs-cli-…/` | VGS CLI in its private virtual environment |
 | `sessions/` | Original reveal-session creation responses |
 
 Directories use mode 0700 and files use mode 0600. VGS CLI also maintains its own login/keyring state. Do not commit or share either location. Choose an `AWG_HOME` outside the repository.
@@ -50,12 +50,12 @@ Directories use mode 0700 and files use mode 0600. VGS CLI also maintains its ow
 
 A normal rerun verifies saved credentials and reuses them. `./awg setup --force` provisions a replacement after organization selection and retains the old credentials until the new account verifies. It does not delete the previous service account; an organization administrator can remove unused accounts separately.
 
-If creation succeeds but authentication or the Agent Web Gateway checks fail, setup keeps the creation result and reuses it on the next run. Check tenant enablement and account permissions, then rerun without `--force`. If VGS answers the creation with an error, nothing was created to recover: fix the cause named in the private `apply-output.yaml.stderr` and rerun `./awg setup`. If creation is interrupted before VGS answers, setup refuses to repeat the write automatically. Inspect the private journal and the organization's service accounts first. Recover any complete output into `created.yaml` only after checking the result; remove a pending marker only after confirming that no account was created or reconciling it with the administrator. Do not print those files in chat.
+If creation succeeds but authentication or the Agent Web Gateway checks fail, setup keeps the creation result and reuses it on the next run. Check tenant enablement and account permissions, then rerun without `--force`. If VGS answers the creation with an error, fix the cause named in the private `apply-output.yaml.stderr` and rerun `./awg setup`. If setup stops before VGS returns the account's one-time secret, that attempt cannot be recovered, so the next run starts again and names the account that may have been left unused; an administrator can delete it. If setup stops after VGS answered, the next run reuses the saved result. Do not print the private files in chat.
 
 ## Validation coverage
 
 `./awg` is a Bash wrapper around the bootstrap script, session REST calls, local helper, browser launcher, and sitecheck tool. It is a separate entry point from operating the Control Panel directly.
 
-`./awg test` runs offline setup and wrapper tests plus the existing helper and Node extension tests. The bootstrap tests use synthetic CLI/API responses to check organization confirmation, Sandbox filtering, tenant-scoped permissions, private outputs, verification failure, and recovery without duplicate account creation. Wrapper tests exercise argument handling, pyenv installation selection, and session/start orchestration with stubbed external commands. The optional MCP and browser-fixture suites require their documented dependencies.
+`./awg test` runs offline setup and wrapper tests plus the existing helper and Node extension tests. The bootstrap tests use synthetic CLI/API responses to check organization confirmation, Sandbox filtering, tenant-scoped permissions, private outputs, verification failure, and recovery without duplicate account creation. Wrapper tests exercise argument handling, VGS CLI installation, and session/start orchestration with stubbed external commands. The optional MCP and browser-fixture suites require their documented dependencies.
 
 These checks do not validate interactive VGS login, actual service-account creation, Agent Web Gateway enablement, a fresh-machine Python build, CloakBrowser licensing, or a merchant payment end to end. Setup itself checks real authentication and Agent Web Gateway read access when a developer runs it.

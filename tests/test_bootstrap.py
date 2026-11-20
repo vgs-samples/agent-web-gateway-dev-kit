@@ -128,13 +128,27 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn('tntSandbox', (self.state / 'sandbox.env').read_text())
         self.assertFalse((self.state / 'setup-pending.json').exists())
 
-    def test_uncertain_apply_never_repeats_even_with_force(self):
+    def test_interrupted_apply_starts_again_and_names_the_unused_account(self):
         self.fail_apply = True
         with self.assertRaises(bootstrap.SetupError): self.run_setup(organization='ACExample')
+        name = self.applied['data']['name']
+        self.fail_apply = False
+        self.run_setup()
+        self.assertIn(name, self.output.getvalue())
+        self.assertNotEqual(self.applied['data']['name'], name)
+        self.assertIn('tntSandbox', (self.state / 'sandbox.env').read_text())
+        self.assertFalse((self.state / 'setup-pending.json').exists())
+
+    def test_output_saved_before_an_interruption_is_reused(self):
+        self.fail_apply = True
+        with self.assertRaises(bootstrap.SetupError): self.run_setup(organization='ACExample')
+        attempt = json.loads((self.state / 'setup-pending.json').read_text())
+        self.applied['data'].update(clientId='fixture-client', clientSecret='fixture-secret-never-print')
+        (Path(attempt['directory']) / 'apply-output.yaml').write_text(yaml.safe_dump(self.applied))
         count = len(self.calls)
-        for kwargs in ({}, {'force': True}, {'organization': 'ACOther'}):
-            with self.assertRaises(bootstrap.SetupError): self.run_setup(**kwargs)
+        self.run_setup()
         self.assertEqual(len(self.calls), count)
+        self.assertIn('VGS_CLIENT_ID=fixture-client', (self.state / 'sandbox.env').read_text())
 
     def test_rejected_apply_can_be_retried(self):
         self.fail_apply = bootstrap.CLIRejected

@@ -56,7 +56,7 @@ The assistant needs file and terminal access. You can also run account setup you
 ./awg setup
 ```
 
-Setup installs [VGS CLI](https://docs.verygoodsecurity.com/vault/developer-tools/vgs-cli/getting-started) through pyenv, runs `vgs login`, and asks which organization to use. It selects a Sandbox tenant, creates the service account, saves the credentials locally, and checks access. Your organization needs a Sandbox tenant with Agent Web Gateway enabled. See the [setup guide](docs/setup.md) for dependencies and recovery.
+Setup installs [VGS CLI](https://docs.verygoodsecurity.com/vault/developer-tools/vgs-cli/getting-started) with `uv`, runs `vgs login`, and asks which organization to use. It selects a Sandbox tenant, creates the service account, saves the credentials locally, and checks access. Your organization needs a Sandbox tenant with Agent Web Gateway enabled. See the [setup guide](docs/setup.md) for dependencies and recovery.
 
 ## Agent Web Gateway Control Panel Chromium Extension
 
