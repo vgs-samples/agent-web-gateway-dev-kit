@@ -164,6 +164,8 @@ else exit 94; fi''')
         self.assertEqual(browser['proxy'], {'id': 'proxy_fixture'})
         self.assertEqual(browser['start_url'], 'https://example.com/checkout')
         self.assertIn('https://live.example/fixture', result.stdout)
+        self.assertIn('Kernel browser session: browser_fixture', result.stdout)
+        self.assertIn('Kernel proxy: proxy_fixture', result.stdout)
         # Secrets stay out of the output and off the command line; the proxy and browser are removed.
         calls = (self.root / 'calls').read_text()
         for secret in ('fixture-kernel-key', 'fixture-proxy-secret'):

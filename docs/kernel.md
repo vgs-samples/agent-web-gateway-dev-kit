@@ -7,7 +7,7 @@
 ## What you need
 
 - Sandbox credentials from `./awg setup`.
-- A Kernel account and an API key. Kernel bills browser usage to that account.
+- A Kernel account on the Start-Up or Enterprise plan, and an API key. Kernel requires one of those plans for custom proxies, and bills browser usage to the account.
 
 ## Run it
 
@@ -19,7 +19,7 @@ The command:
 
 1. Creates or reuses a reveal session with the VGS test card, the same way `./awg start` does.
 2. Registers that session with Kernel as a [custom proxy](https://www.kernel.sh/docs/proxies/custom), including the session's certificate authority so the browser trusts pages re-signed by VGS.
-3. Starts a Kernel browser that uses the proxy and prints its live view link.
+3. Starts a Kernel browser that uses the proxy and prints its live view link, along with Kernel's browser session ID and proxy ID in case you need Kernel support.
 4. Removes the browser and the proxy entry when you press Enter. Without a terminal, it runs until the browser closes after 30 minutes idle.
 
 Type the session's stand-ins into the payment form, as in any other session. Read them with `./awg session` output or the Control Panel.
@@ -44,4 +44,5 @@ The session's proxy address, proxy username and password, and certificate author
 | `KERNEL_API_KEY is not set` | Export the key or put it in front of the command. |
 | `Kernel answered HTTP 401` | Kernel did not accept the key. |
 | `Kernel did not create the proxy` | Kernel rejected the proxy definition; the line above it has Kernel's reason. |
+| `insufficient_plan` | Custom proxies need Kernel's Start-Up or Enterprise plan. Upgrade the Kernel account. |
 | Pages fail to load in the Kernel browser | The session expired, or Kernel cannot reach the session's proxy host and port. |

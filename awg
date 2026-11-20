@@ -463,6 +463,9 @@ cmd_kernel() {
 
   say ""
   say "A Kernel browser is running through session $(basename "$session" .json)."
+  # Kernel's own identifiers, for Kernel support.
+  say "Kernel browser session: $browser_id"
+  say "Kernel proxy: $proxy_id"
   if [ -n "$live" ]; then
     say "Watch and control it here (keep this link private; it controls the browser):"
     say "  $live"
