@@ -408,7 +408,28 @@ kernel_call() {  # kernel_call <method> <path> [json body]; sets KERNEL_CODE and
 }
 
 KERNEL_BROWSER=""; KERNEL_PROXY=""; KERNEL_EXTENSION=""; KERNEL_ZIP=""
+KERNEL_HELPER=""; KERNEL_TUNNEL=""; KERNEL_PANEL_DIR=""
+
+# The full panel needs Kernel's CLI (for its SSH tunnel) and websocat. Install them once when Homebrew is present.
+kernel_tunnel_tools() {
+  [ "${AWG_KERNEL_TUNNEL:-1}" != 0 ] || return 1
+  have ssh || return 1
+  if ! have kernel || ! have websocat; then
+    have brew || { say "For the full Control Panel, install Kernel's CLI and websocat (https://www.kernel.sh/docs/browsers/ssh)."; return 1; }
+    say "Installing Kernel's CLI and websocat for the tunnel to the local helper..."
+    have kernel || brew install kernel/tap/kernel >/dev/null 2>&1 || true
+    have websocat || brew install websocat >/dev/null 2>&1 || true
+  fi
+  have kernel && have websocat && return 0
+  say "Kernel's CLI and websocat could not be installed. Loading the panel without the local helper."
+  return 1
+}
+
 kernel_cleanup() {
+  if [ -n "$KERNEL_TUNNEL" ]; then pkill -P "$KERNEL_TUNNEL" 2>/dev/null || true; kill "$KERNEL_TUNNEL" 2>/dev/null || true; fi
+  if [ -n "$KERNEL_HELPER" ]; then pkill -P "$KERNEL_HELPER" 2>/dev/null || true; kill "$KERNEL_HELPER" 2>/dev/null || true; fi
+  [ -z "$KERNEL_PANEL_DIR" ] || rm -rf "$STATE_DIR/panel-extension"
+  rm -f "$STATE_DIR/kernel-tunnel.log"
   [ -z "$KERNEL_BROWSER" ] || kernel_call DELETE "/browsers/$KERNEL_BROWSER"
   [ -z "$KERNEL_EXTENSION" ] || kernel_call DELETE "/extensions/$KERNEL_EXTENSION"
   [ -z "$KERNEL_PROXY" ] || kernel_call DELETE "/proxies/$KERNEL_PROXY"
@@ -426,10 +447,11 @@ kernel_refused() {  # kernel_refused <what was attempted>
 # Kernel (kernel.sh) runs the browser in its cloud. The reveal session's proxy and certificate are
 # registered there as a custom proxy, so the browser's traffic passes through the same session.
 cmd_kernel() {
-  local url="${1:-}" host="" session body proxy_id browser_id live extension_id=""
+  local url="${1:-}" host="" session body proxy_id browser_id live extension_id="" helper_port=""
   for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
   [ -n "${KERNEL_API_KEY:-}" ] || fail "KERNEL_API_KEY is not set. Create an API key in your Kernel account (https://kernel.sh), then run:
        KERNEL_API_KEY=… ./awg kernel"
+  need_uv
   [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
   [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
   session=$(latest_session)
@@ -461,11 +483,38 @@ cmd_kernel() {
   [ -n "$proxy_id" ] || fail "Kernel returned no proxy id."
   KERNEL_PROXY="$proxy_id"
 
-  # The Control Panel without its local helper: it shows the session and switches the route.
-  say "Uploading the Control Panel to Kernel..."
+  # The full Control Panel needs its helper, which holds the service-account credentials and stays on
+  # this machine. Kernel's SSH tunnel lets the cloud browser reach it, so nothing secret is uploaded.
   KERNEL_ZIP="$STATE_DIR/kernel-panel.$$.zip"
-  if kit_python "$KIT_DIR/tools/kernel/build-extension.py" --session "$session" \
-       --credentials-file "$CREDENTIALS" --output "$KERNEL_ZIP" && [ -s "$KERNEL_ZIP" ]; then
+  if kernel_tunnel_tools; then
+    say "Starting the control panel helper on this machine..."
+    : > "$HELPER_LOG"
+    rm -rf "$STATE_DIR/panel-extension"
+    KERNEL_PANEL_DIR="$STATE_DIR/panel-extension/$(date +%s)-$$"
+    mkdir -p "$STATE_DIR/panel-extension"
+    chmod 700 "$STATE_DIR/panel-extension"
+    PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
+      python "$PANEL_DIR/start-proxy-controls.py" --session "$session" --output "$KERNEL_PANEL_DIR" \
+      --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
+    KERNEL_HELPER=$!
+    for _ in $(seq 1 60); do
+      grep -q 'Proxy controls are ready' "$HELPER_LOG" 2>/dev/null && break
+      kill -0 "$KERNEL_HELPER" 2>/dev/null || break
+      sleep 0.5
+    done
+    helper_port=$(grep -o 'http://127\.0\.0\.1:[0-9]*' "$KERNEL_PANEL_DIR/background.js" 2>/dev/null | head -1 | sed 's/.*://')
+    if [ -z "$helper_port" ]; then
+      say "The local helper did not start (see $HELPER_LOG). Loading the panel without it."
+    fi
+  fi
+
+  say "Uploading the Control Panel to Kernel..."
+  if { if [ -n "$helper_port" ]; then
+         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --folder "$KERNEL_PANEL_DIR" --output "$KERNEL_ZIP"
+       else
+         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --session "$session" \
+           --credentials-file "$CREDENTIALS" --output "$KERNEL_ZIP"
+       fi; } && [ -s "$KERNEL_ZIP" ]; then
     KERNEL_CODE=$(curl -sS -o "$KERNEL_BODY" -w '%{http_code}' -X POST "$KERNEL_API/extensions" \
       -H "Authorization: Bearer $KERNEL_API_KEY" -F "file=@$KERNEL_ZIP;type=application/zip" \
       -F "name=awg-panel-$(date +%s)-$$") || KERNEL_CODE=000
@@ -495,6 +544,23 @@ cmd_kernel() {
   # Kernel's own identifiers, for Kernel support.
   say "Kernel browser session: $browser_id"
   say "Kernel proxy: $proxy_id"
+  if [ -n "$extension_id" ] && [ -n "$helper_port" ]; then
+    # Reverse tunnel: 127.0.0.1:<port> inside the browser's VM reaches the helper on this machine.
+    say "Connecting the Kernel browser to the local helper..."
+    ( exec kernel browsers ssh "$browser_id" -R "$helper_port:localhost:$helper_port" < <(exec sleep 86400) ) \
+      > "$STATE_DIR/kernel-tunnel.log" 2>&1 &
+    KERNEL_TUNNEL=$!
+    for _ in $(seq 1 "${AWG_KERNEL_TUNNEL_WAIT:-20}"); do kill -0 "$KERNEL_TUNNEL" 2>/dev/null || break; sleep 1; done
+    if kill -0 "$KERNEL_TUNNEL" 2>/dev/null; then
+      say "Control Panel: full, connected to the helper on this machine through Kernel's SSH tunnel."
+    else
+      KERNEL_TUNNEL=""
+      say "The tunnel to the local helper did not stay open (see $STATE_DIR/kernel-tunnel.log)."
+      say "The panel will show 'Helper unavailable'; session details and route switching still work."
+    fi
+  elif [ -n "$extension_id" ]; then
+    say "Control Panel: session details and route switching only. Install Kernel's CLI and websocat for the full panel."
+  fi
   if [ -n "$extension_id" ]; then
     # Kernel runs this inside the browser's VM: find the panel among the loaded extensions and open it in a tab.
     kernel_call POST "/browsers/$browser_id/playwright/execute" "$(jq -n '{timeout_sec: 45, code: "
@@ -528,7 +594,7 @@ cmd_kernel() {
   fi
   say ""
   if [ -t 0 ]; then
-    read -r -p "Press Enter to close the Kernel browser and remove the proxy. " _ || true
+    read -r -p "Press Enter to close the Kernel browser and remove what was registered. " _ || true
   else
     say "This command runs until the Kernel browser closes (30 minutes idle) or it is stopped."
     while kernel_call GET "/browsers/$browser_id"; [ "$KERNEL_CODE" = 200 ]; do sleep 30; done
