@@ -166,6 +166,8 @@ else exit 93; fi''')
         self.assertFalse((self.root / 'calls').exists())
 
         self.env['KERNEL_API_KEY'] = 'fixture-kernel-key'
+        # First without the tunnel tools: the panel is loaded without its helper.
+        self.env['AWG_KERNEL_TUNNEL'] = '0'
         result = self.run_awg('kernel', 'https://example.com/checkout')
         self.assertEqual(result.returncode, 0, result.stderr)
         proxy = json.loads((self.root / 'proxy-body').read_text())
@@ -196,6 +198,36 @@ else exit 93; fi''')
         self.assertIn('-X DELETE https://api.onkernel.com/browsers/browser_fixture', calls)
         self.assertIn('-X DELETE https://api.onkernel.com/proxies/proxy_fixture', calls)
         self.assertEqual(list(self.state.glob('kernel.*')), [])
+        self.assertIn('session details and route switching only', result.stdout)
+
+        # With Kernel's CLI and websocat present, the helper runs locally and the browser reaches it through a tunnel.
+        self.script('websocat', 'exit 0')
+        self.script('kernel', 'printf "%s\\n" "$*" > "$FIXTURE_ROOT/kernel-args"; exec sleep 30')
+        self.script('uv', '''
+args="$*"
+output=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = --output ]; then output="$2"; fi
+  shift
+done
+if [[ "$args" = *start-proxy-controls.py* ]]; then
+  mkdir -p "$output"
+  printf '%s\\n' 'const CATALOG = {"url": "http://127.0.0.1:4567", "token": "fixture-helper-token"};' > "$output/background.js"
+  echo $$ > "$FIXTURE_ROOT/helper-pid"
+  echo 'Proxy controls are ready'
+  exec sleep 30
+elif [[ "$args" = *build-extension.py*--folder* ]]; then
+  printf fixture-zip > "$output"
+else exit 93; fi''')
+        self.env.update(AWG_KERNEL_TUNNEL='1', AWG_KERNEL_TUNNEL_WAIT='1')
+        tunnelled = self.run_awg('kernel')
+        self.assertEqual(tunnelled.returncode, 0, tunnelled.stderr)
+        self.assertIn('Control Panel: full', tunnelled.stdout)
+        self.assertEqual((self.root / 'kernel-args').read_text().strip(), 'browsers ssh browser_fixture -R 4567:localhost:4567')
+        self.assertNotIn('fixture-helper-token', tunnelled.stdout + tunnelled.stderr)
+        # The helper stops with the command, and the generated panel is removed.
+        with self.assertRaises(ProcessLookupError): os.kill(int((self.root / 'helper-pid').read_text()), 0)
+        self.assertFalse((self.state / 'panel-extension').exists())
 
     def test_session_uses_alias_api_when_cards_api_refuses(self):
         (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')

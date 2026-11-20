@@ -22,12 +22,26 @@ from session_proxy_extension import write_extension  # noqa: E402
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--session", required=True, type=Path, help="Original saved reveal-session creation response")
-    parser.add_argument("--credentials-file", required=True, type=Path, help="Private service-account environment file")
+    parser.add_argument("--session", type=Path, help="Original saved reveal-session creation response")
+    parser.add_argument("--credentials-file", type=Path, help="Private service-account environment file")
+    parser.add_argument("--folder", type=Path, help="Zip this already generated extension folder instead of building one")
     parser.add_argument("--output", required=True, type=Path, help="Zip file to write")
     args = parser.parse_args()
     os.umask(0o077)
     try:
+        if args.folder:
+            # The helper generated this folder, so the panel in it knows the helper's address.
+            folder = args.folder.expanduser().resolve()
+            if not (folder / "manifest.json").is_file():
+                raise ValueError("Not a generated extension")
+            with zipfile.ZipFile(args.output, "w", zipfile.ZIP_DEFLATED) as archive:
+                for path in sorted(folder.rglob("*")):
+                    if path.is_file() and not path.name.startswith("."):
+                        archive.write(path, path.relative_to(folder).as_posix())
+            args.output.chmod(0o600)
+            return
+        if not args.session or not args.credentials_file:
+            raise ValueError("A session and credentials file are required")
         session = args.session.expanduser().resolve()
         attributes = json.loads(session.read_text())["data"]["attributes"]
         if not alive(attributes):
