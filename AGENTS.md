@@ -15,6 +15,7 @@ Help the developer set up and use the VGS Agent Web Gateway dev kit. `./awg` wra
    - `uv` supplies Python for the kit, the browser and VGS CLI. Do not substitute a system or unrelated existing VGS CLI installation.
    - Nothing is compiled, so no build prerequisites are needed. If credentials, tenant enablement, or permissions fail, report the failure without exposing private CLI output.
    - If CloakBrowser needs a license key, the developer saves it locally with `./awg cloak-login`.
+   - If the developer's agent is built on Browser Use or Browser Harness, run `./awg browser-use` instead: the same browser and Control Panel, plus a Chrome DevTools address on `127.0.0.1:9222` for `Browser(cdp_url=…)` or `BU_CDP_URL`. Any program on the machine can drive the browser through that address. `./awg browser-use --cloud` sends the session's proxy credentials and the browser's traffic to Browser Use Cloud; use it only when the developer asks, with `BROWSER_USE_API_KEY` exported in their own terminal. See [docs/browser-use.md](docs/browser-use.md).
 4. Only if the developer asks for a Kernel browser, run `./awg kernel` (or `./awg kernel https://<the site to test>/`) instead of step 3. It creates or reuses an active test-card session, registers it with Kernel as a custom proxy, and starts a Kernel cloud browser with the Control Panel open in a tab. It runs until the browser closes, so run it in the background or the developer's terminal.
    - It needs `KERNEL_API_KEY` in the environment, from a Kernel account on a Start-Up or Enterprise plan. Never ask for the key in chat; the developer exports it in their own terminal.
    - It sends the session's proxy credentials and the browser's traffic to Kernel. Do not choose it on the developer's behalf, and never use it outside Sandbox.
@@ -67,3 +68,4 @@ Do not work around a `403` by editing the kit, hand-writing `card.json` or `sand
 | Merchant tests | `docs/training/06-testing-merchant-sites.md`, `tools/sitecheck/AGENTS.md` |
 | Control Panel and MCP | `docs/control-panel.md`, `docs/mcp.md`, `docs/browser-proxying.md` |
 | Kernel cloud browser (only when the developer asks for it) | `docs/kernel.md` |
+| Browser Use agents and Browser Harness | `docs/browser-use.md` |

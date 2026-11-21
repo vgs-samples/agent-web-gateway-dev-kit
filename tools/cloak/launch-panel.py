@@ -17,6 +17,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from urllib.request import urlopen
 
 KIT = Path(__file__).resolve().parents[2]
 DEFAULT_EXTENSION = KIT / "tools" / "vgs-proxy-controls" / ".private-extension"
@@ -37,8 +38,11 @@ def main():
     parser.add_argument("--session", type=Path, help="Saved reveal-session creation response; trusts its CA")
     parser.add_argument("--extension", type=Path, default=DEFAULT_EXTENSION, help="Generated control panel extension folder")
     parser.add_argument("--profile", type=Path, default=DEFAULT_PROFILE, help="Browser profile folder (kept between runs)")
+    parser.add_argument("--cdp-port", type=int, help="Also open Chrome DevTools on this local port, so an agent framework can drive the browser")
     args = parser.parse_args()
     os.umask(0o077)
+    if args.cdp_port is not None and not 1024 <= args.cdp_port <= 65535:
+        sys.exit("--cdp-port must be between 1024 and 65535.")
 
     extension = args.extension.expanduser().resolve()
     if not (extension / "manifest.json").is_file():
@@ -50,6 +54,9 @@ def main():
         sys.exit("CloakBrowser is not available. Run this through the kit launcher:  ./awg browser ...")
 
     browser_args = ["--disable-quic"]
+    if args.cdp_port:
+        # Chromium listens on 127.0.0.1 only. Anything on this machine can drive the browser through it.
+        browser_args.append(f"--remote-debugging-port={args.cdp_port}")
     if args.session:
         session = args.session.expanduser().resolve()
         if not session.is_file():
@@ -91,6 +98,18 @@ def main():
         if args.url:
             context.new_page().goto(args.url, wait_until="commit")
         print("CloakBrowser is open with the control panel. Close the browser window to finish.", flush=True)
+        if args.cdp_port:
+            address = f"http://127.0.0.1:{args.cdp_port}"
+            try:
+                with urlopen(address + "/json/version", timeout=10):
+                    pass
+                print(f"Chrome DevTools address for your agent: {address}\n"
+                      f"  Browser Use library:  Browser(cdp_url='{address}')\n"
+                      f"  Browser Harness:      BU_CDP_URL={address} browser-use …\n"
+                      "  Any program on this machine can drive the browser through that address while it is open.", flush=True)
+            except OSError:
+                print(f"The browser did not open Chrome DevTools on port {args.cdp_port}. Another program may be using that port; "
+                      "close it or set AWG_CDP_PORT to a free one, then run the command again.", flush=True)
         context.wait_for_event("close", timeout=0)
     except KeyboardInterrupt:
         pass

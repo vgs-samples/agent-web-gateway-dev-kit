@@ -25,7 +25,12 @@ const attempted = new Map();
 const requestFilter = {urls: ["<all_urls>"]};
 globalThis.proxyErrors = [];
 
+// Some hosted browsers set the route to the session themselves and refuse extensions that ask for
+// the proxy permission. There the panel reports the session route and cannot change it.
+const managedRoute = typeof MANAGED_ROUTE !== "undefined" && MANAGED_ROUTE === true;
+
 function readSettings() {
+    if (managedRoute) return Promise.resolve({value: {}, levelOfControl: "not_controllable"});
     return new Promise((resolve, reject) => {
         chrome.proxy.settings.get({incognito: false}, config => {
             if (chrome.runtime.lastError) reject(new Error("Could not read proxy settings."));
@@ -53,7 +58,8 @@ function describe(config) {
         else if (matchesProxy(value, egressProxy())) mode = "egress";
         else if (value.mode === "direct") mode = "direct";
     }
-    return {mode, canControl: owned || config.levelOfControl === "controllable_by_this_extension", availableModes: modes(), session: publicSession(), sessions: sessionList, checkedAt, catalogError, catalogAvailable: !!CATALOG, environment, account, recording, egress: publicEgress()};
+    if (managedRoute) mode = "session";
+    return {mode, managedRoute, canControl: owned || config.levelOfControl === "controllable_by_this_extension", availableModes: modes(), session: publicSession(), sessions: sessionList, checkedAt, catalogError, catalogAvailable: !!CATALOG, environment, account, recording, egress: publicEgress()};
 }
 
 function showBadge(state) {
@@ -97,11 +103,13 @@ async function setMode(mode) {
     } finally { if (resetAuth) switching = false; }
 }
 
-chrome.proxy.settings.onChange.addListener(config => showBadge(describe(config)));
-chrome.proxy.onProxyError.addListener(error => {
-    globalThis.proxyErrors.push(error);
-    if (globalThis.proxyErrors.length > 20) globalThis.proxyErrors.shift();
-});
+if (!managedRoute) {
+    chrome.proxy.settings.onChange.addListener(config => showBadge(describe(config)));
+    chrome.proxy.onProxyError.addListener(error => {
+        globalThis.proxyErrors.push(error);
+        if (globalThis.proxyErrors.length > 20) globalThis.proxyErrors.shift();
+    });
+}
 
 chrome.webRequest.onAuthRequired.addListener((details, callback) => {
     if (!initialized || switching) return callback({cancel: true});
@@ -170,6 +178,7 @@ async function refreshSessions() {
 }
 
 function applySettings(value) {
+    if (managedRoute) return Promise.reject(new Error("Could not apply routing."));
     return new Promise((resolve, reject) => chrome.proxy.settings.set({value, scope: "regular"}, () =>
         chrome.runtime.lastError ? reject(new Error("Could not apply routing.")) : resolve()));
 }

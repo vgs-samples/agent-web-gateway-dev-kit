@@ -75,6 +75,7 @@ function render() {
         direct: "Direct connection from this computer. VGS token replacement is off.",
         unavailable: "The session’s routing is not active. Another browser setting may control the proxy."
     }[state.mode];
+    if (state.managedRoute) description.textContent = "This browser’s host routes all traffic through the session’s VGS proxy. The route cannot be changed here.";
     for (const button of buttons) {
         button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode));
         button.disabled = busy || !state.canControl || !state.availableModes.includes(button.dataset.mode);

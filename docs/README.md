@@ -6,6 +6,7 @@ You do not need any of this to get started; `./awg start` is enough. These pages
 - [Control Panel: installation, sessions, recording, and troubleshooting](control-panel.md)
 - [MCP companion: connect an assistant to captures and gateway tools](mcp.md)
 - [Browser proxying: egress, PAC routing, and checkout timing](browser-proxying.md)
+- [Browser Use: drive the browser with a Browser Use agent or Browser Harness](browser-use.md)
 - [Kernel cloud browser: run the session and Control Panel in Kernel instead of a local browser](kernel.md)
 
 ## Learn Agent Web Gateway
@@ -70,7 +71,8 @@ The official documentation is at [docs.verygoodsecurity.com](https://docs.verygo
 |---|---|
 | `awg` | The launcher: `./awg start`, `./awg setup` and the other commands `./awg --help` lists |
 | `tools/cloak/` | The script `./awg start` uses to open CloakBrowser with the control panel loaded |
-| `tools/kernel/` | The script `./awg kernel` uses to build the control panel for a Kernel cloud browser |
+| `tools/kernel/` | The script `./awg kernel` and `./awg browser-use --cloud` use to build the control panel for a cloud browser |
+| `tools/browser-use/` | The script `./awg browser-use --cloud` uses to open tabs in a Browser Use Cloud browser |
 | `docs/training/` | The training pages |
 | `docs/reference/` | The Agent Web Gateway developer guide, the API error codes, and a diagram of the request path |
 | `tools/sitecheck/` | `awg-sitecheck`, the tool that tests merchant sites (page 6) |

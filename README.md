@@ -37,6 +37,7 @@ The kit comes with:
 - **An [Agent Web Gateway Control Panel Chromium extension](docs/control-panel.md)** for testing, debugging, and building adapters for new vendors and sites. [Download the latest build artifact](https://github.com/vgs-samples/agent-web-gateway-dev-kit/actions/workflows/control-panel-package.yml) from its newest successful run, or use the [download and build guide](docs/training/extension-distribution.md) to find the latest successful build. GitHub artifacts require sign-in and expire after 30 days.
 - **An [MCP companion](docs/mcp.md)** so your assistant can capture browser traffic, inspect HARs, and work with functions, adapters, destinations, and bindings. Writes must be enabled before it can modify those resources.
 - **[Adapter-authoring skills](skills/vgs-checkout-adapter/SKILL.md)** for reading HAR evidence, creating synthetic fixtures, writing VGS Compute functions, testing locally in Starlarky, and registering and verifying an adapter. Start with the [provider examples](examples/adapters/README.md).
+- **A [Browser Use option](docs/browser-use.md)** that opens the same browser with a Chrome DevTools address, so a Browser Use agent or Browser Harness can drive it through the session.
 - **A [Kernel cloud browser option](docs/kernel.md)** that runs the session and the Control Panel in Kernel's cloud with one command, for teams whose agents run on Kernel.
 - **Browser setup instructions** for [CloakBrowser](#agent-web-gateway-control-panel-chromium-extension), [Chrome for Testing, Chromium, Chrome, Edge, and Brave](docs/training/10-proxy-controls-extension.md#browser-launch-examples). Browser installation and extension loading differ; the guide covers each. Follow [Browser proxying best practices](docs/browser-proxying.md) for egress, PAC routing, and when to create the payment session.
 
@@ -88,6 +89,16 @@ Run this in your own terminal from the repo:
 This creates or reuses an active test-card session and opens CloakBrowser with the Control Panel. The kit installs its Python and browser packages through `uv` as needed. CloakBrowser needs a license key; save it locally with `./awg cloak-login` when prompted. If macOS blocks the first launch, allow it in **System Settings → Privacy & Security**.
 
 If your coding assistant's sandbox blocks the browser or local helper, run the command yourself rather than retrying it inside the sandbox. In Claude Code, you can use `! ./awg start`. For other browsers, follow the [browser launch examples](docs/training/10-proxy-controls-extension.md#browser-launch-examples).
+
+### Drive the browser with Browser Use
+
+If your agent is built on [Browser Use](https://github.com/browser-use/browser-use), run this instead of `./awg start`:
+
+```sh
+./awg browser-use
+```
+
+It opens the same browser and Control Panel, and also a Chrome DevTools address on `127.0.0.1:9222`. Connect the agent with `Browser(cdp_url='http://127.0.0.1:9222')`, or Browser Harness with `BU_CDP_URL=http://127.0.0.1:9222`. `./awg browser-use --cloud` starts the browser in Browser Use Cloud instead. The [Browser Use guide](docs/browser-use.md) covers both.
 
 ### Start the browser in Kernel
 
