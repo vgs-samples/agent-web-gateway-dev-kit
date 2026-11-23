@@ -100,7 +100,11 @@ If your agent is built on [Browser Use](https://github.com/browser-use/browser-u
 
 It opens the same browser and Control Panel, and also a Chrome DevTools address on `127.0.0.1:9222`. Connect the agent with `Browser(cdp_url='http://127.0.0.1:9222')`, or Browser Harness with `BU_CDP_URL=http://127.0.0.1:9222`.
 
-To run the browser in Browser Use Cloud instead:
+The [Browser Use guide](docs/browser-use.md) covers the details, and [`examples/browser-use/`](examples/browser-use/README.md) has agents to start from.
+
+### Start the browser in Browser Use Cloud
+
+If your agents run on [Browser Use Cloud](https://cloud.browser-use.com), or you cannot run a browser locally, run this instead:
 
 ```sh
 export BROWSER_USE_API_KEY=…
@@ -109,11 +113,11 @@ export BROWSER_USE_API_KEY=…
 ./awg browser-use --cloud https://the-shop-you-are-testing.com/
 ```
 
-[![Agent Web Gateway Control Panel running in a Browser Use Cloud browser](docs/images/browser-use-browser.png)](docs/images/browser-use-browser.png)
+[![Agent Web Gateway Control Panel running in a Browser Use cloud browser](docs/images/browser-use-browser.png)](docs/images/browser-use-browser.png)
 
-This creates or reuses an active test-card session and starts a Browser Use Cloud browser with the session as its custom proxy and the Control Panel open in a tab. It prints a live view link and the browser's Chrome DevTools address for your agent. The Browser Use project needs custom proxies enabled, which Browser Use turns on per project on request.
+This creates or reuses an active test-card session and starts a Browser Use cloud browser with the session as its custom proxy and the Control Panel open in a tab. It prints a live view link for watching and driving the browser, and the browser's Chrome DevTools address for your agent. No local browser and no Docker are needed. You need a Browser Use API key for a project with custom proxies enabled, which Browser Use turns on per project on request.
 
-The Control Panel's helper stays on your machine, and the kit relays the panel's requests to it over the browser's DevTools connection, so your service-account credentials are not uploaded. The route is fixed on the session the browser started with. Session proxy credentials and browser traffic go to Browser Use in this mode. The [Browser Use guide](docs/browser-use.md) covers both ways, and [`examples/browser-use/`](examples/browser-use/README.md) has agents to start from.
+The full Control Panel works in the Browser Use browser, except for switching routes: the browser stays on the session it started with. Its helper stays on your machine, and the browser reaches it through the kit's relay over the browser's DevTools connection, so your service-account credentials are not uploaded. Session proxy credentials and browser traffic go to Browser Use in this mode. The [Browser Use guide](docs/browser-use.md) covers the details.
 
 ### Start the browser in Kernel
 

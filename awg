@@ -657,7 +657,7 @@ cmd_browser_use() {
     --help|-h) say "Usage: ./awg browser-use [--cloud] [url]
 Open the kit's browser on a reveal session with Chrome DevTools on 127.0.0.1:\${AWG_CDP_PORT:-9222},
 for a Browser Use agent:  Browser(cdp_url='http://127.0.0.1:9222')
---cloud starts a Browser Use Cloud browser on the session instead (needs BROWSER_USE_API_KEY)."; return ;;
+--cloud starts a Browser Use cloud browser on the session instead (needs BROWSER_USE_API_KEY)."; return ;;
     --*) fail "unknown option for browser-use: $1" ;;
   esac
   [[ "${AWG_CDP_PORT:=9222}" =~ ^[0-9]+$ ]] || fail "AWG_CDP_PORT must be a port number."
@@ -667,7 +667,7 @@ for a Browser Use agent:  Browser(cdp_url='http://127.0.0.1:9222')
 # Browser Use Cloud runs the browser. The reveal session's proxy and certificate are passed as the
 # browser's custom proxy, so the browser's traffic passes through the session.
 cmd_browser_use_cloud() {
-  local url="${1:-}" host="" session body browser_id live cdp extension_id="" runtime_id="" helper_port="" panel="none"
+  local url="${1:-}" host="" session body browser_id live cdp extension_id="" runtime_id="" helper_port=""
   local -a tabs=()
   for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
   [ -n "${BROWSER_USE_API_KEY:-}" ] || fail "BROWSER_USE_API_KEY is not set. Create an API key in your Browser Use Cloud account (https://cloud.browser-use.com), then run:
@@ -762,15 +762,22 @@ cmd_browser_use_cloud() {
   # Browser Use's own identifier, for Browser Use support.
   say "Browser Use browser: $browser_id"
   if [ -n "$runtime_id" ]; then
-    panel="session"
     if [ -n "$helper_port" ] && [ -n "$cdp" ]; then
       # Start the relay before the panel's tab opens, so its first helper request is answered.
+      say "Connecting the Browser Use browser to the local helper..."
       printf '%s\n' "$cdp" | PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
         --with websockets==15.0.1 python "$KIT_DIR/tools/browser-use/helper-relay.py" "$helper_port" "$runtime_id" \
         > "$STATE_DIR/browser-use-relay.log" 2>&1 &
       BU_RELAY=$!
       sleep 2
-      if kill -0 "$BU_RELAY" 2>/dev/null; then panel="full"; else say "The relay to the local helper did not start (see $STATE_DIR/browser-use-relay.log)."; fi
+      if kill -0 "$BU_RELAY" 2>/dev/null; then
+        say "Control Panel: full, connected to the helper on this machine through the kit's relay. The route is fixed on the session's proxy."
+      else
+        say "The relay to the local helper did not stay open (see $STATE_DIR/browser-use-relay.log)."
+        say "The panel will show 'Helper unavailable'; session details still work."
+      fi
+    else
+      say "Control Panel: session details only. The route is fixed on the session's proxy."
     fi
   fi
   [ -z "$runtime_id" ] || tabs+=("chrome-extension://$runtime_id/popup.html")
@@ -779,33 +786,31 @@ cmd_browser_use_cloud() {
     # The DevTools address controls the browser, so it goes over stdin, not the command line.
     if [ -n "$cdp" ] && printf '%s\n' "$cdp" | PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
          --with websockets==15.0.1 python "$KIT_DIR/tools/browser-use/open-tabs.py" "${tabs[@]}"; then
-      [ "$panel" != full ] || say "Control Panel: open in a tab of the Browser Use browser, connected to the helper on this machine. The route is fixed on the session's proxy."
-      [ "$panel" != session ] || say "Control Panel: open in a tab of the Browser Use browser. It shows the session; the route is fixed on the session's proxy."
+      [ -z "$runtime_id" ] || say "Control Panel: open in a tab of the Browser Use browser."
     else
       [ -z "$runtime_id" ] || say "Control Panel: loaded, but it could not be opened automatically. Open chrome-extension://$runtime_id/popup.html in the browser."
       [ -z "$url" ] || say "Open $url in the browser yourself."
     fi
   fi
   [ -n "$runtime_id" ] || say "Control Panel: not loaded in this browser. Read the session's stand-ins from the session file instead."
-  say "Keep these two addresses private; each one controls the browser."
   if [ -n "$live" ]; then
-    say "Watch and control it here:"
+    say "Watch and control it here (keep this link private; it controls the browser):"
     say "  $live"
   else
     say "Browser Use returned no live view link. Open the browser from your Browser Use dashboard."
   fi
   if [ -n "$cdp" ]; then
-    say "Connect your agent or Playwright to it here (Chrome DevTools address):"
+    say "Connect your agent or Playwright to it here (Chrome DevTools address; keep it private, it also controls the browser):"
     say "  $cdp"
   fi
   say ""
   if [ -t 0 ]; then
-    read -r -p "Press Enter to stop the Browser Use browser and remove the uploaded panel. " _ || true
+    read -r -p "Press Enter to close the Browser Use browser and remove what was uploaded. " _ || true
   else
-    say "This command runs until the Browser Use browser stops (30 minutes) or it is stopped."
+    say "This command runs until the Browser Use browser closes (after 30 minutes) or it is stopped."
     while bu_call GET "/browsers/$browser_id"; [ "$BU_CODE" = 200 ] && jq -e '.status == "active"' "$BU_BODY" >/dev/null 2>&1; do sleep 30; done
   fi
-  say "Stopping the Browser Use browser and removing the uploaded panel..."
+  say "Closing the Browser Use browser and removing what was uploaded..."
 }
 
 cmd_sitecheck() {

@@ -4,7 +4,7 @@ Two ways to run a [Browser Use](https://github.com/browser-use/browser-use) agen
 
 | Example | Where the browser runs | Where the agent runs |
 |---|---|---|
-| [`checkout_agent.py`](checkout_agent.py) | The kit's browser on your machine, or a Browser Use Cloud browser | Your machine |
+| [`checkout_agent.py`](checkout_agent.py) | The kit's browser on your machine, or a Browser Use cloud browser | Your machine |
 | [`cloud_run.py`](cloud_run.py) | Browser Use Cloud | Browser Use Cloud |
 
 ## Your own agent, the kit's browser
@@ -19,7 +19,7 @@ In another terminal:
 uv run --with 'browser-use==1.0.8rc1' examples/browser-use/checkout_agent.py https://<the site to test>/
 ```
 
-To run the same agent against a Browser Use Cloud browser, start it with `./awg browser-use --cloud https://<the site to test>/` and set `AWG_CDP_URL` to the Chrome DevTools address it prints.
+To run the same agent against a Browser Use cloud browser, start it with `./awg browser-use --cloud https://<the site to test>/` and set `AWG_CDP_URL` to the Chrome DevTools address it prints.
 
 ## A hosted run in Browser Use Cloud
 
