@@ -2,7 +2,7 @@
 
 [Browser Use](https://github.com/browser-use/browser-use) agents and [Browser Harness](https://github.com/browser-use/browser-harness) drive a browser through its Chrome DevTools address. `./awg browser-use` opens the kit's browser on a reveal session with that address available, so the agent's traffic passes through the session.
 
-> Run so far: the local browser opens with the Control Panel and answers on its Chrome DevTools address. A Browser Use Cloud browser starts on a session with the Control Panel loaded, and its pages load through VGS with the session's certificate authority trusted. Not yet exercised: a Browser Use agent driving either browser.
+> Run so far: the local browser opens with the Control Panel and answers on its Chrome DevTools address. A Browser Use Cloud browser starts on a session with the Control Panel loaded, and its pages load through VGS with the session's certificate authority trusted. The relay carries requests from the cloud panel to this machine and back. Not yet exercised: the full panel in a cloud browser with the real helper behind the relay, and a Browser Use agent driving either browser.
 
 ## Run it
 
@@ -50,7 +50,7 @@ agent = Agent(
 
 `keep_alive=True` leaves the kit's browser open when the run ends. If you scope `sensitive_data` to domains, include the payment provider's host: payment fields usually sit in the provider's frame, not the shop's page.
 
-[`examples/browser-use/checkout_agent.py`](../examples/browser-use/checkout_agent.py) does this end to end: it reads the stand-ins from the current session and stops before submitting the order.
+[`examples/browser-use/checkout_agent.py`](../examples/browser-use/checkout_agent.py) does this end to end: it reads the stand-ins from the current session and stops before submitting the order. [`examples/browser-use/`](../examples/browser-use/README.md) also has a hosted Browser Use Cloud run.
 
 ```sh
 uv run --with 'browser-use==1.0.8rc1' examples/browser-use/checkout_agent.py https://<the site to test>/
@@ -70,9 +70,13 @@ The command:
 
 1. Creates or reuses a reveal session with the VGS test card.
 2. Starts a Browser Use Cloud browser with the session as its [custom proxy](https://docs.browser-use.com/cloud/browser/proxies), including the session's certificate authority so the browser trusts pages re-signed by VGS.
-3. Uploads the Control Panel and opens it in a tab. Browser Use refuses extensions that ask for the `proxy` permission, so this build of the panel leaves it out: it shows the session, and the route stays on the session's proxy. The panel's helper is not reachable from Browser Use Cloud, so creating sessions, adding cards and the gateway views are not available there.
+3. Starts the Control Panel's helper on your machine, uploads the Control Panel, and opens it in a tab. The panel works as it does locally, with one difference: Browser Use refuses extensions that ask for the `proxy` permission, so the panel cannot change the route. The browser stays on the proxy of the session it started with, and a session you create in the panel needs a new `./awg browser-use --cloud` run to be used.
 4. Prints a live view link and the browser's Chrome DevTools address. Pass that address to `Browser(cdp_url=…)`, or set it as `AWG_CDP_URL` to run the example agent against the cloud browser.
 5. Stops the browser and removes the uploaded panel when you press Enter. Without a terminal, it runs until the browser stops (30 minutes).
+
+### How the panel reaches its helper
+
+The helper holds your service-account credentials, so it stays on your machine and is not exposed to the internet. Browser Use has no tunnel into its browsers. Instead, the kit keeps a connection to the browser's Chrome DevTools address open, and the panel hands each helper request to the kit over that connection ([`tools/browser-use/helper-relay.py`](../tools/browser-use/helper-relay.py)). The relay only ever calls the helper's own address. It runs until you stop the command.
 
 ### In your own code
 
@@ -111,4 +115,6 @@ The session's proxy address, proxy username and password, and certificate author
 | `HTTP 401` | Browser Use did not accept the key. |
 | `HTTP 403` when starting the browser | Custom proxies are not enabled for the Browser Use project. They are an enterprise feature that Browser Use enables on request. |
 | `Browser Use did not accept the Control Panel` | The browser still starts on the session, without the panel. |
+| `The local helper did not start` | The panel loads and shows the session only. The private log named in the message has the reason. |
+| The panel shows "Check the local helper" | The relay lost its connection to the browser. Stop the command and run it again. |
 | Pages fail to load | The session expired, or Browser Use cannot reach the session's proxy host and port. |

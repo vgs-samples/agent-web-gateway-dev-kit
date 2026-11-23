@@ -62,7 +62,8 @@ async function fixture(previous, noEgress = false, saved = {}, environmentSuppor
         }},
         webRequest: {onAuthRequired: event(), onCompleted: event(), onErrorOccurred: event()}
     };
-    const context = vm.createContext({chrome, URL, Date, AbortSignal, fetch: async (url, options) => {
+    const relayed = [];
+    const helper = async (url, options) => {
         fetched.push({url, options});
         if (failFetch) throw new Error('SECRET fetch error');
         if (url.endsWith('/collect-token')) return {ok:true,json:async()=>({accessToken:'fixture-transient',environment:'dev',tenantId:'fixture-tenant',method:'aliases'})};
@@ -70,7 +71,17 @@ async function fixture(previous, noEgress = false, saved = {}, environmentSuppor
         return {ok: true, json: async () => url.endsWith('/config') ? structuredClone(next)
             : url.endsWith('/pac') ? {pacScript: 'function FindProxyForURL() {}', fetchedAt: '2026-01-01T00:00:00Z'}
             : {sessions: [{sessionId: 'RSSECOND', available: true}], checkedAt: '2026-01-01T00:00:00Z'}};
-    }});
+    };
+    // In a hosted browser the helper is out of reach: a direct request fails, and the kit's relay
+    // (awgHelperRelay, added over DevTools) carries each helper request and answers with awgHelperAnswer.
+    const context = vm.createContext(managedRoute ? {chrome, URL, Date, AbortSignal, Response, setTimeout,
+        fetch: async () => { throw new Error('the helper is not reachable from a hosted browser'); },
+        awgHelperRelay: payload => {
+            const call = JSON.parse(payload);
+            relayed.push(call);
+            helper(call.url, call).then(async answer => context.awgHelperAnswer(call.id, 200, JSON.stringify(await answer.json())),
+                () => context.awgHelperAnswer(call.id, 502, '{}'));
+        }} : {chrome, URL, Date, AbortSignal, fetch: helper});
     let selectedSource = environmentSupport ? source.replace("token: 'catalog-secret'", "token: 'catalog-secret', environments: true, environment: 'dev'") : source;
     if (managedRoute) {
         // A hosted browser that refuses the proxy permission: the API is absent, as it is without that permission.
@@ -81,7 +92,7 @@ async function fixture(previous, noEgress = false, saved = {}, environmentSuppor
     await context.pacReady;
     const sender = {id: 'fixture', url: 'chrome-extension://fixture/popup.html?allow_dev_env=true'};
     return {
-        chrome, context, sets, badge, storage, cleared, fetched, failFetch: () => failFetch = true,
+        chrome, context, sets, badge, storage, cleared, fetched, relayed, failFetch: () => failFetch = true,
         config: () => structuredClone(config),
         fail: () => failSet = true,
         message: (message, from = sender) => new Promise(resolve => {
@@ -408,4 +419,20 @@ test('a managed route works without the proxy API: the session route is shown an
     // The session's proxy login is still answered, and only for the session's proxy.
     assert.deepEqual(plain(await f.auth()), {authCredentials: credentials['vgs.invalid:3443']});
     assert.deepEqual(plain(await f.auth('egress.invalid', 3128, 'b')), {cancel: true});
+});
+
+test('a managed route reaches the helper through the relay, never directly', async () => {
+    const f = await fixture(undefined, false, {}, false, true);
+    const result = await f.message({type: 'refreshSessions'});
+    assert.equal(result.catalogError, null);
+    assert.ok(result.sessions.some(session => session.sessionId === 'RSSECOND'));
+    const call = f.relayed.find(entry => entry.url.endsWith('/sessions'));
+    assert.equal(call.method, 'GET');
+    assert.equal(call.body, null);
+    assert.equal(call.headers.Authorization, 'Bearer catalog-secret');
+    // A helper failure carried back by the relay is reported like any other helper failure.
+    f.failFetch();
+    const failed = await f.message({type: 'refreshSessions'});
+    assert.match(failed.catalogError, /Could not refresh sessions/);
+    assert.doesNotMatch(JSON.stringify(failed), /SECRET|catalog-secret/);
 });

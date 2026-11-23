@@ -309,6 +309,18 @@ if [[ "$args" = *build-extension.py* ]]; then
 elif [[ "$args" = *open-tabs.py* ]]; then
   printf '%s\\n' "$args" > "$FIXTURE_ROOT/tabs-args"
   cat > "$FIXTURE_ROOT/tabs-stdin"
+elif [[ "$args" = *start-proxy-controls.py* ]] && [ -f "$FIXTURE_ROOT/helper" ]; then
+  printf '%s\\n' "$args" > "$FIXTURE_ROOT/helper-args"
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = --output ]; then mkdir -p "$2"; printf 'const CATALOG = {"url": "http://127.0.0.1:4567"};' > "$2/background.js"; fi
+    shift
+  done
+  echo 'Proxy controls are ready. Keep this Terminal open.'
+  exec sleep 15
+elif [[ "$args" = *helper-relay.py* ]]; then
+  printf '%s\\n' "$args" > "$FIXTURE_ROOT/relay-args"
+  cat > "$FIXTURE_ROOT/relay-stdin"
+  exec sleep 15
 else exit 93; fi''')
         missing = self.run_awg('browser-use', '--cloud')
         self.assertNotEqual(missing.returncode, 0)
@@ -339,6 +351,22 @@ else exit 93; fi''')
             self.assertNotIn(secret, result.stdout + result.stderr)
         self.assertNotIn('fixture-proxy-secret', calls)
         self.assertEqual(list(self.state.glob('browser-use*')), [])
+
+        # With the local helper running, the panel built by the helper is uploaded and its helper
+        # requests are relayed over the DevTools address, which again stays off the command line.
+        (self.root / 'helper').touch()
+        full = self.run_awg('browser-use', '--cloud')
+        self.assertEqual(full.returncode, 0, full.stderr)
+        self.assertIn('--managed-route', (self.root / 'helper-args').read_text())
+        self.assertIn('--folder', (self.root / 'build-args').read_text())
+        relay = (self.root / 'relay-args').read_text()
+        self.assertIn('helper-relay.py 4567 runtimefixture', relay)
+        self.assertNotIn('fixture-cdp-secret', relay)
+        self.assertEqual((self.root / 'relay-stdin').read_text().strip(), 'wss://cdp.example/fixture-cdp-secret')
+        self.assertIn('connected to the helper on this machine', full.stdout)
+        self.assertEqual(list(self.state.glob('browser-use*')), [])
+        self.assertFalse((self.state / 'panel-extension').exists())
+        (self.root / 'helper').unlink()
 
         # A project without custom proxies is told so, and the echoed request is not printed.
         (self.root / 'refuse').touch()

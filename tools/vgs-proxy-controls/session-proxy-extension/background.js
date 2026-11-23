@@ -133,12 +133,34 @@ chrome.webRequest.onAuthRequired.addListener((details, callback) => {
 chrome.webRequest.onCompleted.addListener(d => attempted.delete(d.requestId), requestFilter);
 chrome.webRequest.onErrorOccurred.addListener(d => attempted.delete(d.requestId), requestFilter);
 
+// A hosted browser cannot reach the helper on the developer's machine. There the kit answers helper
+// requests over the browser's DevTools connection: it gives this worker the awgHelperRelay function
+// and calls awgHelperAnswer with each result, so the helper and its credentials stay on that machine.
+const relayWaiting = new Map();
+let relaySequence = 0;
+globalThis.awgHelperAnswer = (id, status, text) => {
+    const answer = relayWaiting.get(id);
+    relayWaiting.delete(id);
+    if (answer) answer(new Response([101, 204, 205, 304].includes(status) ? null : text, {status, headers: {"Content-Type": "application/json"}}));
+};
+async function helperFetch(url, options) {
+    if (!managedRoute) return fetch(url, options);
+    for (let wait = 0; typeof globalThis.awgHelperRelay !== "function" && wait < 50; wait++) await new Promise(resolve => setTimeout(resolve, 100));
+    if (typeof globalThis.awgHelperRelay !== "function") throw new Error("The helper relay is not connected.");
+    const id = String(++relaySequence);
+    return new Promise((resolve, reject) => {
+        relayWaiting.set(id, resolve);
+        options.signal?.addEventListener("abort", () => { relayWaiting.delete(id); reject(new Error("The helper did not answer in time.")); });
+        globalThis.awgHelperRelay(JSON.stringify({id, url, method: options.method, headers: options.headers, body: options.body ?? null}));
+    });
+}
+
 async function companion(path, body, selected = environment) {
     if (!environments.includes(selected)) throw new Error("Invalid environment.");
     if (!CATALOG) throw new Error("Session catalog is not connected.");
     if (!CATALOG.environments && selected !== (CATALOG.environment || sessionEnvironment(INITIAL_SESSION)))
         throw new Error("This helper does not support that environment.");
-    const response = await fetch(CATALOG.url + (CATALOG.environments ? "/environments/" + selected : "") + path, {
+    const response = await helperFetch(CATALOG.url + (CATALOG.environments ? "/environments/" + selected : "") + path, {
         method: body ? "POST" : "GET", body: body ? JSON.stringify(body) : undefined,
         headers: {Authorization: "Bearer " + CATALOG.token, ...(body ? {"Content-Type": "application/json"} : {})}, cache: "no-store",
         credentials: "omit", redirect: "error", signal: AbortSignal.timeout(path === "/credentials" ? 90000 : 25000)

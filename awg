@@ -609,6 +609,7 @@ cmd_kernel() {
 
 BROWSER_USE_API="${BROWSER_USE_API_URL:-https://api.browser-use.com/api/v4}"
 BU_CODE=""; BU_BODY=""; BU_BROWSER=""; BU_EXTENSION=""; BU_ZIP=""
+BU_HELPER=""; BU_RELAY=""; BU_PANEL_DIR=""
 
 bu_call() {  # bu_call <method> <path> [json body]; sets BU_CODE and fills BU_BODY (a private file)
   # The body carries the session's proxy password, so it goes over stdin, not the command line.
@@ -617,6 +618,10 @@ bu_call() {  # bu_call <method> <path> [json body]; sets BU_CODE and fills BU_BO
 }
 
 bu_cleanup() {
+  if [ -n "$BU_RELAY" ]; then pkill -P "$BU_RELAY" 2>/dev/null || true; kill "$BU_RELAY" 2>/dev/null || true; fi
+  if [ -n "$BU_HELPER" ]; then pkill -P "$BU_HELPER" 2>/dev/null || true; kill "$BU_HELPER" 2>/dev/null || true; fi
+  [ -z "$BU_PANEL_DIR" ] || rm -rf "$STATE_DIR/panel-extension"
+  rm -f "$STATE_DIR/browser-use-relay.log"
   [ -z "$BU_BROWSER" ] || bu_call PATCH "/browsers/$BU_BROWSER" '{"action":"stop"}'
   [ -z "$BU_EXTENSION" ] || bu_call DELETE "/extensions/$BU_EXTENSION"
   [ -z "$BU_BODY" ] || rm -f "$BU_BODY"
@@ -662,7 +667,7 @@ for a Browser Use agent:  Browser(cdp_url='http://127.0.0.1:9222')
 # Browser Use Cloud runs the browser. The reveal session's proxy and certificate are passed as the
 # browser's custom proxy, so the browser's traffic passes through the session.
 cmd_browser_use_cloud() {
-  local url="${1:-}" host="" session body browser_id live cdp extension_id="" runtime_id=""
+  local url="${1:-}" host="" session body browser_id live cdp extension_id="" runtime_id="" helper_port="" panel="none"
   local -a tabs=()
   for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
   [ -n "${BROWSER_USE_API_KEY:-}" ] || fail "BROWSER_USE_API_KEY is not set. Create an API key in your Browser Use Cloud account (https://cloud.browser-use.com), then run:
@@ -685,12 +690,37 @@ cmd_browser_use_cloud() {
   BU_BODY=$(mktemp "$STATE_DIR/browser-use.XXXXXX")
   BU_ZIP="$STATE_DIR/browser-use-panel.$$.zip"
 
+  # The full Control Panel needs its helper, which holds the service-account credentials and stays on
+  # this machine. Browser Use has no tunnel into its browsers, so the kit relays the panel's helper
+  # requests over the browser's DevTools connection instead (tools/browser-use/helper-relay.py).
   say ""
+  say "Starting the control panel helper on this machine..."
+  : > "$HELPER_LOG"
+  rm -rf "$STATE_DIR/panel-extension"
+  BU_PANEL_DIR="$STATE_DIR/panel-extension/$(date +%s)-$$"
+  mkdir -p "$STATE_DIR/panel-extension"
+  chmod 700 "$STATE_DIR/panel-extension"
+  PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
+    python "$PANEL_DIR/start-proxy-controls.py" --session "$session" --output "$BU_PANEL_DIR" --managed-route \
+    --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
+  BU_HELPER=$!
+  for _ in $(seq 1 60); do
+    grep -q 'Proxy controls are ready' "$HELPER_LOG" 2>/dev/null && break
+    kill -0 "$BU_HELPER" 2>/dev/null || break
+    sleep 0.5
+  done
+  helper_port=$(grep -o 'http://127\.0\.0\.1:[0-9]*' "$BU_PANEL_DIR/background.js" 2>/dev/null | head -1 | sed 's/.*://' || true)
+  [ -n "$helper_port" ] || say "The local helper did not start (see $HELPER_LOG). Loading the panel without it."
+
   say "Uploading the Control Panel to Browser Use..."
   # Browser Use refuses extensions with the proxy permission, so the panel is built without it:
-  # it shows the session, and the browser's route stays on the session.
-  if kit_python "$KIT_DIR/tools/kernel/build-extension.py" --session "$session" --credentials-file "$CREDENTIALS" \
-       --managed-route --output "$BU_ZIP" && [ -s "$BU_ZIP" ]; then
+  # the browser's route stays on the session.
+  if { if [ -n "$helper_port" ]; then
+         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --folder "$BU_PANEL_DIR" --output "$BU_ZIP"
+       else
+         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --session "$session" --credentials-file "$CREDENTIALS" \
+           --managed-route --output "$BU_ZIP"
+       fi; } && [ -s "$BU_ZIP" ]; then
     BU_CODE=$(curl -sS -o "$BU_BODY" -w '%{http_code}' -X POST "$BROWSER_USE_API/extensions" \
       -H "X-Browser-Use-API-Key: $BROWSER_USE_API_KEY" -F "file=@$BU_ZIP;type=application/zip") || BU_CODE=000
     if [ "$BU_CODE" = 201 ] || [ "$BU_CODE" = 200 ]; then
@@ -731,13 +761,26 @@ cmd_browser_use_cloud() {
   say "A Browser Use browser is running through session $(basename "$session" .json)."
   # Browser Use's own identifier, for Browser Use support.
   say "Browser Use browser: $browser_id"
+  if [ -n "$runtime_id" ]; then
+    panel="session"
+    if [ -n "$helper_port" ] && [ -n "$cdp" ]; then
+      # Start the relay before the panel's tab opens, so its first helper request is answered.
+      printf '%s\n' "$cdp" | PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
+        --with websockets==15.0.1 python "$KIT_DIR/tools/browser-use/helper-relay.py" "$helper_port" "$runtime_id" \
+        > "$STATE_DIR/browser-use-relay.log" 2>&1 &
+      BU_RELAY=$!
+      sleep 2
+      if kill -0 "$BU_RELAY" 2>/dev/null; then panel="full"; else say "The relay to the local helper did not start (see $STATE_DIR/browser-use-relay.log)."; fi
+    fi
+  fi
   [ -z "$runtime_id" ] || tabs+=("chrome-extension://$runtime_id/popup.html")
   [ -z "$url" ] || tabs+=("$url")
   if [ ${#tabs[@]} -gt 0 ]; then
     # The DevTools address controls the browser, so it goes over stdin, not the command line.
     if [ -n "$cdp" ] && printf '%s\n' "$cdp" | PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
          --with websockets==15.0.1 python "$KIT_DIR/tools/browser-use/open-tabs.py" "${tabs[@]}"; then
-      [ -z "$runtime_id" ] || say "Control Panel: open in a tab of the Browser Use browser. It shows the session; the route is fixed on the session's proxy."
+      [ "$panel" != full ] || say "Control Panel: open in a tab of the Browser Use browser, connected to the helper on this machine. The route is fixed on the session's proxy."
+      [ "$panel" != session ] || say "Control Panel: open in a tab of the Browser Use browser. It shows the session; the route is fixed on the session's proxy."
     else
       [ -z "$runtime_id" ] || say "Control Panel: loaded, but it could not be opened automatically. Open chrome-extension://$runtime_id/popup.html in the browser."
       [ -z "$url" ] || say "Open $url in the browser yourself."
