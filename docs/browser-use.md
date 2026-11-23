@@ -2,7 +2,7 @@
 
 [Browser Use](https://github.com/browser-use/browser-use) agents and [Browser Harness](https://github.com/browser-use/browser-harness) drive a browser through its Chrome DevTools address. `./awg browser-use` opens the kit's browser on a reveal session with that address available, so the agent's traffic passes through the session.
 
-> Run so far: the local browser opens with the Control Panel and answers on its Chrome DevTools address. A Browser Use Cloud browser starts on a session with the Control Panel loaded, and its pages load through VGS with the session's certificate authority trusted. The relay carries requests from the cloud panel to this machine and back. Not yet exercised: the full panel in a cloud browser with the real helper behind the relay, and a Browser Use agent driving either browser.
+> Run so far: the local browser opens with the Control Panel and answers on its Chrome DevTools address. A Browser Use Cloud browser starts on a session with the Control Panel loaded, and its pages load through VGS with the session's certificate authority trusted. The panel in the cloud browser loads the tenant, the session list and the session's stand-ins from the helper on this machine. Not yet exercised: creating a session or adding a card from the cloud panel, and a Browser Use agent driving either browser.
 
 ## Run it
 
@@ -65,6 +65,8 @@ Any program on your machine can drive the browser through the DevTools address w
 ```sh
 BROWSER_USE_API_KEY=… ./awg browser-use --cloud https://<the site to test>/
 ```
+
+[![Agent Web Gateway Control Panel running in a Browser Use Cloud browser](images/browser-use-browser.png)](images/browser-use-browser.png)
 
 The command:
 

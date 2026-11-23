@@ -32,6 +32,6 @@ The run uses the session as its custom proxy, which Browser Use enables per proj
 
 ## Status
 
-`checkout_agent.py` and `cloud_run.py` have not yet been run end to end. The commands they build on have: `./awg browser-use` and `./awg browser-use --cloud` both open a browser on a session.
+`checkout_agent.py` and `cloud_run.py` have not yet been run end to end. The commands they build on have: `./awg browser-use` and `./awg browser-use --cloud` both open a browser on a session with the Control Panel working.
 
 Use Sandbox and the public test card only. With Browser Use Cloud, the session's proxy details and stand-ins go to Browser Use.

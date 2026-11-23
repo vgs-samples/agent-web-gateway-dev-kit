@@ -98,7 +98,22 @@ If your agent is built on [Browser Use](https://github.com/browser-use/browser-u
 ./awg browser-use
 ```
 
-It opens the same browser and Control Panel, and also a Chrome DevTools address on `127.0.0.1:9222`. Connect the agent with `Browser(cdp_url='http://127.0.0.1:9222')`, or Browser Harness with `BU_CDP_URL=http://127.0.0.1:9222`. `./awg browser-use --cloud` starts the browser in Browser Use Cloud instead. The [Browser Use guide](docs/browser-use.md) covers both.
+It opens the same browser and Control Panel, and also a Chrome DevTools address on `127.0.0.1:9222`. Connect the agent with `Browser(cdp_url='http://127.0.0.1:9222')`, or Browser Harness with `BU_CDP_URL=http://127.0.0.1:9222`.
+
+To run the browser in Browser Use Cloud instead:
+
+```sh
+export BROWSER_USE_API_KEY=…
+./awg browser-use --cloud
+# Or open a test website in a tab:
+./awg browser-use --cloud https://the-shop-you-are-testing.com/
+```
+
+[![Agent Web Gateway Control Panel running in a Browser Use Cloud browser](docs/images/browser-use-browser.png)](docs/images/browser-use-browser.png)
+
+This creates or reuses an active test-card session and starts a Browser Use Cloud browser with the session as its custom proxy and the Control Panel open in a tab. It prints a live view link and the browser's Chrome DevTools address for your agent. The Browser Use project needs custom proxies enabled, which Browser Use turns on per project on request.
+
+The Control Panel's helper stays on your machine, and the kit relays the panel's requests to it over the browser's DevTools connection, so your service-account credentials are not uploaded. The route is fixed on the session the browser started with. Session proxy credentials and browser traffic go to Browser Use in this mode. The [Browser Use guide](docs/browser-use.md) covers both ways, and [`examples/browser-use/`](examples/browser-use/README.md) has agents to start from.
 
 ### Start the browser in Kernel
 
