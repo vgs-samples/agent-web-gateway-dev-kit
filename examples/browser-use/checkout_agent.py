@@ -9,7 +9,7 @@ Then run the agent against it:
 
     uv run --with 'browser-use==1.0.8rc1' examples/browser-use/checkout_agent.py https://<the site to test>/
 
-For a Browser Use Cloud browser, start it with ./awg browser-use --cloud and put the DevTools address
+For a Browser Use cloud browser, start it with ./awg browser-use --cloud and put the DevTools address
 it prints in AWG_CDP_URL before running the agent.
 
 The agent types the session's stand-ins, never a card. VGS replaces them with the test card on the

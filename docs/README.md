@@ -72,7 +72,7 @@ The official documentation is at [docs.verygoodsecurity.com](https://docs.verygo
 | `awg` | The launcher: `./awg start`, `./awg setup` and the other commands `./awg --help` lists |
 | `tools/cloak/` | The script `./awg start` uses to open CloakBrowser with the control panel loaded |
 | `tools/kernel/` | The script `./awg kernel` and `./awg browser-use --cloud` use to build the control panel for a cloud browser |
-| `tools/browser-use/` | The scripts `./awg browser-use --cloud` uses to open tabs in a Browser Use Cloud browser and to connect its Control Panel to the local helper |
+| `tools/browser-use/` | The scripts `./awg browser-use --cloud` uses to open tabs in a Browser Use cloud browser and to connect its Control Panel to the local helper |
 | `examples/browser-use/` | Browser Use agents that fill a payment form with a session's stand-ins: one you run yourself, one hosted in Browser Use Cloud |
 | `docs/training/` | The training pages |
 | `docs/reference/` | The Agent Web Gateway developer guide, the API error codes, and a diagram of the request path |

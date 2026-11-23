@@ -2,7 +2,7 @@
 
 [Browser Use](https://github.com/browser-use/browser-use) agents and [Browser Harness](https://github.com/browser-use/browser-harness) drive a browser through its Chrome DevTools address. `./awg browser-use` opens the kit's browser on a reveal session with that address available, so the agent's traffic passes through the session.
 
-> Run so far: the local browser opens with the Control Panel and answers on its Chrome DevTools address. A Browser Use Cloud browser starts on a session with the Control Panel loaded, and its pages load through VGS with the session's certificate authority trusted. The panel in the cloud browser loads the tenant, the session list and the session's stand-ins from the helper on this machine. Not yet exercised: creating a session or adding a card from the cloud panel, and a Browser Use agent driving either browser.
+> Run so far: the local browser opens with the Control Panel and answers on its Chrome DevTools address. A Browser Use cloud browser starts on a session with the Control Panel loaded, and its pages load through VGS with the session's certificate authority trusted. The panel in the cloud browser loads the tenant, the session list and the session's stand-ins from the helper on this machine. Not yet exercised: creating a session or adding a card from the cloud panel, and a Browser Use agent driving either browser.
 
 ## Run it
 
@@ -60,25 +60,46 @@ Browser Use 1.0 does not take a proxy for a browser it launches locally, so conn
 
 Any program on your machine can drive the browser through the DevTools address while it is open. Use it on a machine you control, and close the browser when you are done.
 
-## Browser Use Cloud
+## Use a Browser Use cloud browser
+
+`./awg browser-use --cloud` runs the browser in Browser Use's cloud, with its traffic passing through your reveal session. No browser or Docker is needed locally; the kit uses `curl`, `jq` and `uv`.
+
+### What you need
+
+- Sandbox credentials from `./awg setup`.
+- A Browser Use Cloud account with custom proxies enabled for the project, and an API key. Custom proxies are an enterprise feature that Browser Use enables per project on request, and it bills browser usage to the account.
+
+### Run it
 
 ```sh
 BROWSER_USE_API_KEY=… ./awg browser-use --cloud https://<the site to test>/
 ```
 
-[![Agent Web Gateway Control Panel running in a Browser Use Cloud browser](images/browser-use-browser.png)](images/browser-use-browser.png)
+[![Agent Web Gateway Control Panel running in a Browser Use cloud browser](images/browser-use-browser.png)](images/browser-use-browser.png)
 
 The command:
 
-1. Creates or reuses a reveal session with the VGS test card.
-2. Starts a Browser Use Cloud browser with the session as its [custom proxy](https://docs.browser-use.com/cloud/browser/proxies), including the session's certificate authority so the browser trusts pages re-signed by VGS.
-3. Starts the Control Panel's helper on your machine, uploads the Control Panel, and opens it in a tab. The panel works as it does locally, with one difference: Browser Use refuses extensions that ask for the `proxy` permission, so the panel cannot change the route. The browser stays on the proxy of the session it started with, and a session you create in the panel needs a new `./awg browser-use --cloud` run to be used.
-4. Prints a live view link and the browser's Chrome DevTools address. Pass that address to `Browser(cdp_url=…)`, or set it as `AWG_CDP_URL` to run the example agent against the cloud browser.
-5. Stops the browser and removes the uploaded panel when you press Enter. Without a terminal, it runs until the browser stops (30 minutes).
+1. Creates or reuses a reveal session with the VGS test card, the same way `./awg start` does.
+2. Starts the Control Panel's helper on your machine and uploads the Control Panel extension to Browser Use. If Browser Use does not accept it, the command says so and continues without the panel.
+3. Starts a Browser Use browser that uses the session as its [custom proxy](https://docs.browser-use.com/cloud/browser/proxies), including the session's certificate authority so the browser trusts pages re-signed by VGS, and loads the panel.
+4. Opens the kit's relay so the panel in the cloud browser reaches the helper on your machine. The helper holds your service-account credentials, and they stay local. Browser Use has no tunnel into its browsers, so the kit keeps a connection to the browser's Chrome DevTools address open and the panel hands each helper request to the kit over it ([`tools/browser-use/helper-relay.py`](../tools/browser-use/helper-relay.py)). The relay only ever calls the helper's own address.
+5. Prints the browser's live view link and Chrome DevTools address, along with Browser Use's browser ID in case you need Browser Use support. Pass the DevTools address to `Browser(cdp_url=…)`, or set it as `AWG_CDP_URL` to run the example agent against the cloud browser.
+6. Removes the browser and the panel, and stops the helper and relay, when you press Enter. Without a terminal, it runs until the browser closes after 30 minutes.
 
-### How the panel reaches its helper
+Type the session's stand-ins into the payment form, as in any other session. Read them with `./awg session` output or the Control Panel.
 
-The helper holds your service-account credentials, so it stays on your machine and is not exposed to the internet. Browser Use has no tunnel into its browsers. Instead, the kit keeps a connection to the browser's Chrome DevTools address open, and the panel hands each helper request to the kit over that connection ([`tools/browser-use/helper-relay.py`](../tools/browser-use/helper-relay.py)). The relay only ever calls the helper's own address. It runs until you stop the command.
+### What is different from `./awg start`
+
+| | `./awg start` | `./awg browser-use --cloud` |
+|---|---|---|
+| Browser | CloakBrowser on your machine | Browser Use's cloud, viewed through a link |
+| Needs | CloakBrowser license key | Browser Use API key, with custom proxies enabled |
+| Also installed | CloakBrowser | Nothing |
+| Control Panel | Loaded, with the local helper | Loaded and opened in a tab, with the local helper reached through the kit's relay |
+| Session details and aliases | In the panel | In the panel |
+| Route switching | In the panel | Not available. Browser Use refuses extensions that ask for the `proxy` permission, so the browser stays on the session it started with. A session you create in the panel needs a new `./awg browser-use --cloud` run to be used |
+| Creating sessions, adding cards, scopes, gateway views | In the panel | In the panel, through the relay. Creating a session and adding a card are not verified in a Browser Use browser |
+| Recording | In the panel | Not verified in a Browser Use browser |
 
 ### In your own code
 
@@ -107,16 +128,16 @@ Send `caBundle` rather than `ignoreCertErrors`: the browser then trusts only the
 
 ### What Browser Use receives
 
-The session's proxy address, proxy username and password, and certificate authority go to Browser Use's API, and the browser's traffic runs in its cloud. The live view link and the DevTools address each control the browser, so keep them private. Use Sandbox and the public test card only. Your VGS client id and secret are not sent.
+The session's proxy address, proxy username and password, and certificate authority are sent to Browser Use's API, both as the custom proxy and inside the uploaded panel, and the browser's traffic runs in Browser Use's cloud. The live view link and the DevTools address each control the browser, so keep them private. Use Sandbox and the public test card only. Your VGS client secret is never sent to Browser Use: the helper that holds it runs on your machine. The panel in the Browser Use browser can call that helper through the relay while the command runs, and adding a card there uses a short-lived VGS access token in the browser.
 
 ### If it fails
 
 | Output | Meaning |
 |---|---|
 | `BROWSER_USE_API_KEY is not set` | Export the key or put it in front of the command. |
-| `HTTP 401` | Browser Use did not accept the key. |
-| `HTTP 403` when starting the browser | Custom proxies are not enabled for the Browser Use project. They are an enterprise feature that Browser Use enables on request. |
+| `Browser Use answered HTTP 401` | Browser Use did not accept the key. |
+| `Browser Use answered HTTP 403` | Custom proxies are not enabled for the Browser Use project. They are an enterprise feature that Browser Use enables on request. |
 | `Browser Use did not accept the Control Panel` | The browser still starts on the session, without the panel. |
-| `The local helper did not start` | The panel loads and shows the session only. The private log named in the message has the reason. |
+| `The local helper did not start` | The panel shows session details only. The private log named in the message has the reason. |
 | The panel shows "Check the local helper" | The relay lost its connection to the browser. Stop the command and run it again. |
-| Pages fail to load | The session expired, or Browser Use cannot reach the session's proxy host and port. |
+| Pages fail to load in the Browser Use browser | The session expired, or Browser Use cannot reach the session's proxy host and port. |
