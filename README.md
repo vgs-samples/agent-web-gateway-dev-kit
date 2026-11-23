@@ -119,6 +119,10 @@ This creates or reuses an active test-card session and starts a Browser Use clou
 
 The full Control Panel works in the Browser Use browser, except for switching routes: the browser stays on the session it started with. Its helper stays on your machine, and the browser reaches it through the kit's relay over the browser's DevTools connection, so your service-account credentials are not uploaded. Session proxy credentials and browser traffic go to Browser Use in this mode. The [Browser Use guide](docs/browser-use.md) covers the details.
 
+If Browser Use Cloud runs the agent as well as the browser, pass the session to the hosted run as its custom proxy and the session aliases as secret bindings. [`examples/browser-use/cloud_run.py`](examples/browser-use/cloud_run.py) does this. Here a hosted agent has filled Stripe's Elements demo with a session's aliases, with the browser's traffic passing through VGS:
+
+[![A hosted Browser Use Cloud agent run that filled a payment form with a reveal session's aliases](docs/images/browser-use-hosted-run.png)](docs/images/browser-use-hosted-run.png)
+
 ### Start the browser in Kernel
 
 If your agents run on [Kernel](https://kernel.sh), or you cannot run a browser locally, run this instead:

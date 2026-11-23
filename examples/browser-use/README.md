@@ -32,6 +32,10 @@ The run uses the session as its custom proxy, which Browser Use enables per proj
 
 ## Status
 
-`checkout_agent.py` and `cloud_run.py` have not yet been run end to end. The commands they build on have: `./awg browser-use` and `./awg browser-use --cloud` both open a browser on a session with the Control Panel working.
+`cloud_run.py` has been run against Stripe's Elements demo (`https://stripe.dev/elements-examples/` with `js.stripe.com` as the payment provider host). The hosted agent reached the page through VGS, typed the session's stand-ins into the payment form, and stopped before submitting. It has not been run through a submitted order.
+
+[![A hosted Browser Use Cloud agent run that filled a payment form with a reveal session's stand-ins](../../docs/images/browser-use-hosted-run.png)](../../docs/images/browser-use-hosted-run.png)
+
+`checkout_agent.py` has not yet been run end to end. The commands it builds on have: `./awg browser-use` and `./awg browser-use --cloud` both open a browser on a session with the Control Panel working.
 
 Use Sandbox and the public test card only. With Browser Use Cloud, the session's proxy details and stand-ins go to Browser Use.

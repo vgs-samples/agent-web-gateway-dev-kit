@@ -2,7 +2,7 @@
 
 [Browser Use](https://github.com/browser-use/browser-use) agents and [Browser Harness](https://github.com/browser-use/browser-harness) drive a browser through its Chrome DevTools address. `./awg browser-use` opens the kit's browser on a reveal session with that address available, so the agent's traffic passes through the session.
 
-> Run so far: the local browser opens with the Control Panel and answers on its Chrome DevTools address. A Browser Use cloud browser starts on a session with the Control Panel loaded, and its pages load through VGS with the session's certificate authority trusted. The panel in the cloud browser loads the tenant, the session list and the session's stand-ins from the helper on this machine. Not yet exercised: creating a session or adding a card from the cloud panel, and a Browser Use agent driving either browser.
+> Run so far: the local browser opens with the Control Panel and answers on its Chrome DevTools address. A Browser Use cloud browser starts on a session with the Control Panel loaded, and its pages load through VGS with the session's certificate authority trusted. The panel in the cloud browser loads the tenant, the session list and the session's stand-ins from the helper on this machine. A hosted Browser Use Cloud agent run on a session reached Stripe's Elements demo through VGS and typed the session's stand-ins into its payment form from secret bindings, stopping before submitting. Not yet exercised: creating a session or adding a card from the cloud panel, your own Browser Use agent driving the kit's browser, and a hosted run that submits an order so VGS reveals the card.
 
 ## Run it
 
@@ -123,6 +123,10 @@ run = BrowserUse().runs.create(
     }},
 )
 ```
+
+[`examples/browser-use/cloud_run.py`](../examples/browser-use/cloud_run.py) is the full version: it also passes the session's stand-ins as secret bindings, so the agent types them without seeing them. This is the browser of a hosted run after the agent filled Stripe's Elements demo with the stand-ins:
+
+[![A hosted Browser Use Cloud agent run that filled a payment form with a reveal session's stand-ins](images/browser-use-hosted-run.png)](images/browser-use-hosted-run.png)
 
 Send `caBundle` rather than `ignoreCertErrors`: the browser then trusts only the session's certificate authority in addition to the public ones. A follow-up run that starts a new browser needs the proxy sent again.
 
