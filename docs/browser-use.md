@@ -2,7 +2,7 @@
 
 [Browser Use](https://github.com/browser-use/browser-use) agents and [Browser Harness](https://github.com/browser-use/browser-harness) drive a browser through its Chrome DevTools address. `./awg browser-use` opens the kit's browser on a reveal session with that address available, so the agent's traffic passes through the session.
 
-> Run so far: the local browser opens with the Control Panel and answers on its Chrome DevTools address, and Browser Use Cloud accepts the Control Panel upload. Not yet exercised: a Browser Use agent driving the browser, and a cloud browser on a session, which needs a Browser Use project with custom proxies enabled.
+> Run so far: the local browser opens with the Control Panel and answers on its Chrome DevTools address. A Browser Use Cloud browser starts on a session with the Control Panel loaded, and its pages load through VGS with the session's certificate authority trusted. Not yet exercised: a Browser Use agent driving either browser.
 
 ## Run it
 

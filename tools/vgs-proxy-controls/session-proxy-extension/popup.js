@@ -129,7 +129,8 @@ async function request(message) {
     }
 }
 buttons.forEach(button => button.addEventListener("click", () => request({type: "setMode", mode: button.dataset.mode})));
-chrome.proxy.settings.onChange.addListener(() => request({type: "getState"}));
+// A browser whose host sets the route loads the panel without the proxy permission, so chrome.proxy is absent there.
+chrome.proxy?.settings.onChange.addListener(() => request({type: "getState"}));
 window.addEventListener("focus", () => request({type: "getState"}));
 sessionSelect.addEventListener("change", render);
 useSession.addEventListener("click", () => request({type: "selectSession", sessionId: sessionSelect.value, environment: state.environment}));
