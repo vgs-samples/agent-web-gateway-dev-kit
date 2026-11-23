@@ -25,6 +25,8 @@ def main():
     parser.add_argument("--session", type=Path, help="Original saved reveal-session creation response")
     parser.add_argument("--credentials-file", type=Path, help="Private service-account environment file")
     parser.add_argument("--folder", type=Path, help="Zip this already generated extension folder instead of building one")
+    parser.add_argument("--managed-route", action="store_true",
+                        help="For a hosted browser that routes through the session itself and refuses the proxy permission")
     parser.add_argument("--output", required=True, type=Path, help="Zip file to write")
     args = parser.parse_args()
     os.umask(0o077)
@@ -52,7 +54,8 @@ def main():
             folder = Path(temporary) / "extension"
             write_extension(folder, config["pacUrl"], config["credentials"], config["proxies"]["session"],
                             config["proxies"]["egress"], session_id=config["sessionId"],
-                            expires_at=config["expiresAt"], catalog=None)
+                            expires_at=config["expiresAt"], catalog=None,
+                            managed_route=args.managed_route)
             with zipfile.ZipFile(args.output, "w", zipfile.ZIP_DEFLATED) as archive:
                 for path in sorted(folder.rglob("*")):
                     if path.is_file():

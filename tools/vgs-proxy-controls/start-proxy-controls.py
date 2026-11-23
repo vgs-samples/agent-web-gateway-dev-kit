@@ -26,6 +26,7 @@ def main():
     parser.add_argument('--sessions-dir', type=Path, help='Directory of RS….json creation responses and matching .request.json files')
     parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parent / '.private-extension', help='Private generated extension directory')
     parser.add_argument('--exit-with-pid', type=int, help='Stop when this process is gone')
+    parser.add_argument('--managed-route', action='store_true', help='Build the panel for a hosted browser that sets the session route itself and reaches this helper through a relay')
     parser.add_argument('--egress-profile', type=Path, help='Private JSON egress profile for new sessions')
     parser.add_argument('--tokenizer-socket', type=Path, help='Private card tokenizer Unix socket')
     parser.add_argument('--capture-profile', type=Path, help='Browser profile used to report sensitive-HAR preference status')
@@ -88,7 +89,7 @@ def main():
                 'writesEnabled': args.mcp_write, 'clientConfig': client_config}
         write_extension(output, config['pacUrl'], config['credentials'], config['proxies']['session'],
                         config['proxies']['egress'], session_id=config['sessionId'],
-                        expires_at=config['expiresAt'], catalog=server.config)
+                        expires_at=config['expiresAt'], catalog=server.config, managed_route=args.managed_route)
         marker = output / '.proxy-controls-generated'
         marker.write_text('Private generated extension; do not share this directory.\n')
         marker.chmod(0o600)

@@ -75,6 +75,7 @@ function render() {
         direct: "Direct connection from this computer. VGS token replacement is off.",
         unavailable: "The session’s routing is not active. Another browser setting may control the proxy."
     }[state.mode];
+    if (state.managedRoute) description.textContent = "This browser’s host routes all traffic through the session’s VGS proxy. The route cannot be changed here.";
     for (const button of buttons) {
         button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode));
         button.disabled = busy || !state.canControl || !state.availableModes.includes(button.dataset.mode);
@@ -128,7 +129,8 @@ async function request(message) {
     }
 }
 buttons.forEach(button => button.addEventListener("click", () => request({type: "setMode", mode: button.dataset.mode})));
-chrome.proxy.settings.onChange.addListener(() => request({type: "getState"}));
+// A browser whose host sets the route loads the panel without the proxy permission, so chrome.proxy is absent there.
+chrome.proxy?.settings.onChange.addListener(() => request({type: "getState"}));
 window.addEventListener("focus", () => request({type: "getState"}));
 sessionSelect.addEventListener("change", render);
 useSession.addEventListener("click", () => request({type: "selectSession", sessionId: sessionSelect.value, environment: state.environment}));

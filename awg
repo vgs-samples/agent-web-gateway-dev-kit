@@ -6,6 +6,7 @@
 #   ./awg session [hosts]      create a reveal session for a test card (hosts: comma-separated)
 #   ./awg start [url]          one step: session + control panel helper + CloakBrowser
 #   ./awg kernel [url]         session + a Kernel cloud browser routed through it (needs KERNEL_API_KEY)
+#   ./awg browser-use [url]    ./awg start, plus a Chrome DevTools address for a Browser Use agent (--cloud: their cloud browser)
 #   ./awg panel [options]      start only the control panel helper (options of start-proxy-controls.py)
 #   ./awg browser [options]    open only CloakBrowser with the control panel (--session FILE [url])
 #   ./awg cloak-login          save your CloakBrowser license key (once)
@@ -392,7 +393,9 @@ cmd_start() {
   grep -q 'Proxy controls are ready' "$HELPER_LOG" || { fail "the control panel helper did not become ready in 30 seconds. Inspect $HELPER_LOG locally."; }
   say "Helper is running. Opening CloakBrowser..."
   say ""
-  if [ -n "$url" ]; then cmd_browser --profile "$PROFILE_DIR" --extension "$extension" --session "$session" "$url"; else cmd_browser --profile "$PROFILE_DIR" --extension "$extension" --session "$session"; fi
+  # AWG_CDP_PORT also opens Chrome DevTools on that local port, for an agent framework (see ./awg browser-use).
+  cmd_browser --profile "$PROFILE_DIR" --extension "$extension" --session "$session" \
+    ${AWG_CDP_PORT:+--cdp-port "$AWG_CDP_PORT"} ${url:+"$url"}
 }
 
 # ---------------------------------------------------------------- Kernel cloud browser
@@ -602,12 +605,215 @@ cmd_kernel() {
   say "Closing the Kernel browser and removing what was registered..."
 }
 
+# ---------------------------------------------------------------- Browser Use cloud browser
+
+BROWSER_USE_API="${BROWSER_USE_API_URL:-https://api.browser-use.com/api/v4}"
+BU_CODE=""; BU_BODY=""; BU_BROWSER=""; BU_EXTENSION=""; BU_ZIP=""
+BU_HELPER=""; BU_RELAY=""; BU_PANEL_DIR=""
+
+bu_call() {  # bu_call <method> <path> [json body]; sets BU_CODE and fills BU_BODY (a private file)
+  # The body carries the session's proxy password, so it goes over stdin, not the command line.
+  BU_CODE=$(printf '%s' "${3:-}" | curl -sS -o "$BU_BODY" -w '%{http_code}' -X "$1" "$BROWSER_USE_API$2" \
+    -H "X-Browser-Use-API-Key: $BROWSER_USE_API_KEY" -H 'Content-Type: application/json' ${3:+--data-binary @-}) || BU_CODE=000
+}
+
+bu_cleanup() {
+  if [ -n "$BU_RELAY" ]; then pkill -P "$BU_RELAY" 2>/dev/null || true; kill "$BU_RELAY" 2>/dev/null || true; fi
+  if [ -n "$BU_HELPER" ]; then pkill -P "$BU_HELPER" 2>/dev/null || true; kill "$BU_HELPER" 2>/dev/null || true; fi
+  [ -z "$BU_PANEL_DIR" ] || rm -rf "$STATE_DIR/panel-extension"
+  rm -f "$STATE_DIR/browser-use-relay.log"
+  [ -z "$BU_BROWSER" ] || bu_call PATCH "/browsers/$BU_BROWSER" '{"action":"stop"}'
+  [ -z "$BU_EXTENSION" ] || bu_call DELETE "/extensions/$BU_EXTENSION"
+  [ -z "$BU_BODY" ] || rm -f "$BU_BODY"
+  [ -z "$BU_ZIP" ] || rm -f "$BU_ZIP"
+}
+
+# Browser Use's reason for a refusal. A validation error can echo the request, so only its field names and messages are shown.
+bu_reason() {
+  jq -r 'if (.detail | type) == "string" then .detail
+         elif (.detail | type) == "array" then [.detail[] | ((.loc // []) | map(tostring) | join(".")) + ": " + (.msg // "")] | join("; ")
+         elif (.message | type) == "string" then .message else empty end' "$BU_BODY" 2>/dev/null | cut -c1-400 || true
+}
+
+# The browser to create: the reveal session as Browser Use's custom proxy, with the session's certificate authority.
+bu_browser_body() {  # bu_browser_body <session file> <extension id or empty>
+  jq --arg ext "$2" '
+    def unpct: gsub("%(?<h>[0-9A-Fa-f]{2})"; (.h | ascii_downcase | explode
+      | map(if . > 96 then . - 87 else . - 48 end) | [.[0] * 16 + .[1]] | implode));
+    .data.attributes.proxy as $p
+    | ($p.url | capture("^(?<scheme>https?)://(?<user>[^:@/]+):(?<pass>[^@/]+)@(?<host>[^:/@]+):(?<port>[0-9]+)")) as $u
+    | {timeout: 30,
+       customProxy: {host: $u.host, port: ($u.port | tonumber), protocol: $u.scheme,
+                     username: ($u.user | unpct), password: ($u.pass | unpct), caBundle: $p.ca_bundle}}
+      + (if $ext == "" then {} else {extensionIds: [$ext]} end)' "$1" 2>/dev/null
+}
+
+# Browser Use (github.com/browser-use/browser-use) drives a browser through its Chrome DevTools address.
+# By default this is ./awg start with that address open: the local browser, on the session, with the full
+# Control Panel. --cloud starts the browser in Browser Use Cloud instead.
+cmd_browser_use() {
+  if [ "${1:-}" = --cloud ]; then shift; cmd_browser_use_cloud "$@"; return; fi
+  case "${1:-}" in
+    --help|-h) say "Usage: ./awg browser-use [--cloud] [url]
+Open the kit's browser on a reveal session with Chrome DevTools on 127.0.0.1:\${AWG_CDP_PORT:-9222},
+for a Browser Use agent:  Browser(cdp_url='http://127.0.0.1:9222')
+--cloud starts a Browser Use Cloud browser on the session instead (needs BROWSER_USE_API_KEY)."; return ;;
+    --*) fail "unknown option for browser-use: $1" ;;
+  esac
+  [[ "${AWG_CDP_PORT:=9222}" =~ ^[0-9]+$ ]] || fail "AWG_CDP_PORT must be a port number."
+  cmd_start "$@"
+}
+
+# Browser Use Cloud runs the browser. The reveal session's proxy and certificate are passed as the
+# browser's custom proxy, so the browser's traffic passes through the session.
+cmd_browser_use_cloud() {
+  local url="${1:-}" host="" session body browser_id live cdp extension_id="" runtime_id="" helper_port="" panel="none"
+  local -a tabs=()
+  for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
+  [ -n "${BROWSER_USE_API_KEY:-}" ] || fail "BROWSER_USE_API_KEY is not set. Create an API key in your Browser Use Cloud account (https://cloud.browser-use.com), then run:
+       BROWSER_USE_API_KEY=… ./awg browser-use --cloud"
+  need_uv
+  [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
+  [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
+  session=$(latest_session)
+  if session_alive "$session" && { [ -z "$host" ] || jq -e --arg h "$host" '(.data.attributes.allowed_hosts // []) | index($h)' "$session" >/dev/null; }; then
+    say "Using the current session: $(basename "$session" .json)"
+  else
+    say "Creating a reveal session${host:+ for $host}..."
+    cmd_session "$host"
+    session=$(latest_session)
+  fi
+  bu_browser_body "$session" "" >/dev/null || fail "the saved session has no usable proxy details. Create a new one with ./awg session"
+
+  # The panel and Browser Use's answers hold this session's credentials, so everything is removed on the way out.
+  trap bu_cleanup EXIT
+  BU_BODY=$(mktemp "$STATE_DIR/browser-use.XXXXXX")
+  BU_ZIP="$STATE_DIR/browser-use-panel.$$.zip"
+
+  # The full Control Panel needs its helper, which holds the service-account credentials and stays on
+  # this machine. Browser Use has no tunnel into its browsers, so the kit relays the panel's helper
+  # requests over the browser's DevTools connection instead (tools/browser-use/helper-relay.py).
+  say ""
+  say "Starting the control panel helper on this machine..."
+  : > "$HELPER_LOG"
+  rm -rf "$STATE_DIR/panel-extension"
+  BU_PANEL_DIR="$STATE_DIR/panel-extension/$(date +%s)-$$"
+  mkdir -p "$STATE_DIR/panel-extension"
+  chmod 700 "$STATE_DIR/panel-extension"
+  PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
+    python "$PANEL_DIR/start-proxy-controls.py" --session "$session" --output "$BU_PANEL_DIR" --managed-route \
+    --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
+  BU_HELPER=$!
+  for _ in $(seq 1 60); do
+    grep -q 'Proxy controls are ready' "$HELPER_LOG" 2>/dev/null && break
+    kill -0 "$BU_HELPER" 2>/dev/null || break
+    sleep 0.5
+  done
+  helper_port=$(grep -o 'http://127\.0\.0\.1:[0-9]*' "$BU_PANEL_DIR/background.js" 2>/dev/null | head -1 | sed 's/.*://' || true)
+  [ -n "$helper_port" ] || say "The local helper did not start (see $HELPER_LOG). Loading the panel without it."
+
+  say "Uploading the Control Panel to Browser Use..."
+  # Browser Use refuses extensions with the proxy permission, so the panel is built without it:
+  # the browser's route stays on the session.
+  if { if [ -n "$helper_port" ]; then
+         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --folder "$BU_PANEL_DIR" --output "$BU_ZIP"
+       else
+         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --session "$session" --credentials-file "$CREDENTIALS" \
+           --managed-route --output "$BU_ZIP"
+       fi; } && [ -s "$BU_ZIP" ]; then
+    BU_CODE=$(curl -sS -o "$BU_BODY" -w '%{http_code}' -X POST "$BROWSER_USE_API/extensions" \
+      -H "X-Browser-Use-API-Key: $BROWSER_USE_API_KEY" -F "file=@$BU_ZIP;type=application/zip") || BU_CODE=000
+    if [ "$BU_CODE" = 201 ] || [ "$BU_CODE" = 200 ]; then
+      extension_id=$(jq -r '.id // empty' "$BU_BODY")
+      BU_EXTENSION="$extension_id"
+    else
+      say "Browser Use did not accept the Control Panel (HTTP $BU_CODE $(bu_reason)). Continuing without it."
+    fi
+  else
+    say "Could not build the Control Panel for Browser Use. Continuing without it."
+  fi
+
+  say "Starting a Browser Use browser on the session's proxy..."
+  bu_call POST /browsers "$(bu_browser_body "$session" "$extension_id")"
+  if [ -n "$extension_id" ] && { [ "$BU_CODE" = 403 ] || [ "$BU_CODE" = 404 ] || [ "$BU_CODE" = 422 ]; }; then
+    # Extensions can be unavailable to a project that has custom proxies. Try the browser on its own;
+    # if that is refused too, the panel was not the reason and only the final answer is reported.
+    extension_id=""
+    bu_call POST /browsers "$(bu_browser_body "$session" "")"
+    if [ "$BU_CODE" = 201 ] || [ "$BU_CODE" = 200 ]; then say "Browser Use would not load the Control Panel in this project. The browser started without it."; fi
+  fi
+  if [ "$BU_CODE" != 201 ] && [ "$BU_CODE" != 200 ]; then
+    say "Browser Use answered HTTP $BU_CODE: $(bu_reason)"
+    [ "$BU_CODE" != 401 ] || say "Browser Use did not accept BROWSER_USE_API_KEY. Check the key in your Browser Use Cloud account."
+    [ "$BU_CODE" != 403 ] || say "A 403 here usually means custom proxies are not enabled for this Browser Use project. They are an enterprise feature: ask Browser Use (sales@browser-use.com) to enable them."
+    [ "$BU_CODE" != 402 ] || say "The Browser Use account is out of credits or over its spend limit."
+    [ "$BU_CODE" != 429 ] || say "The Browser Use account has too many browsers running. Stop one and retry."
+    fail "Browser Use did not start the browser."
+  fi
+  browser_id=$(jq -r '.id // empty' "$BU_BODY")
+  live=$(jq -r '.liveUrl // empty' "$BU_BODY")
+  cdp=$(jq -r '.cdpUrl // empty' "$BU_BODY")
+  [ -n "$browser_id" ] || fail "Browser Use returned no browser id."
+  BU_BROWSER="$browser_id"
+  [ -z "$extension_id" ] || runtime_id=$(jq -r --arg id "$extension_id" '[.extensions[]? | select(.id == $id) | .runtimeId] | .[0] // empty' "$BU_BODY")
+
+  say ""
+  say "A Browser Use browser is running through session $(basename "$session" .json)."
+  # Browser Use's own identifier, for Browser Use support.
+  say "Browser Use browser: $browser_id"
+  if [ -n "$runtime_id" ]; then
+    panel="session"
+    if [ -n "$helper_port" ] && [ -n "$cdp" ]; then
+      # Start the relay before the panel's tab opens, so its first helper request is answered.
+      printf '%s\n' "$cdp" | PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
+        --with websockets==15.0.1 python "$KIT_DIR/tools/browser-use/helper-relay.py" "$helper_port" "$runtime_id" \
+        > "$STATE_DIR/browser-use-relay.log" 2>&1 &
+      BU_RELAY=$!
+      sleep 2
+      if kill -0 "$BU_RELAY" 2>/dev/null; then panel="full"; else say "The relay to the local helper did not start (see $STATE_DIR/browser-use-relay.log)."; fi
+    fi
+  fi
+  [ -z "$runtime_id" ] || tabs+=("chrome-extension://$runtime_id/popup.html")
+  [ -z "$url" ] || tabs+=("$url")
+  if [ ${#tabs[@]} -gt 0 ]; then
+    # The DevTools address controls the browser, so it goes over stdin, not the command line.
+    if [ -n "$cdp" ] && printf '%s\n' "$cdp" | PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
+         --with websockets==15.0.1 python "$KIT_DIR/tools/browser-use/open-tabs.py" "${tabs[@]}"; then
+      [ "$panel" != full ] || say "Control Panel: open in a tab of the Browser Use browser, connected to the helper on this machine. The route is fixed on the session's proxy."
+      [ "$panel" != session ] || say "Control Panel: open in a tab of the Browser Use browser. It shows the session; the route is fixed on the session's proxy."
+    else
+      [ -z "$runtime_id" ] || say "Control Panel: loaded, but it could not be opened automatically. Open chrome-extension://$runtime_id/popup.html in the browser."
+      [ -z "$url" ] || say "Open $url in the browser yourself."
+    fi
+  fi
+  [ -n "$runtime_id" ] || say "Control Panel: not loaded in this browser. Read the session's stand-ins from the session file instead."
+  say "Keep these two addresses private; each one controls the browser."
+  if [ -n "$live" ]; then
+    say "Watch and control it here:"
+    say "  $live"
+  else
+    say "Browser Use returned no live view link. Open the browser from your Browser Use dashboard."
+  fi
+  if [ -n "$cdp" ]; then
+    say "Connect your agent or Playwright to it here (Chrome DevTools address):"
+    say "  $cdp"
+  fi
+  say ""
+  if [ -t 0 ]; then
+    read -r -p "Press Enter to stop the Browser Use browser and remove the uploaded panel. " _ || true
+  else
+    say "This command runs until the Browser Use browser stops (30 minutes) or it is stopped."
+    while bu_call GET "/browsers/$browser_id"; [ "$BU_CODE" = 200 ] && jq -e '.status == "active"' "$BU_BODY" >/dev/null 2>&1; do sleep 30; done
+  fi
+  say "Stopping the Browser Use browser and removing the uploaded panel..."
+}
+
 cmd_sitecheck() {
   need_uv
   (cd "$SITECHECK_DIR" && uv run awg-sitecheck "$@")
 }
 
-usage() { sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 case "${1:-}" in
   test)        shift; cmd_test "$@" ;;
@@ -615,6 +821,7 @@ case "${1:-}" in
   session)     shift; cmd_session "$@" ;;
   start)       shift; cmd_start "$@" ;;
   kernel)      shift; cmd_kernel "$@" ;;
+  browser-use) shift; cmd_browser_use "$@" ;;
   panel)       shift; cmd_panel "$@" ;;
   browser)     shift; cmd_browser "$@" ;;
   cloak-login) shift; cmd_cloak_login "$@" ;;

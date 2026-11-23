@@ -29,7 +29,8 @@ class WrapperTests(unittest.TestCase):
         return path
 
     def run_awg(self, *args):
-        return subprocess.run(['/bin/bash', str(KIT / 'awg'), *args], env=self.env,
+        # No terminal on stdin: run from a terminal, the cloud browser commands would wait for Enter.
+        return subprocess.run(['/bin/bash', str(KIT / 'awg'), *args], env=self.env, stdin=subprocess.DEVNULL,
                               capture_output=True, text=True, timeout=20)
 
     def test_help_and_invalid_setup_do_not_install_anything(self):
@@ -228,6 +229,153 @@ else exit 93; fi''')
         # The helper stops with the command, and the generated panel is removed.
         with self.assertRaises(ProcessLookupError): os.kill(int((self.root / 'helper-pid').read_text()), 0)
         self.assertFalse((self.state / 'panel-extension').exists())
+
+    def test_browser_use_opens_the_local_browser_with_a_devtools_port(self):
+        (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
+        (self.state / 'sessions').mkdir()
+        session = self.state / 'sessions/RSFixture.json'
+        session.write_text(json.dumps({'data': {'id': 'RSFixture', 'attributes': {'expires_at': '2099-01-01T00:00:00Z', 'allowed_hosts': ['example.com']}}}))
+        (self.state / 'latest-session').write_text(str(session))
+        self.script('uv', '''
+args="$*"
+if [[ "$args" = *start-proxy-controls.py* ]]; then
+  echo 'Proxy controls are ready'
+  exec sleep 15
+elif [[ "$args" = *launch-panel.py* ]]; then
+  printf '%s\\n' "$*" >> "$FIXTURE_ROOT/browser-args"
+else exit 93; fi''')
+        result = self.run_awg('browser-use', 'https://example.com/checkout')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('--cdp-port 9222 https://example.com/checkout', (self.root / 'browser-args').read_text())
+        self.env['AWG_CDP_PORT'] = '9333'
+        self.assertEqual(self.run_awg('browser-use').returncode, 0)
+        self.assertTrue((self.root / 'browser-args').read_text().strip().endswith('--cdp-port 9333'))
+        # A plain start opens no DevTools port.
+        del self.env['AWG_CDP_PORT']
+        (self.root / 'browser-args').unlink()
+        self.assertEqual(self.run_awg('start').returncode, 0)
+        self.assertNotIn('--cdp-port', (self.root / 'browser-args').read_text())
+        refused = self.run_awg('browser-use', '--nope')
+        self.assertIn('unknown option for browser-use', refused.stderr)
+
+    def test_browser_use_cloud_passes_the_session_as_a_custom_proxy_and_cleans_up(self):
+        (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
+        self.script('curl', '''
+out=""
+args="$*"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -o ]; then shift; out="$1"; fi
+  shift
+done
+api=https://api.browser-use.com/api/v4
+printf '%s\\n' "$args" | sed -E 's/API-Key: [^ ]+/API-Key: <key>/' >> "$FIXTURE_ROOT/calls"
+if [[ "$args" = *openid-connect/token* ]]; then
+  printf '%s' '{"access_token":"fixture-token"}'
+elif [[ "$args" = *sandbox.vgsapi.com/cards* ]]; then
+  printf '%s' '{"data":{"id":"CRFixture","attributes":{"pan_alias":"tok_fixture_pan","cvc_alias":"tok_fixture_cvc","bin":"411111"}}}' > "$out"
+  printf 201
+elif [[ "$args" = *sandbox.vgsapi.com/reveal-sessions* ]]; then
+  printf '%s' '{"data":{"id":"RSFixture","attributes":{"expires_at":"2099-01-01T00:00:00Z","proxy":{"url":"https://US%40fixture:fixture-proxy-secret@tntFixture.sandbox.verygoodproxy.com:3443","ca_bundle":"-----BEGIN CERTIFICATE-----\\nfixture\\n-----END CERTIFICATE-----\\n","pac_url":"https://sandbox.vgsapi.com/reveal-sessions/RSFixture.pac"}}}}' > "$out"
+  printf 201
+elif [[ "$args" = *"-X POST $api/extensions"* ]]; then
+  printf '%s' '{"id":"ext-fixture","name":"Agent Web Gateway Control Panel"}' > "$out"
+  printf 201
+elif [[ "$args" = *"-X POST $api/browsers"* ]]; then
+  cat > "$FIXTURE_ROOT/browser-body"
+  if [ -f "$FIXTURE_ROOT/refuse" ]; then
+    printf '%s' '{"detail":[{"loc":["body","customProxy"],"msg":"not enabled","input":{"password":"fixture-proxy-secret"}}]}' > "$out"
+    printf 403
+  else
+    printf '%s' '{"id":"browser-fixture","status":"active","liveUrl":"https://live.example/fixture","cdpUrl":"wss://cdp.example/fixture-cdp-secret","extensions":[{"id":"ext-fixture","runtimeId":"runtimefixture","version":"1"}]}' > "$out"
+    printf 201
+  fi
+elif [[ "$args" = *"-X GET $api/browsers/browser-fixture"* ]]; then
+  printf '%s' '{"status":"stopped"}' > "$out"
+  printf 200
+elif [[ "$args" = *"-X PATCH $api/browsers/browser-fixture"* ]]; then
+  cat > "$FIXTURE_ROOT/stop-body"
+  printf 200
+elif [[ "$args" = *"-X DELETE $api/extensions/ext-fixture"* ]]; then
+  printf 204
+else exit 94; fi''')
+        self.script('uv', '''
+args="$*"
+if [[ "$args" = *build-extension.py* ]]; then
+  printf '%s\\n' "$args" > "$FIXTURE_ROOT/build-args"
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = --output ]; then printf fixture-zip > "$2"; fi
+    shift
+  done
+elif [[ "$args" = *open-tabs.py* ]]; then
+  printf '%s\\n' "$args" > "$FIXTURE_ROOT/tabs-args"
+  cat > "$FIXTURE_ROOT/tabs-stdin"
+elif [[ "$args" = *start-proxy-controls.py* ]] && [ -f "$FIXTURE_ROOT/helper" ]; then
+  printf '%s\\n' "$args" > "$FIXTURE_ROOT/helper-args"
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = --output ]; then mkdir -p "$2"; printf 'const CATALOG = {"url": "http://127.0.0.1:4567"};' > "$2/background.js"; fi
+    shift
+  done
+  echo 'Proxy controls are ready. Keep this Terminal open.'
+  exec sleep 15
+elif [[ "$args" = *helper-relay.py* ]]; then
+  printf '%s\\n' "$args" > "$FIXTURE_ROOT/relay-args"
+  cat > "$FIXTURE_ROOT/relay-stdin"
+  exec sleep 15
+else exit 93; fi''')
+        missing = self.run_awg('browser-use', '--cloud')
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertIn('BROWSER_USE_API_KEY is not set', missing.stderr)
+        self.assertFalse((self.root / 'calls').exists())
+
+        self.env['BROWSER_USE_API_KEY'] = 'fixture-browser-use-key'
+        result = self.run_awg('browser-use', '--cloud', 'https://example.com/checkout')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        browser = json.loads((self.root / 'browser-body').read_text())
+        self.assertEqual(browser['customProxy'], {
+            'host': 'tntFixture.sandbox.verygoodproxy.com', 'port': 3443, 'protocol': 'https', 'username': 'US@fixture',
+            'password': 'fixture-proxy-secret', 'caBundle': '-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----\n'})
+        self.assertEqual(browser['extensionIds'], ['ext-fixture'])
+        # The panel is built without the proxy permission, and opened with the page through DevTools.
+        self.assertIn('--managed-route', (self.root / 'build-args').read_text())
+        tabs = (self.root / 'tabs-args').read_text()
+        self.assertIn('chrome-extension://runtimefixture/popup.html https://example.com/checkout', tabs)
+        self.assertEqual((self.root / 'tabs-stdin').read_text().strip(), 'wss://cdp.example/fixture-cdp-secret')
+        self.assertNotIn('fixture-cdp-secret', tabs)
+        self.assertIn('Control Panel: open in a tab', result.stdout)
+        self.assertIn('https://live.example/fixture', result.stdout)
+        # The browser is stopped and the panel removed; secrets stay out of the output and off the command line.
+        calls = (self.root / 'calls').read_text()
+        self.assertEqual(json.loads((self.root / 'stop-body').read_text()), {'action': 'stop'})
+        self.assertIn('-X DELETE https://api.browser-use.com/api/v4/extensions/ext-fixture', calls)
+        for secret in ('fixture-browser-use-key', 'fixture-proxy-secret'):
+            self.assertNotIn(secret, result.stdout + result.stderr)
+        self.assertNotIn('fixture-proxy-secret', calls)
+        self.assertEqual(list(self.state.glob('browser-use*')), [])
+
+        # With the local helper running, the panel built by the helper is uploaded and its helper
+        # requests are relayed over the DevTools address, which again stays off the command line.
+        (self.root / 'helper').touch()
+        full = self.run_awg('browser-use', '--cloud')
+        self.assertEqual(full.returncode, 0, full.stderr)
+        self.assertIn('--managed-route', (self.root / 'helper-args').read_text())
+        self.assertIn('--folder', (self.root / 'build-args').read_text())
+        relay = (self.root / 'relay-args').read_text()
+        self.assertIn('helper-relay.py 4567 runtimefixture', relay)
+        self.assertNotIn('fixture-cdp-secret', relay)
+        self.assertEqual((self.root / 'relay-stdin').read_text().strip(), 'wss://cdp.example/fixture-cdp-secret')
+        self.assertIn('connected to the helper on this machine', full.stdout)
+        self.assertEqual(list(self.state.glob('browser-use*')), [])
+        self.assertFalse((self.state / 'panel-extension').exists())
+        (self.root / 'helper').unlink()
+
+        # A project without custom proxies is told so, and the echoed request is not printed.
+        (self.root / 'refuse').touch()
+        refused = self.run_awg('browser-use', '--cloud')
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn('custom proxies are not enabled', refused.stdout)
+        self.assertIn('body.customProxy: not enabled', refused.stdout)
+        self.assertNotIn('fixture-proxy-secret', refused.stdout + refused.stderr)
+        self.assertEqual(list(self.state.glob('browser-use*')), [])
 
     def test_session_uses_alias_api_when_cards_api_refuses(self):
         (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')

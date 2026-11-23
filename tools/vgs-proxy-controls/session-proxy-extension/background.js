@@ -25,7 +25,12 @@ const attempted = new Map();
 const requestFilter = {urls: ["<all_urls>"]};
 globalThis.proxyErrors = [];
 
+// Some hosted browsers set the route to the session themselves and refuse extensions that ask for
+// the proxy permission. There the panel reports the session route and cannot change it.
+const managedRoute = typeof MANAGED_ROUTE !== "undefined" && MANAGED_ROUTE === true;
+
 function readSettings() {
+    if (managedRoute) return Promise.resolve({value: {}, levelOfControl: "not_controllable"});
     return new Promise((resolve, reject) => {
         chrome.proxy.settings.get({incognito: false}, config => {
             if (chrome.runtime.lastError) reject(new Error("Could not read proxy settings."));
@@ -53,7 +58,8 @@ function describe(config) {
         else if (matchesProxy(value, egressProxy())) mode = "egress";
         else if (value.mode === "direct") mode = "direct";
     }
-    return {mode, canControl: owned || config.levelOfControl === "controllable_by_this_extension", availableModes: modes(), session: publicSession(), sessions: sessionList, checkedAt, catalogError, catalogAvailable: !!CATALOG, environment, account, recording, egress: publicEgress()};
+    if (managedRoute) mode = "session";
+    return {mode, managedRoute, canControl: owned || config.levelOfControl === "controllable_by_this_extension", availableModes: modes(), session: publicSession(), sessions: sessionList, checkedAt, catalogError, catalogAvailable: !!CATALOG, environment, account, recording, egress: publicEgress()};
 }
 
 function showBadge(state) {
@@ -97,11 +103,13 @@ async function setMode(mode) {
     } finally { if (resetAuth) switching = false; }
 }
 
-chrome.proxy.settings.onChange.addListener(config => showBadge(describe(config)));
-chrome.proxy.onProxyError.addListener(error => {
-    globalThis.proxyErrors.push(error);
-    if (globalThis.proxyErrors.length > 20) globalThis.proxyErrors.shift();
-});
+if (!managedRoute) {
+    chrome.proxy.settings.onChange.addListener(config => showBadge(describe(config)));
+    chrome.proxy.onProxyError.addListener(error => {
+        globalThis.proxyErrors.push(error);
+        if (globalThis.proxyErrors.length > 20) globalThis.proxyErrors.shift();
+    });
+}
 
 chrome.webRequest.onAuthRequired.addListener((details, callback) => {
     if (!initialized || switching) return callback({cancel: true});
@@ -125,12 +133,34 @@ chrome.webRequest.onAuthRequired.addListener((details, callback) => {
 chrome.webRequest.onCompleted.addListener(d => attempted.delete(d.requestId), requestFilter);
 chrome.webRequest.onErrorOccurred.addListener(d => attempted.delete(d.requestId), requestFilter);
 
+// A hosted browser cannot reach the helper on the developer's machine. There the kit answers helper
+// requests over the browser's DevTools connection: it gives this worker the awgHelperRelay function
+// and calls awgHelperAnswer with each result, so the helper and its credentials stay on that machine.
+const relayWaiting = new Map();
+let relaySequence = 0;
+globalThis.awgHelperAnswer = (id, status, text) => {
+    const answer = relayWaiting.get(id);
+    relayWaiting.delete(id);
+    if (answer) answer(new Response([101, 204, 205, 304].includes(status) ? null : text, {status, headers: {"Content-Type": "application/json"}}));
+};
+async function helperFetch(url, options) {
+    if (!managedRoute) return fetch(url, options);
+    for (let wait = 0; typeof globalThis.awgHelperRelay !== "function" && wait < 50; wait++) await new Promise(resolve => setTimeout(resolve, 100));
+    if (typeof globalThis.awgHelperRelay !== "function") throw new Error("The helper relay is not connected.");
+    const id = String(++relaySequence);
+    return new Promise((resolve, reject) => {
+        relayWaiting.set(id, resolve);
+        options.signal?.addEventListener("abort", () => { relayWaiting.delete(id); reject(new Error("The helper did not answer in time.")); });
+        globalThis.awgHelperRelay(JSON.stringify({id, url, method: options.method, headers: options.headers, body: options.body ?? null}));
+    });
+}
+
 async function companion(path, body, selected = environment) {
     if (!environments.includes(selected)) throw new Error("Invalid environment.");
     if (!CATALOG) throw new Error("Session catalog is not connected.");
     if (!CATALOG.environments && selected !== (CATALOG.environment || sessionEnvironment(INITIAL_SESSION)))
         throw new Error("This helper does not support that environment.");
-    const response = await fetch(CATALOG.url + (CATALOG.environments ? "/environments/" + selected : "") + path, {
+    const response = await helperFetch(CATALOG.url + (CATALOG.environments ? "/environments/" + selected : "") + path, {
         method: body ? "POST" : "GET", body: body ? JSON.stringify(body) : undefined,
         headers: {Authorization: "Bearer " + CATALOG.token, ...(body ? {"Content-Type": "application/json"} : {})}, cache: "no-store",
         credentials: "omit", redirect: "error", signal: AbortSignal.timeout(path === "/credentials" ? 90000 : 25000)
@@ -170,6 +200,7 @@ async function refreshSessions() {
 }
 
 function applySettings(value) {
+    if (managedRoute) return Promise.reject(new Error("Could not apply routing."));
     return new Promise((resolve, reject) => chrome.proxy.settings.set({value, scope: "regular"}, () =>
         chrome.runtime.lastError ? reject(new Error("Could not apply routing.")) : resolve()));
 }

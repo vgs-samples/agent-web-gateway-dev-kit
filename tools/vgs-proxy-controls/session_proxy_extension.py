@@ -8,7 +8,10 @@ from urllib.parse import urlsplit, urlunsplit
 def write_extension(directory: Path, pac_url: str, credentials: dict,
                     session_proxy: dict, egress_proxy: dict | None = None, *,
                     session_id: str | None = None, expires_at: str | None = None,
-                    catalog: dict | None = None, initial_mode: str = "pac") -> None:
+                    catalog: dict | None = None, initial_mode: str = "pac",
+                    managed_route: bool = False) -> None:
+    """managed_route builds the panel for a hosted browser that sets the session route itself and
+    refuses the proxy permission: the panel shows that route and cannot change it."""
     if initial_mode not in ("pac", "session", "egress", "direct"):
         raise ValueError("Invalid initial proxy mode")
     pac = urlsplit(pac_url)
@@ -40,7 +43,7 @@ def write_extension(directory: Path, pac_url: str, credentials: dict,
         "manifest_version": 3,
         "name": "Agent Web Gateway Control Panel",
         "version": "1.10.0",
-        "permissions": ["proxy", "webRequest", "webRequestAuthProvider", "storage", "browsingData"],
+        "permissions": ([] if managed_route else ["proxy"]) + ["webRequest", "webRequestAuthProvider", "storage", "browsingData"],
         "host_permissions": ["<all_urls>"],
         "icons": {str(n): f"assets/icon-{n}.png" for n in (16, 32, 48)},
         "background": {"service_worker": "background.js"},
@@ -53,6 +56,7 @@ def write_extension(directory: Path, pac_url: str, credentials: dict,
     files['background.js'] = ('const INITIAL_SESSION = ' + json.dumps(initial) + ';\n'
                               + 'const INITIAL_MODE = ' + json.dumps(initial_mode) + ';\n'
                               + 'const CATALOG = ' + json.dumps(catalog) + ';\n'
+                              + ('const MANAGED_ROUTE = true;\n' if managed_route else '')
                               + (source / 'background.js').read_text())
     for name in ("popup.html", "popup.css", "popup.js", "create-session.js", "collect-card.js", "recording.js", "gateway.js", "certificate.js"):
         files[name] = (source / name).read_text()
