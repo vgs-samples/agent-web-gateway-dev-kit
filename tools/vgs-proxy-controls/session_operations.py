@@ -172,14 +172,53 @@ class Operations:
 
     def collect_token(self, value):
         # A transient token for Collect, never a credential-file export or journal entry.
-        if not isinstance(value, dict) or set(value) != {'tenantId','method'} or value['tenantId'] != self.tenant or value['method'] not in ('aliases','card'):
+        if not isinstance(value, dict) or set(value) != {'tenantId','method'} or value['tenantId'] != self.tenant or value['method'] not in ('aliases','card','update'):
             raise ValueError('The selected account changed')
         account = self.account()
         granted = {s['name'] for s in account['scopes'] if s['granted']}
-        permitted = 'aliases:write' in granted if value['method'] == 'aliases' else account['cardsWriteGranted'] or 'cards:create' in granted
+        scope = {'aliases': 'aliases:write', 'card': 'cards:create', 'update': 'cards:update'}[value['method']]
+        permitted = scope in granted or (value['method'] != 'aliases' and account['cardsWriteGranted'])
         if not account['connected'] or not permitted:
             raise ValueError('Collect requires alias or card creation permission')
         return {'accessToken': self.client.token(), 'tenantId': self.tenant, 'environment': self.environment, 'method':value['method']}
+
+    # Cards created in the panel, so a later session needs only a fresh security code.
+    # Holds the card ID, the number alias, the BIN and the last four digits; never a card number or a CVC.
+    def cards_path(self):
+        return self.directory.parent / '.proxy-controls-cards.json'
+
+    def _saved_cards(self):
+        try: saved = json.loads(self.cards_path().read_text())
+        except (OSError, ValueError): return {}
+        return saved if isinstance(saved, dict) else {}
+
+    def saved_cards(self):
+        rows = self._saved_cards().get(f'{self.environment}/{self.tenant}', [])
+        return {'cards': rows if isinstance(rows, list) else []}
+
+    def save_card(self, value):
+        if not isinstance(value, dict): raise ValueError('Invalid saved card')
+        if set(value) == {'remove'}:
+            card, removed = None, value['remove']
+        else:
+            if set(value) != {'cardId', 'alias', 'bin', 'length', 'cvcLength', 'last4'}: raise ValueError('Invalid saved card')
+            if (not isinstance(value['cardId'], str) or not re.fullmatch(r'[A-Za-z0-9_-]{6,80}', value['cardId'])
+                    or not valid_alias(value['alias'], self.environment)
+                    or not isinstance(value['bin'], str) or not re.fullmatch(r'\d{6}(?:\d{2})?', value['bin'])
+                    or type(value['length']) is not int or value['length'] not in range(13, 20)
+                    or type(value['cvcLength']) is not int or value['cvcLength'] not in (3, 4)
+                    or not isinstance(value['last4'], str) or not re.fullmatch(r'(?:\d{4})?', value['last4'])):
+                raise ValueError('Invalid saved card')
+            card, removed = dict(value), value['cardId']
+        key = f'{self.environment}/{self.tenant}'
+        with self.lock:
+            saved = self._saved_cards()
+            rows = [r for r in saved.get(key, []) if isinstance(r, dict) and r.get('cardId') != removed
+                    and (card is None or r.get('alias') != card['alias'])]
+            if card: rows = [card] + rows[:19]
+            saved[key] = rows
+            private_json(self.cards_path(), saved)
+        return {'cards': rows}
 
     def adapters(self):
         response = self.client.api('GET', '/agent-gateway-adapters')

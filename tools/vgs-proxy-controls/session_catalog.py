@@ -314,14 +314,17 @@ class CatalogServer:
                         raise ValueError('Configure this environment in the local helper first')
                     elif write:
                         length = int(self.headers.get('Content-Length', '0'))
-                        if route not in ('/sessions', '/cards', '/collect-token') or not 0 < length <= 24576 or self.headers.get('Content-Type') != 'application/json':
+                        if route not in ('/sessions', '/cards', '/collect-token', '/saved-cards') or not 0 < length <= 24576 or self.headers.get('Content-Type') != 'application/json':
                             self.send_error(400)
                             return
                         value = json.loads(self.rfile.read(length))
                         if route == '/collect-token': data = catalog.operations.collect_token(value)
+                        elif route == '/saved-cards': data = catalog.operations.save_card(value)
                         else: data = catalog.operations.create_card(value) if route == '/cards' else catalog.operations.create(value)
                     elif route == '/adapters':
                         data = catalog.operations.adapters()
+                    elif route == '/saved-cards':
+                        data = catalog.operations.saved_cards()
                     elif match := re.fullmatch(r'/sessions/(RS[A-Za-z0-9]+)/details', route):
                         data = session_details(catalog, match[1])
                     elif match := re.fullmatch(r'/sessions/(RS[A-Za-z0-9]+)/ca', route):

@@ -319,7 +319,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     const page = controlsPage(sender.url);
     if (sender.id !== chrome.runtime.id || !page) return;
     const allowDev = allowDevForPage(page);
-    if (!["getState", "setMode", "refreshSessions", "selectSession", "getPac", "createSession", "creationStatus", "setEnvironment", "getAdapters", "createCard", "cardStatus", "configureEgress", "connectAccount", "browseAccountFile", "accountFileSelectionStatus", "getCollectToken", "getEgressProfiles", "saveEgressProfile", "saveBrowserEgressProfile", "recordingStatus", "recordingTabs", "startRecording", "stopRecording", "readGateway", "getSessionCa", "getSessionDetails"].includes(message?.type)) return;
+    if (!["getState", "setMode", "refreshSessions", "selectSession", "getPac", "createSession", "creationStatus", "setEnvironment", "getAdapters", "createCard", "cardStatus", "configureEgress", "connectAccount", "browseAccountFile", "accountFileSelectionStatus", "getCollectToken", "getSavedCards", "saveCard", "getEgressProfiles", "saveEgressProfile", "saveBrowserEgressProfile", "recordingStatus", "recordingTabs", "startRecording", "stopRecording", "readGateway", "getSessionCa", "getSessionDetails"].includes(message?.type)) return;
     const operation = pending.then(async () => {
         // Gate environment management per controls URL, never by a saved opt-in.
         // Existing routing remains visible and controllable independently.
@@ -362,7 +362,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
             await changeEnvironment(message.environment);
             return refreshSessions();
         }
-        if (["createSession", "selectSession", "createCard", "getAdapters", "connectAccount", "browseAccountFile", "accountFileSelectionStatus", "getCollectToken", "getEgressProfiles", "saveEgressProfile", "saveBrowserEgressProfile"].includes(message.type) && message.environment && message.environment !== environment)
+        if (["createSession", "selectSession", "createCard", "getAdapters", "connectAccount", "browseAccountFile", "accountFileSelectionStatus", "getCollectToken", "getSavedCards", "saveCard", "getEgressProfiles", "saveEgressProfile", "saveBrowserEgressProfile"].includes(message.type) && message.environment && message.environment !== environment)
             throw new Error("Environment changed; refresh the panel.");
         if (message.type === "getEgressProfiles") return {...await getState(), ...await companion("/egress-profiles")};
         if (message.type === "saveBrowserEgressProfile") {
@@ -375,6 +375,8 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
         }
         if (message.type === "saveEgressProfile") return {...await getState(), ...await companion("/egress-profiles", message.profile)};
         if (message.type === "getCollectToken") return companion("/collect-token", {tenantId: message.tenantId, method: message.method});
+        if (message.type === "getSavedCards") return companion("/saved-cards");
+        if (message.type === "saveCard") return companion("/saved-cards", message.card);
         if (message.type === "browseAccountFile") return {...await getState(), fileSelection: await companion("/credentials/picker", {})};
         if (message.type === "accountFileSelectionStatus") {
             if (!/^[a-f0-9-]{36}$/.test(message.requestId)) throw new Error("Invalid file selection");
