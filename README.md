@@ -128,8 +128,7 @@ If Browser Use Cloud runs the agent as well as the browser, pass the session to 
 If your agents run on [Kernel](https://kernel.sh), or you cannot run a browser locally, run this instead:
 
 ```sh
-export KERNEL_API_KEY=…
-./awg kernel
+./awg kernel   # asks for your Kernel API key the first time and saves it
 # Or open a test website in the first tab:
 ./awg kernel https://the-shop-you-are-testing.com/
 ```
