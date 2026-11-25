@@ -379,11 +379,9 @@ else exit 93; fi''')
 
     BROWSERBASE_CURL = '''
 out=""
-headers=""
 args="$*"
 while [ "$#" -gt 0 ]; do
   if [ "$1" = -o ]; then shift; out="$1"; fi
-  if [ "$1" = -D ]; then shift; headers="$1"; fi
   shift
 done
 api=https://api.browserbase.com/v1
@@ -393,16 +391,9 @@ if [[ "$args" = *openid-connect/token* ]]; then
 elif [[ "$args" = *sandbox.vgsapi.com/cards* ]]; then
   printf '%s' '{"data":{"id":"CRFixture","attributes":{"pan_alias":"tok_fixture_pan","cvc_alias":"tok_fixture_cvc","bin":"411111"}}}' > "$out"
   printf 201
-elif [[ "$args" = *tntFixture.sandbox.vault-api.verygoodvault.com/aliases* ]]; then
-  printf '%s' '{"data":[{"aliases":[{"alias":"tok_fixture_pan","format":"UUID"}]},{"aliases":[{"alias":"tok_fixture_cvc","format":"UUID"}]}]}' > "$out"
-  printf 201
 elif [[ "$args" = *sandbox.vgsapi.com/reveal-sessions* ]]; then
   printf '%s' '{"data":{"id":"RSFixture","attributes":{"expires_at":"2099-01-01T00:00:00Z","allowed_hosts":["example.com"],"proxy":{"url":"https://US%40fixture:fixture-proxy-secret@tntFixture.sandbox.verygoodproxy.com:3443","ca_bundle":"-----BEGIN CERTIFICATE-----\\nfixture\\n-----END CERTIFICATE-----\\n","pac_url":"https://sandbox.vgsapi.com/reveal-sessions/RSFixture.pac"}}}}' > "$out"
   printf 201
-elif [[ "$args" = *"-K -"* ]]; then
-  cat > "$FIXTURE_ROOT/proxy-config"
-  [ -f "$FIXTURE_ROOT/direct" ] || printf 'HTTP/1.1 200 OK\\r\\nvgs-request-id: fixture-request\\r\\n' > "$headers"
-  printf 200
 elif [[ "$args" = *"-X POST $api/certificates"* ]]; then
   file="${args#*file=@}"
   cp "${file%%;*}" "$FIXTURE_ROOT/certificate-upload"
@@ -529,41 +520,6 @@ else exit 93; fi''')
         self.assertNotIn('fixture-proxy-secret', refused.stdout + refused.stderr)
         self.assertIn('-X DELETE https://api.browserbase.com/v1/certificates/cert-fixture', (self.root / 'calls').read_text())
         self.assertEqual(list(self.state.glob('browserbase*')), [])
-
-    def test_smoke_checks_the_alias_api_the_proxy_and_browserbase(self):
-        (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
-        self.script('curl', self.BROWSERBASE_CURL)
-        result = self.run_awg('smoke')
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        lines = result.stdout.splitlines()
-        self.assertEqual([line[:4] for line in lines], ['PASS', 'PASS', 'PASS', 'SKIP'], result.stdout)
-        self.assertIn('tntFixture', lines[0])
-        self.assertIn('through the alias API', lines[1])
-        self.assertIn('vgs-request-id: fixture-request', lines[2])
-        calls = (self.root / 'calls').read_text()
-        # The Cards API is never called, and the proxy password reaches curl on stdin only.
-        self.assertNotIn('sandbox.vgsapi.com/cards', calls)
-        self.assertIn('fixture-proxy-secret', (self.root / 'proxy-config').read_text())
-        self.assertNotIn('fixture-proxy-secret', calls + result.stdout + result.stderr)
-        self.assertEqual(sorted(p.name for p in self.state.iterdir()), ['card.json', 'latest-session', 'sandbox.env', 'sessions'])
-
-        self.env['BROWSERBASE_API_KEY'] = 'fixture-browserbase-key'
-        browserbase = self.run_awg('smoke', 'example.com')
-        self.assertEqual(browserbase.returncode, 0, browserbase.stdout + browserbase.stderr)
-        self.assertIn('PASS  browserbase: browser browser-fixture', browserbase.stdout)
-        self.assertNotIn('extensionId', json.loads((self.root / 'browser-body').read_text()))
-        calls = (self.root / 'calls').read_text()
-        self.assertIn('-X POST https://api.browserbase.com/v1/sessions/browser-fixture', calls)
-        self.assertIn('-X DELETE https://api.browserbase.com/v1/certificates/cert-fixture', calls)
-
-        # A request that did not pass through VGS, or a Browserbase refusal, fails the run.
-        (self.root / 'direct').touch()
-        (self.root / 'refuse').touch()
-        failed = self.run_awg('smoke')
-        self.assertEqual(failed.returncode, 1)
-        self.assertIn('FAIL  proxy: no vgs-request-id', failed.stdout)
-        self.assertIn('FAIL  browserbase: Browserbase answered HTTP 403', failed.stdout)
-        self.assertEqual(list(self.state.glob('smoke*')) + list(self.state.glob('browserbase*')), [])
 
     def test_session_uses_alias_api_when_cards_api_refuses(self):
         (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')

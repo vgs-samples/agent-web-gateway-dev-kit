@@ -25,7 +25,6 @@ Help the developer set up and use the VGS Agent Web Gateway dev kit. `./awg` wra
 5. Only if the developer asks for a Browserbase browser, run `./awg browserbase` (or `./awg browserbase https://<the site to test>/`) instead of step 3. It starts a Browserbase cloud browser with the session as its external proxy and the Control Panel open in a tab, and runs until the browser closes.
    - It needs `BROWSERBASE_API_KEY` exported in the developer's own terminal, from a project on Browserbase's Developer plan or higher. Never ask for the key in chat. `BROWSERBASE_PROJECT_ID` is optional.
    - It sends the session's proxy credentials and the browser's traffic to Browserbase. Do not choose it on the developer's behalf, and never use it outside Sandbox.
-   - Run `./awg smoke` first when something fails: it reports credentials, the session, its proxy and Browserbase separately as `PASS`, `FAIL` or `SKIP`. Report those lines; do not work around a `FAIL`.
    - Give the developer the live view link and connect address it prints, and nobody else: each controls the browser. See [docs/browserbase.md](docs/browserbase.md).
 
 ## If a call is refused with 403

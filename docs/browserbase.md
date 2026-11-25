@@ -2,7 +2,7 @@
 
 `./awg start` opens CloakBrowser on your machine. `./awg browserbase` is an alternative for teams that run their agents on [Browserbase](https://www.browserbase.com): the browser runs in Browserbase's cloud and its traffic passes through your reveal session. No browser or Docker is needed locally; the kit uses `curl`, `jq` and `uv`.
 
-> Not yet run against Browserbase's service. The command and the example follow Browserbase's published API and pass the kit's offline tests, which stub Browserbase and VGS. Run `./awg smoke` first: it starts a real Browserbase browser on a real session and reports each step. Not yet exercised: the Control Panel in a Browserbase browser, the relay to the local helper, and a submitted payment.
+> Not yet run against Browserbase's service. The command and the example follow Browserbase's published API and pass the kit's offline tests, which stub Browserbase and VGS. Not yet exercised: the browser starting on a session's proxy, the Control Panel in a Browserbase browser, the relay to the local helper, and a submitted payment.
 
 ## What you need
 
@@ -65,14 +65,6 @@ browser = {
 [`examples/browserbase/payment_flow.py`](../examples/browserbase/payment_flow.py) is the full version: it starts the browser, opens a vendor's payment page with Playwright, types the session's stand-ins, and submits only when asked to.
 
 Send the certificate rather than `browserSettings.ignoreCertificateErrors`: the browser then trusts only the session's certificate authority in addition to the public ones. Each reveal session has its own certificate authority and proxy password, so a new session needs a new upload and a new browser.
-
-## Check it first
-
-```sh
-./awg smoke
-```
-
-`./awg smoke` checks, against the real services, that VGS issues a token for the saved credentials, that a session can be created with the test card stored through the vault alias API, that a request through the session's proxy carries a `vgs-request-id`, and, when `BROWSERBASE_API_KEY` is set, that Browserbase starts a browser on the session. It prints `PASS`, `FAIL` or `SKIP` for each and types nothing anywhere. Pass a host to check a particular site: `./awg smoke vendor.example`.
 
 ## What Browserbase receives
 

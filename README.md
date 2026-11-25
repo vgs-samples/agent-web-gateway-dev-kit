@@ -146,8 +146,9 @@ If your agents run on [Browserbase](https://www.browserbase.com), run this inste
 
 ```sh
 export BROWSERBASE_API_KEY=…
-./awg smoke        # checks your credentials, a session, its proxy, and a Browserbase browser on it
-./awg browserbase  # or: ./awg browserbase https://the-vendor-you-are-paying.com/
+./awg browserbase
+# Or open a test website in a tab:
+./awg browserbase https://the-vendor-you-are-paying.com/
 ```
 
 This creates or reuses an active test-card session and starts a Browserbase browser with the session as its external proxy, the session's certificate authority trusted, and the Control Panel open in a tab. It prints a live view link and the browser's connect address for Playwright, Stagehand or your agent. You need a Browserbase API key on the Developer plan or higher. `BROWSERBASE_PROJECT_ID` is optional.
@@ -166,10 +167,9 @@ An organization that uses the VGS vault without the Card Management Platform nee
    ```
 
    Setup creates the service account in that vault and saves its credentials in `~/.awg-dev-kit/sandbox.env`. If an administrator created the account instead, save its three values there yourself, readable only by you, in the form of [`sandbox.env.example`](tools/vgs-proxy-controls/sandbox.env.example): `VGS_TENANT`, `VGS_CLIENT_ID` and `VGS_CLIENT_SECRET`. It needs `aliases:write`, `reveal-sessions:read`, `reveal-sessions:write`, `agent-gateway:read` and `agent-gateway:write`.
-3. Check it, then start a browser. `AWG_CARD_STORE=aliases` skips the Cards API instead of trying it first:
+3. Start a browser. `AWG_CARD_STORE=aliases` skips the Cards API instead of trying it first:
 
    ```sh
-   ./awg smoke
    AWG_CARD_STORE=aliases ./awg browserbase https://the-vendor-you-are-paying.com/
    ```
 

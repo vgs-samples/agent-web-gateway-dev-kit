@@ -9,7 +9,6 @@
 #   ./awg kernel-login         save or replace your Kernel API key
 #   ./awg browser-use [url]    ./awg start, plus a Chrome DevTools address for a Browser Use agent (--cloud: their cloud browser)
 #   ./awg browserbase [url]    session + a Browserbase cloud browser routed through it (needs BROWSERBASE_API_KEY)
-#   ./awg smoke [host]         check the saved credentials, a session through the alias API, its proxy, and Browserbase
 #   ./awg panel [options]      start only the control panel helper (options of start-proxy-controls.py)
 #   ./awg browser [options]    open only CloakBrowser with the control panel (--session FILE [url])
 #   ./awg cloak-login          save your CloakBrowser license key (once)
@@ -1074,72 +1073,12 @@ Needs BROWSERBASE_API_KEY. BROWSERBASE_PROJECT_ID is optional: Browserbase reads
   say "Closing the Browserbase browser and removing what was uploaded..."
 }
 
-# ---------------------------------------------------------------- smoke test
-
-# Checks the pieces a Browserbase run depends on, one line each, against the real services. It stores
-# the public test card through the vault alias API only, so it also passes on a tenant without the Cards API.
-cmd_smoke() {
-  local host="${1:-example.com}" log headers ca session="" code failed=0
-  case "$host" in
-    --help|-h) say "Usage: ./awg smoke [host]
-Check the saved Sandbox credentials, a reveal session created through the alias API, a request to
-https://<host>/ through the session's proxy, and (with BROWSERBASE_API_KEY) a Browserbase browser on it.
-Nothing is typed or submitted anywhere."; return ;;
-    --*) fail "unknown option for smoke: $host" ;;
-  esac
-  for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
-  need_credentials
-  log=$(mktemp "$STATE_DIR/smoke.XXXXXX")
-  headers=$(mktemp "$STATE_DIR/smoke.XXXXXX")
-  ca=$(mktemp "$STATE_DIR/smoke.XXXXXX")
-  BB_BODY=$(mktemp "$STATE_DIR/browserbase.XXXXXX")
-  trap "bb_cleanup; rm -f '$log' '$headers' '$ca'" EXIT
-
-  if (access_token >/dev/null) 2>"$log"; then
-    say "PASS  credentials: VGS issued an access token for tenant $(cred VGS_TENANT)"
-  else
-    say "FAIL  credentials: $(head -1 "$log")"
-    return 1
-  fi
-
-  if (AWG_CARD_STORE=aliases cmd_session "$host") >"$log" 2>&1 && grep -q 'through the alias API' "$log"; then
-    session=$(latest_session)
-    say "PASS  session: $(basename "$session" .json) created for $host, with the test card stored through the alias API"
-    grep -A2 -E '^Note:' "$log" || true
-  else
-    say "FAIL  session: $(grep -E '^(error:|VGS answered|Alias API answered|A 403)' "$log" | head -3 | tr '\n' ' ')"
-    return 1
-  fi
-
-  # The proxy URL carries the session's proxy password, so curl reads it from stdin, not the command line.
-  jq -r '.data.attributes.proxy.ca_bundle // empty' "$session" > "$ca"
-  code=$(jq -r '"proxy = \"" + (.data.attributes.proxy.url // "") + "\""' "$session" \
-    | curl -sS -K - -o /dev/null -D "$headers" -w '%{http_code}' --max-time 30 \
-        --proxy-cacert "$ca" --cacert "$ca" "https://$host/" 2>/dev/null) || code=000
-  if grep -qi '^vgs-request-id:' "$headers"; then
-    say "PASS  proxy: https://$host/ answered HTTP $code through the session ($(grep -i '^vgs-request-id:' "$headers" | tail -1 | tr -d '\r'))"
-  else
-    say "FAIL  proxy: no vgs-request-id on https://$host/ through the session's proxy (HTTP $code)"
-    failed=1
-  fi
-
-  if [ -z "${BROWSERBASE_API_KEY:-}" ]; then
-    say "SKIP  browserbase: BROWSERBASE_API_KEY is not set"
-  elif bb_start_browser "$session" "" >"$log" 2>&1; then
-    say "PASS  browserbase: browser $BB_BROWSER started on the session's proxy with its certificate authority; closing it"
-  else
-    say "FAIL  browserbase: $(tr '\n' ' ' < "$log")"
-    failed=1
-  fi
-  return "$failed"
-}
-
 cmd_sitecheck() {
   need_uv
   (cd "$SITECHECK_DIR" && uv run awg-sitecheck "$@")
 }
 
-usage() { sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 case "${1:-}" in
   test)        shift; cmd_test "$@" ;;
@@ -1149,7 +1088,6 @@ case "${1:-}" in
   kernel)      shift; cmd_kernel "$@" ;;
   browser-use) shift; cmd_browser_use "$@" ;;
   browserbase) shift; cmd_browserbase "$@" ;;
-  smoke)       shift; cmd_smoke "$@" ;;
   panel)       shift; cmd_panel "$@" ;;
   browser)     shift; cmd_browser "$@" ;;
   cloak-login) shift; cmd_cloak_login "$@" ;;
