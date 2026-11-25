@@ -312,7 +312,7 @@ explicit environment or endpoint values in a file must match it.
 **New session…** opens account setup when the environment is unconfigured or lacks
 creation permission, with a visible explanation. Connect an account granting
 `reveal-sessions:read` and `reveal-sessions:write`, then return to Browser Settings and open
-the form. **Add card** opens VGS Collect hosted card-number and security-code fields, authorized by the account connected in Settings. It uses `aliases:write` when available, or Collect’s card-creation API with `cards:write` / `cards:create`; no Terminal tokenizer is required.
+the form. **Add card** opens VGS Collect hosted card-number and security-code fields, authorized by the account connected in Settings. It uses Collect’s card-creation API with `cards:write` / `cards:create`, or `aliases:write` for an account without a card scope; no Terminal tokenizer is required.
 
 API and authentication domains follow the selected environment. The session's signed
 PAC URL and proxy credentials come from its original response and are never
@@ -468,7 +468,9 @@ Service-account secrets stay in the helper. Collect receives a transient access 
 
 Recordings made from the panel's **Recording** tab use `capture_preferences.har_recording_filter()` to exclude VGS Collect, Vault/Cards API, and loopback helper traffic. Card values are visible inside the hosted fields; screen/video captures can include them. This filter applies to panel recordings; a manually exported DevTools HAR is controlled by DevTools.
 
-An account with `aliases:write` creates fresh PAN/CVC aliases directly. A card-write account uses Collect’s Cards API. If that API returns an existing card without a fresh CVC alias, the panel rejects the incomplete result and asks for an account with `aliases:write`. Existing CVC aliases are never silently reused.
+An account with a card scope uses Collect’s Cards API. An account with only `aliases:write` creates fresh PAN/CVC aliases directly. If the Cards API returns an existing card without a fresh CVC alias, the panel rejects the incomplete result and the card is not added.
+
+A card created through the Cards API is saved by the local helper in `.proxy-controls-cards.json`, next to the sessions directory, readable only by you. The file holds the card ID, the card number alias, the BIN, the last four digits and the two lengths; it never holds a card number or a security code. **Add card** lists these under **Saved cards**. Choosing one shows only the security-code field and calls Collect’s `updateCard` (`cards:update` or `cards:write`) to get a fresh CVC alias for the saved card. **Forget this card** removes it from the file; it does not delete the card in VGS. Existing CVC aliases are never silently reused.
 
 The [capture review workflow](../tools/vgs-proxy-controls/REPAIRS.md) describes how to inspect HAR evidence and validate destination or adapter changes. Automatic destination repair is unavailable in customer environments; use explicitly authorized gateway operations after validation.
 

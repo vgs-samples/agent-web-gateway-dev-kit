@@ -59,7 +59,10 @@ function renderAliases(focusKey) {
             });
         }
         const alias = line.querySelector('[data-field=alias]');
-        alias.placeholder = prefix + '…'; alias.pattern = collectCard.aliasPattern(state.environment); alias.required = true;
+        alias.placeholder = prefix + '…'; alias.required = true;
+        // Aliases the Cards API returned for a card are digits, not tok_…; they are fixed and checked by the helper.
+        if (row.cardId) { alias.readOnly = true; line.querySelector('[data-field=format]').disabled = true; line.querySelector('[data-field=storage]').disabled = true; }
+        else alias.pattern = collectCard.aliasPattern(state.environment);
         line.querySelector('.alias-bin').hidden = row.format !== 'card_number';
         line.querySelector('.alias-length').hidden = row.format === 'text';
         line.querySelector('[data-field=bin]').required = row.format === 'card_number';
@@ -162,6 +165,7 @@ function collectOptions() {
     const aliases = aliasRows.map((row, index) => {
         const alias = row.alias.trim(), format = row.format;
         const result = {alias, format, storage: row.storage};
+        if (row.cardId) result.cardId = row.cardId;
         if (format === 'card_number') {
             if (!/^\d{6}(?:\d{2})?$/.test(row.bin.trim())) throw new Error(`Alias ${index + 1}: enter a 6 or 8 digit BIN.`);
             if (row.storage !== 'PERSISTENT') throw new Error('Card number aliases must use Persistent storage.');
@@ -236,7 +240,7 @@ function renderCardOperation(value) {
             if (!formats.has('card_number') || !formats.has('card_cvc')) {
                 el('card-notice').textContent='Both aliases are required. The card was not added.';
             } else {
-                for (const a of value.aliases.filter(a => !aliasRows.some(row => row.alias === a.alias))) aliasRows.push({key:nextAliasKey++,alias:a.alias,format:a.format,storage:a.storage,bin:a.bin || '',length:String(a.length || '')});
+                for (const a of value.aliases.filter(a => !aliasRows.some(row => row.alias === a.alias))) aliasRows.push({key:nextAliasKey++,alias:a.alias,format:a.format,storage:a.storage,bin:a.bin || '',length:String(a.length || ''),...(a.cardId ? {cardId:a.cardId} : {})});
                 el('add-card-panel').hidden=true; renderAliases(aliasRows.at(-2)?.key);
                 el('card-notice').textContent='Aliases ready. Security code aliases expire; create your session soon.';
             }

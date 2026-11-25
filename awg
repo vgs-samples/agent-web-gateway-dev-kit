@@ -5,7 +5,8 @@
 #   ./awg setup [--organization AC…]  log in and provision Sandbox credentials
 #   ./awg session [hosts]      create a reveal session for a test card (hosts: comma-separated)
 #   ./awg start [url]          one step: session + control panel helper + CloakBrowser
-#   ./awg kernel [url]         session + a Kernel cloud browser routed through it (needs KERNEL_API_KEY)
+#   ./awg kernel [url]         session + a Kernel cloud browser routed through it (asks for your Kernel API key once)
+#   ./awg kernel-login         save or replace your Kernel API key
 #   ./awg browser-use [url]    ./awg start, plus a Chrome DevTools address for a Browser Use agent (--cloud: their cloud browser)
 #   ./awg panel [options]      start only the control panel helper (options of start-proxy-controls.py)
 #   ./awg browser [options]    open only CloakBrowser with the control panel (--session FILE [url])
@@ -410,6 +411,47 @@ kernel_call() {  # kernel_call <method> <path> [json body]; sets KERNEL_CODE and
     -H "Authorization: Bearer $KERNEL_API_KEY" -H 'Content-Type: application/json' ${3:+--data-binary @-}) || KERNEL_CODE=000
 }
 
+# Kernel's API key is asked for once and kept in a private file. KERNEL_API_KEY in the environment
+# still works, and is saved the same way so the next run needs nothing.
+KERNEL_KEY_FILE="$STATE_DIR/kernel-key"
+
+save_kernel_key() {  # save_kernel_key <key>
+  mkdir -p "$STATE_DIR"
+  chmod 700 "$STATE_DIR"
+  printf '%s\n' "$1" > "$KERNEL_KEY_FILE.tmp"
+  chmod 600 "$KERNEL_KEY_FILE.tmp"
+  mv "$KERNEL_KEY_FILE.tmp" "$KERNEL_KEY_FILE"
+}
+
+cmd_kernel_login() {
+  local key=""
+  [ -t 0 ] || fail "run './awg kernel-login' in your own terminal to save the Kernel API key."
+  say "Create an API key in your Kernel account (https://kernel.sh), then paste it below. It is saved privately and not shown."
+  read -r -s -p "Kernel API key: " key
+  say ""
+  key=$(printf '%s' "$key" | tr -d '[:space:]')
+  [ -n "$key" ] || fail "no key entered."
+  save_kernel_key "$key"
+  KERNEL_API_KEY="$key"
+  say "Saved. ./awg kernel will use it from now on."
+}
+
+need_kernel_key() {
+  # Kernel's CLI, which opens the tunnel to the local helper, reads the key from the environment.
+  export KERNEL_API_KEY="${KERNEL_API_KEY:-}"
+  if [ -n "$KERNEL_API_KEY" ]; then
+    [ "$(tr -d '[:space:]' < "$KERNEL_KEY_FILE" 2>/dev/null || true)" = "$KERNEL_API_KEY" ] || save_kernel_key "$KERNEL_API_KEY"
+    return
+  fi
+  if [ -s "$KERNEL_KEY_FILE" ]; then
+    chmod 600 "$KERNEL_KEY_FILE" 2>/dev/null || true
+    KERNEL_API_KEY=$(tr -d '[:space:]' < "$KERNEL_KEY_FILE")
+    [ -z "$KERNEL_API_KEY" ] || return 0
+  fi
+  [ -t 0 ] || fail "KERNEL_API_KEY is not set and no Kernel API key is saved. Run './awg kernel-login' in your own terminal once."
+  cmd_kernel_login
+}
+
 KERNEL_BROWSER=""; KERNEL_PROXY=""; KERNEL_EXTENSION=""; KERNEL_ZIP=""
 KERNEL_HELPER=""; KERNEL_TUNNEL=""; KERNEL_PANEL_DIR=""
 
@@ -443,7 +485,7 @@ kernel_cleanup() {
 kernel_refused() {  # kernel_refused <what was attempted>
   say "Kernel answered HTTP $KERNEL_CODE:"
   jq -c '{code, message} | with_entries(select(.value != null))' "$KERNEL_BODY" 2>/dev/null | cut -c1-400 || true
-  [ "$KERNEL_CODE" != 401 ] || say "Kernel did not accept KERNEL_API_KEY. Check the key in your Kernel account."
+  [ "$KERNEL_CODE" != 401 ] || say "Kernel did not accept the API key. Check it in your Kernel account, then save a new one with:  ./awg kernel-login"
   fail "$1"
 }
 
@@ -452,8 +494,7 @@ kernel_refused() {  # kernel_refused <what was attempted>
 cmd_kernel() {
   local url="${1:-}" host="" session body proxy_id browser_id live extension_id="" helper_port=""
   for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
-  [ -n "${KERNEL_API_KEY:-}" ] || fail "KERNEL_API_KEY is not set. Create an API key in your Kernel account (https://kernel.sh), then run:
-       KERNEL_API_KEY=… ./awg kernel"
+  need_kernel_key
   need_uv
   [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
   [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
@@ -818,7 +859,7 @@ cmd_sitecheck() {
   (cd "$SITECHECK_DIR" && uv run awg-sitecheck "$@")
 }
 
-usage() { sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 case "${1:-}" in
   test)        shift; cmd_test "$@" ;;
@@ -830,6 +871,7 @@ case "${1:-}" in
   panel)       shift; cmd_panel "$@" ;;
   browser)     shift; cmd_browser "$@" ;;
   cloak-login) shift; cmd_cloak_login "$@" ;;
+  kernel-login) shift; cmd_kernel_login "$@" ;;
   sitecheck)   shift; cmd_sitecheck "$@" ;;
   ""|-h|--help|help) usage ;;
   *) usage; fail "unknown command: $1" ;;

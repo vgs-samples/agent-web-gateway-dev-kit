@@ -12,8 +12,10 @@
 ## Run it
 
 ```sh
-KERNEL_API_KEY=… ./awg kernel https://<the site to test>/
+./awg kernel https://<the site to test>/
 ```
+
+The first run asks for your Kernel API key and saves it in `~/.awg-dev-kit/kernel-key`, readable only by you. Later runs use the saved key. A key in `KERNEL_API_KEY` is used instead and saved the same way. To replace the saved key, run `./awg kernel-login`.
 
 The command:
 
@@ -46,8 +48,8 @@ The session's proxy address, proxy username and password, and certificate author
 
 | Output | Meaning |
 |---|---|
-| `KERNEL_API_KEY is not set` | Export the key or put it in front of the command. |
-| `Kernel answered HTTP 401` | Kernel did not accept the key. |
+| `KERNEL_API_KEY is not set and no Kernel API key is saved` | The command had no terminal to ask in. Run `./awg kernel-login` in your own terminal once. |
+| `Kernel answered HTTP 401` | Kernel did not accept the key. Save a new one with `./awg kernel-login`. |
 | `Kernel did not create the proxy` | Kernel rejected the proxy definition; the line above it has Kernel's reason. |
 | `insufficient_plan` | Custom proxies need Kernel's Start-Up or Enterprise plan. Upgrade the Kernel account. |
 | Pages fail to load in the Kernel browser | The session expired, or Kernel cannot reach the session's proxy host and port. |

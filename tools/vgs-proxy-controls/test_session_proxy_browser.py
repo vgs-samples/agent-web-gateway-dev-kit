@@ -99,7 +99,7 @@ def main():
                     return {'tenantId': 'tntTrainingDemo', 'connected': True, 'creationAvailable': True,
                             'egressConfig': {'scheme':'http','hostname':'egress.fixture','port':3128}, 'egressLocked': True, 'tokenizerReady': True, 'egress': 'http://egress.fixture:3128', 'sensitiveHarEnabled': True,
                             'cardsWriteGranted': self.cards_only,
-                            'scopes': [{'name': s, 'granted': True} for s in ['cards:create', 'aliases:write', 'reveal-sessions:write', 'reveal-sessions:read'] if not self.cards_only or s != 'aliases:write']}
+                            'scopes': [{'name': s, 'granted': True} for s in ['cards:create', 'aliases:write', 'reveal-sessions:write', 'reveal-sessions:read'] if self.cards_only or s != 'cards:create']}
                 def adapters(self):
                     return {'adapters':[{'id':'ADGLOBAL','name':'Global-e','owner':'vgs'},{'id':'ADLOCAL','name':'Fixture custom','owner':'tenant'}]}
                 def collect_token(self, options):
@@ -360,11 +360,11 @@ def main():
                 assert 'fixture-transient-token' not in worker.evaluate('()=>chrome.storage.local.get(null).then(JSON.stringify)')
                 controls.locator('#cancel-create').click()
                 controls.locator('#open-create').click()
-                # Exercise the Cards API branch for an account without aliases:write.
+                # An account with a card scope uses the Cards API, even when it also has aliases:write.
                 fixture_catalog.cards_only = True
                 controls.wait_for_function('() => !busy')
                 controls.evaluate("()=>request({type:'refreshSessions'})")
-                assert controls.evaluate('state.account.cardsWriteGranted && !state.account.scopes.some(s=>s.name==="aliases:write")')
+                assert controls.evaluate('state.account.cardsWriteGranted && state.account.scopes.some(s=>s.name==="aliases:write")')
                 for mode,expected in [('missing-cvc','without a fresh security-code alias'),('card-success','Aliases ready')]:
                     controls.evaluate('(mode)=>globalThis.collectFixtureMode=mode',mode)
                     controls.locator('#add-card').click()
