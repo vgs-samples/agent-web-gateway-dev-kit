@@ -37,9 +37,7 @@ The kit comes with:
 - **An [Agent Web Gateway Control Panel Chromium extension](docs/control-panel.md)** for testing, debugging, and building adapters for new vendors and sites. [Download the latest build artifact](https://github.com/vgs-samples/agent-web-gateway-dev-kit/actions/workflows/control-panel-package.yml) from its newest successful run, or use the [download and build guide](docs/training/extension-distribution.md) to find the latest successful build. GitHub artifacts require sign-in and expire after 30 days.
 - **An [MCP companion](docs/mcp.md)** so your assistant can capture browser traffic, inspect HARs, and work with functions, adapters, destinations, and bindings. Writes must be enabled before it can modify those resources.
 - **[Adapter-authoring skills](skills/vgs-checkout-adapter/SKILL.md)** for reading HAR evidence, creating synthetic fixtures, writing VGS Compute functions, testing locally in Starlarky, and registering and verifying an adapter. Start with the [provider examples](examples/adapters/README.md).
-- **A [Browser Use option](docs/browser-use.md)** that opens the same browser with a Chrome DevTools address, so a Browser Use agent or Browser Harness can drive it through the session.
-- **A [Kernel cloud browser option](docs/kernel.md)** that runs the session and the Control Panel in Kernel's cloud with one command, for teams whose agents run on Kernel.
-- **A [Browserbase cloud browser option](docs/browserbase.md)** that runs the session and the Control Panel in Browserbase's cloud with one command, with a [vendor payment example](examples/browserbase/README.md).
+- **Cloud and agent browser options** for [Browser Use](docs/browser-use.md), [Kernel](docs/kernel.md) and [Browserbase](docs/browserbase.md), each started with one command.
 - **Browser setup instructions** for [CloakBrowser](#agent-web-gateway-control-panel-chromium-extension), [Chrome for Testing, Chromium, Chrome, Edge, and Brave](docs/training/10-proxy-controls-extension.md#browser-launch-examples). Browser installation and extension loading differ; the guide covers each. Follow [Browser proxying best practices](docs/browser-proxying.md) for egress, PAC routing, and when to create the payment session.
 
 Clone the repo and open it in your coding assistant:
@@ -71,6 +69,17 @@ Setup installs [VGS CLI](https://docs.verygoodsecurity.com/vault/developer-tools
 
 You can do this yourself if your VGS login is allowed to create service accounts in the organization; otherwise ask your organization's administrator. If the new account is still missing scopes, your organization has not been granted them, and only VGS can enable them. See [missing scopes](docs/setup.md#missing-scopes).
 
+### If your vault has no Cards API
+
+Nothing else is needed. The kit tries the Cards API, and when it is refused it stores the test card through the vault alias API and creates the session from those aliases. To point the kit at a particular Sandbox vault and skip the Cards API outright (the IDs are placeholders):
+
+```sh
+./awg setup --organization AC_YOUR_ORGANIZATION --tenant tntYOURVAULT
+AWG_CARD_STORE=aliases ./awg start
+```
+
+The vault needs Agent Web Gateway enabled by VGS, and the service account needs `aliases:write`, `reveal-sessions:read`, `reveal-sessions:write`, `agent-gateway:read` and `agent-gateway:write`. The Sandbox hosts follow from the vault ID, so there is no host to configure. See the [setup guide](docs/setup.md#automatic-service-account-creation).
+
 ## Agent Web Gateway Control Panel Chromium Extension
 
 The [Control Panel](docs/control-panel.md) gives you a place to create and select reveal sessions, inspect session aliases, choose a browser route, record traffic, and inspect gateway configuration. Use it to work through a checkout, diagnose a failing transformation, or collect the evidence for a new adapter.
@@ -91,91 +100,24 @@ This creates or reuses an active test-card session and opens CloakBrowser with t
 
 If your coding assistant's sandbox blocks the browser or local helper, run the command yourself rather than retrying it inside the sandbox. In Claude Code, you can use `! ./awg start`. For other browsers, follow the [browser launch examples](docs/training/10-proxy-controls-extension.md#browser-launch-examples).
 
-### Drive the browser with Browser Use
+### Use another browser
 
-If your agent is built on [Browser Use](https://github.com/browser-use/browser-use), run this instead of `./awg start`:
+Run one of these instead of `./awg start`. Each takes the same optional website address.
 
-```sh
-./awg browser-use
-```
+| Your agent runs on | Command | You need | Guide |
+|---|---|---|---|
+| [Browser Use](https://github.com/browser-use/browser-use), on your machine | `./awg browser-use` | The same as `./awg start` | [Browser Use](docs/browser-use.md) |
+| [Browser Use Cloud](https://cloud.browser-use.com) | `./awg browser-use --cloud` | `BROWSER_USE_API_KEY`, for a project with custom proxies enabled | [Browser Use](docs/browser-use.md#use-a-browser-use-cloud-browser) |
+| [Kernel](https://kernel.sh) | `./awg kernel` | A Kernel API key on a Start-Up or Enterprise plan; the first run asks for it | [Kernel](docs/kernel.md) |
+| [Browserbase](https://www.browserbase.com) | `./awg browserbase` | `BROWSERBASE_API_KEY`, on the Developer plan or higher | [Browserbase](docs/browserbase.md) |
 
-It opens the same browser and Control Panel, and also a Chrome DevTools address on `127.0.0.1:9222`. Connect the agent with `Browser(cdp_url='http://127.0.0.1:9222')`, or Browser Harness with `BU_CDP_URL=http://127.0.0.1:9222`.
+`./awg browser-use` opens the kit's own browser with a Chrome DevTools address on `127.0.0.1:9222` for your agent.
 
-The [Browser Use guide](docs/browser-use.md) covers the details, and [`examples/browser-use/`](examples/browser-use/README.md) has agents to start from.
-
-### Start the browser in Browser Use Cloud
-
-If your agents run on [Browser Use Cloud](https://cloud.browser-use.com), or you cannot run a browser locally, run this instead:
-
-```sh
-export BROWSER_USE_API_KEY=…
-./awg browser-use --cloud
-# Or open a test website in a tab:
-./awg browser-use --cloud https://the-shop-you-are-testing.com/
-```
-
-[![Agent Web Gateway Control Panel running in a Browser Use cloud browser](docs/images/browser-use-browser.png)](docs/images/browser-use-browser.png)
-
-This creates or reuses an active test-card session and starts a Browser Use cloud browser with the session as its custom proxy and the Control Panel open in a tab. It prints a live view link for watching and driving the browser, and the browser's Chrome DevTools address for your agent. No local browser and no Docker are needed. You need a Browser Use API key for a project with custom proxies enabled, which Browser Use turns on per project on request.
-
-The full Control Panel works in the Browser Use browser, except for switching routes: the browser stays on the session it started with. Its helper stays on your machine, and the browser reaches it through the kit's relay over the browser's DevTools connection, so your service-account credentials are not uploaded. Session proxy credentials and browser traffic go to Browser Use in this mode. The [Browser Use guide](docs/browser-use.md) covers the details.
-
-If Browser Use Cloud runs the agent as well as the browser, pass the session to the hosted run as its custom proxy and the session aliases as secret bindings. [`examples/browser-use/cloud_run.py`](examples/browser-use/cloud_run.py) does this. Here a hosted agent has filled Stripe's Elements demo with a session's aliases, with the browser's traffic passing through VGS:
-
-[![A hosted Browser Use Cloud agent run that filled a payment form with a reveal session's aliases](docs/images/browser-use-hosted-run.png)](docs/images/browser-use-hosted-run.png)
-
-### Start the browser in Kernel
-
-If your agents run on [Kernel](https://kernel.sh), or you cannot run a browser locally, run this instead:
-
-```sh
-./awg kernel   # asks for your Kernel API key the first time and saves it
-# Or open a test website in the first tab:
-./awg kernel https://the-shop-you-are-testing.com/
-```
+The other three run the browser in the provider's cloud, so no local browser and no Docker are needed. Each creates or reuses an active test-card session, starts a cloud browser with the session as its proxy and the Control Panel open in a tab, and prints a live view link for watching and driving it.
 
 [![Agent Web Gateway Control Panel running in a Kernel cloud browser](docs/images/kernel-browser.png)](docs/images/kernel-browser.png)
 
-This creates or reuses an active test-card session, registers it with Kernel as a custom proxy, and starts a Kernel cloud browser with the Control Panel open in a tab. It prints a live view link for watching and driving the browser. No local browser and no Docker are needed. You need a Kernel API key on a Start-Up or Enterprise plan.
-
-The full Control Panel works in the Kernel browser. Its helper stays on your machine, and the browser reaches it through Kernel's SSH tunnel, so your service-account credentials are not uploaded. The first run installs Kernel's CLI and `websocat` with Homebrew for that tunnel. Session proxy credentials and browser traffic go to Kernel in this mode. The [Kernel guide](docs/kernel.md) covers the details.
-
-### Start the browser in Browserbase
-
-If your agents run on [Browserbase](https://www.browserbase.com), run this instead:
-
-```sh
-export BROWSERBASE_API_KEY=…
-./awg browserbase
-# Or open a test website in a tab:
-./awg browserbase https://the-vendor-you-are-paying.com/
-```
-
-This creates or reuses an active test-card session and starts a Browserbase browser with the session as its external proxy, the session's certificate authority trusted, and the Control Panel open in a tab. It prints a live view link and the browser's connect address for Playwright, Stagehand or your agent. You need a Browserbase API key on the Developer plan or higher. `BROWSERBASE_PROJECT_ID` is optional.
-
-The Control Panel's helper stays on your machine, so your service-account credentials are not uploaded. Session proxy credentials and browser traffic go to Browserbase in this mode; the card does not. [`examples/browserbase/payment_flow.py`](examples/browserbase/README.md) pays a vendor from a Browserbase browser with the session's stand-ins. This option has not yet been run against Browserbase's service; the [Browserbase guide](docs/browserbase.md) says what is and is not verified.
-
-### Sandbox setup for a vault without the Cards API
-
-An organization that uses the VGS vault without the Card Management Platform needs nothing else: the kit stores the test card through the vault alias API and creates the session from those aliases.
-
-1. Ask VGS to enable Agent Web Gateway on your Sandbox vault.
-2. Point the kit at that vault. The IDs here are placeholders:
-
-   ```sh
-   ./awg setup --organization AC_YOUR_ORGANIZATION --tenant tntYOURVAULT
-   ```
-
-   Setup creates the service account in that vault and saves its credentials in `~/.awg-dev-kit/sandbox.env`. If an administrator created the account instead, save its three values there yourself, readable only by you, in the form of [`sandbox.env.example`](tools/vgs-proxy-controls/sandbox.env.example): `VGS_TENANT`, `VGS_CLIENT_ID` and `VGS_CLIENT_SECRET`. It needs `aliases:write`, `reveal-sessions:read`, `reveal-sessions:write`, `agent-gateway:read` and `agent-gateway:write`.
-3. Start a browser. `AWG_CARD_STORE=aliases` skips the Cards API instead of trying it first:
-
-   ```sh
-   AWG_CARD_STORE=aliases ./awg browserbase https://the-vendor-you-are-paying.com/
-   ```
-
-The Sandbox hosts follow from the vault ID, so there is nothing else to configure: the session's proxy is `<vault ID>.sandbox.verygoodproxy.com` and the alias API is `<vault ID>.sandbox.vault-api.verygoodvault.com`.
-
-The rest works as on any other vault. Session aliases belong to one [reveal session](#4-reveal-sessions). A host the session does not list is handled by the vault's unlisted-host mode, and stays [guarded](#guarded-destinations) until someone trusts it in the Control Panel's gateway view or through the Destinations API. A vendor that encrypts card fields in the browser needs an [adapter](#2-adapters).
+The Control Panel's helper stays on your machine, so your service-account credentials are not uploaded. The session's proxy credentials and the browser's traffic do go to the provider; the card does not. Each guide says what has been verified with that provider, and [`examples/`](examples) has agents and a vendor payment flow to start from.
 
 ### Create sessions for cards
 
