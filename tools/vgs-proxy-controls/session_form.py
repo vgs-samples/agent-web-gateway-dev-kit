@@ -35,14 +35,20 @@ def validate_aliases(rows, environment):
         raise ValueError('Add between 1 and 20 aliases')
     result = []
     for row in rows:
-        if not isinstance(row, dict) or set(row) - {'alias','format','bin','length','storage'}:
+        if not isinstance(row, dict) or set(row) - {'alias','format','bin','length','storage','cardId'}:
             raise ValueError('Unsupported alias fields')
-        alias, fmt, storage = row.get('alias'), row.get('format'), row.get('storage')
-        if not valid_alias(alias, environment):
-            raise ValueError('Enter an alias for the selected environment, never a raw card value')
+        alias, fmt, storage, card_id = row.get('alias'), row.get('format'), row.get('storage'), row.get('cardId')
         if fmt not in ('card_number','card_cvc','text') or storage not in ('PERSISTENT','VOLATILE'):
             raise ValueError('Choose an alias format and storage')
+        if card_id is not None and (not isinstance(card_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{6,80}', card_id) or fmt == 'text'):
+            raise ValueError('Invalid card reference')
+        # The Cards API returns format-preserving aliases (digits). They are accepted only with the
+        # ID of the card they belong to, which is checked against VGS before the session is created.
+        card_alias = card_id is not None and isinstance(alias, str) and re.fullmatch(r'\d{13,19}' if fmt == 'card_number' else r'\d{3,4}', alias)
+        if not valid_alias(alias, environment) and not card_alias:
+            raise ValueError('Enter an alias for the selected environment, never a raw card value')
         out = {'alias':alias, 'format':fmt, 'storage':storage}
+        if card_id is not None: out['cardId'] = card_id
         if fmt == 'card_number':
             if storage != 'PERSISTENT': raise ValueError('Card number aliases must use Persistent storage')
             if not isinstance(row.get('bin'), str) or not re.fullmatch(r'\d{6}(?:\d{2})?', row['bin']):

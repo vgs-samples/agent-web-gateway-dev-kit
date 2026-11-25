@@ -192,15 +192,23 @@ const collectCard = (() => {
                 throw new Error('VGS did not return a fresh security-code alias for the saved card. The card was not added.');
             if (selected.method === 'card' && attributes?.pan_alias && !attributes.cvc_alias)
                 throw new Error('VGS returned an existing card without a fresh security-code alias. The card was not added.');
-            if (typeof panAlias !== 'string' || typeof cvcAlias !== 'string' || !pattern.test(panAlias) || !pattern.test(cvcAlias) || panAlias === cvcAlias)
+            // The Cards API answers with format-preserving aliases: digits, the same length as the card number and the code.
+            // They are accepted only together with the card ID VGS returned, which the helper checks before using them.
+            const cardId = card ? card.cardId : attributes && typeof response?.data?.id === 'string' ? response.data.id : undefined;
+            const panOk = typeof panAlias === 'string' && (pattern.test(panAlias) || (!!cardId && /^\d{13,19}$/.test(panAlias)));
+            const cvcOk = typeof cvcAlias === 'string' && (pattern.test(cvcAlias) || (!!cardId && /^\d{3,4}$/.test(cvcAlias)));
+            if (!panOk || !cvcOk || panAlias === cvcAlias)
                 throw new Error('VGS did not return both expected aliases. The card was not added.');
+            const digits = /^\d+$/.test(panAlias);
             // Keep the new card for later sessions. Saving is local and best-effort; the aliases are returned either way.
-            if (selected.method === 'card' && typeof response?.data?.id === 'string')
-                chrome.runtime.sendMessage({type:'saveCard', environment:selected.environment, card:{cardId:response.data.id, alias:panAlias, bin, length:panLength, cvcLength,
+            const length = digits ? panAlias.length : panLength, codeLength = /^\d+$/.test(cvcAlias) ? cvcAlias.length : cvcLength;
+            if (selected.method === 'card' && cardId)
+                chrome.runtime.sendMessage({type:'saveCard', environment:selected.environment, card:{cardId, alias:panAlias, bin, length, cvcLength:codeLength,
                     last4:/^\d{4}$/.test(attributes.last4 || '') ? attributes.last4 : ''}}).catch(() => {});
+            const source = cardId ? {cardId} : {};
             return {environment:selected.environment, tenantId:selected.tenantId, aliases:[
-                {alias:panAlias,format:'card_number',storage:'PERSISTENT',bin,length:panLength},
-                {alias:cvcAlias,format:'card_cvc',storage:'VOLATILE',length:cvcLength}]};
+                {alias:panAlias,format:'card_number',storage:'PERSISTENT',bin,length,...source},
+                {alias:cvcAlias,format:'card_cvc',storage:'VOLATILE',length:codeLength,...source}]};
 
         } finally { reset(); changed(); }
     }

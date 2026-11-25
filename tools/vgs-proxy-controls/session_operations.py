@@ -203,7 +203,8 @@ class Operations:
         else:
             if set(value) != {'cardId', 'alias', 'bin', 'length', 'cvcLength', 'last4'}: raise ValueError('Invalid saved card')
             if (not isinstance(value['cardId'], str) or not re.fullmatch(r'[A-Za-z0-9_-]{6,80}', value['cardId'])
-                    or not valid_alias(value['alias'], self.environment)
+                    or not isinstance(value['alias'], str)
+                    or not (valid_alias(value['alias'], self.environment) or re.fullmatch(r'\d{13,19}', value['alias']))
                     or not isinstance(value['bin'], str) or not re.fullmatch(r'\d{6}(?:\d{2})?', value['bin'])
                     or type(value['length']) is not int or value['length'] not in range(13, 20)
                     or type(value['cvcLength']) is not int or value['cvcLength'] not in (3, 4)
@@ -314,7 +315,7 @@ class Operations:
             attrs = {'egress_proxy_settings': egress} if egress else {}
             if options['allowedHosts']: attrs['allowed_hosts'] = options['allowedHosts']
             if options['source'] == 'dashboard':
-                attrs.update(session_parts(options['aliases']))
+                attrs.update(session_parts(self.confirmed_aliases(options['aliases'])))
                 if options['allowedClientCidrs']: attrs['allowed_client_cidrs'] = options['allowedClientCidrs']
                 if options['adapter']:
                     if not any(row['id'] == options['adapter'] for row in self.adapters()['adapters']):
@@ -345,6 +346,19 @@ class Operations:
         finally:
             if slot: slot.close()
             private_json(self.job_path(record['requestId']), record)
+
+    def confirmed_aliases(self, aliases):
+        """Drop the card reference, after checking a card's number alias is the one VGS holds for that card."""
+        result = []
+        for row in aliases:
+            card_id = row.get('cardId')
+            if card_id and row['format'] == 'card_number' and not valid_alias(row['alias'], self.environment):
+                try: held = self.client.api('GET', '/cards/' + card_id).get('data', {}).get('attributes', {}).get('pan_alias')
+                except Exception: held = None  # The lookup is a safeguard; VGS still validates the alias itself.
+                if held is not None and held != row['alias']:
+                    raise ValueError('The card number alias does not match the card in VGS. Add the card again.')
+            result.append({k: v for k, v in row.items() if k != 'cardId'})
+        return result
 
     def status(self, rid):
         record = json.loads(self.job_path(rid).read_text())
