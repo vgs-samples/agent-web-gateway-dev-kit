@@ -2,7 +2,7 @@
 
 `./awg start` opens CloakBrowser on your machine. `./awg browserbase` is an alternative for teams that run their agents on [Browserbase](https://www.browserbase.com): the browser runs in Browserbase's cloud and its traffic passes through your reveal session. No browser or Docker is needed locally; the kit uses `curl`, `jq` and `uv`.
 
-> Not yet run against Browserbase's service. The command and the example follow Browserbase's published API and pass the kit's offline tests, which stub Browserbase and VGS. Not yet exercised: the browser starting on a session's proxy, the Control Panel in a Browserbase browser, the relay to the local helper, and a submitted payment.
+> Run so far, against a Browserbase project on the free plan: Browserbase accepted the session's certificate authority and the Control Panel upload, then refused to start the browser because the free plan has no proxies. The rest follows Browserbase's published API and passes the kit's offline tests, which stub Browserbase and VGS. Not yet exercised: the browser starting on a session's proxy, the Control Panel in a Browserbase browser, the relay to the local helper, and a submitted payment.
 
 ## What you need
 
