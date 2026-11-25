@@ -39,6 +39,7 @@ The kit comes with:
 - **[Adapter-authoring skills](skills/vgs-checkout-adapter/SKILL.md)** for reading HAR evidence, creating synthetic fixtures, writing VGS Compute functions, testing locally in Starlarky, and registering and verifying an adapter. Start with the [provider examples](examples/adapters/README.md).
 - **A [Browser Use option](docs/browser-use.md)** that opens the same browser with a Chrome DevTools address, so a Browser Use agent or Browser Harness can drive it through the session.
 - **A [Kernel cloud browser option](docs/kernel.md)** that runs the session and the Control Panel in Kernel's cloud with one command, for teams whose agents run on Kernel.
+- **A [Browserbase cloud browser option](docs/browserbase.md)** that runs the session and the Control Panel in Browserbase's cloud with one command, with a [vendor payment example](examples/browserbase/README.md).
 - **Browser setup instructions** for [CloakBrowser](#agent-web-gateway-control-panel-chromium-extension), [Chrome for Testing, Chromium, Chrome, Edge, and Brave](docs/training/10-proxy-controls-extension.md#browser-launch-examples). Browser installation and extension loading differ; the guide covers each. Follow [Browser proxying best practices](docs/browser-proxying.md) for egress, PAC routing, and when to create the payment session.
 
 Clone the repo and open it in your coding assistant:
@@ -138,6 +139,43 @@ If your agents run on [Kernel](https://kernel.sh), or you cannot run a browser l
 This creates or reuses an active test-card session, registers it with Kernel as a custom proxy, and starts a Kernel cloud browser with the Control Panel open in a tab. It prints a live view link for watching and driving the browser. No local browser and no Docker are needed. You need a Kernel API key on a Start-Up or Enterprise plan.
 
 The full Control Panel works in the Kernel browser. Its helper stays on your machine, and the browser reaches it through Kernel's SSH tunnel, so your service-account credentials are not uploaded. The first run installs Kernel's CLI and `websocat` with Homebrew for that tunnel. Session proxy credentials and browser traffic go to Kernel in this mode. The [Kernel guide](docs/kernel.md) covers the details.
+
+### Start the browser in Browserbase
+
+If your agents run on [Browserbase](https://www.browserbase.com), run this instead:
+
+```sh
+export BROWSERBASE_API_KEY=…
+./awg smoke        # checks your credentials, a session, its proxy, and a Browserbase browser on it
+./awg browserbase  # or: ./awg browserbase https://the-vendor-you-are-paying.com/
+```
+
+This creates or reuses an active test-card session and starts a Browserbase browser with the session as its external proxy, the session's certificate authority trusted, and the Control Panel open in a tab. It prints a live view link and the browser's connect address for Playwright, Stagehand or your agent. You need a Browserbase API key on the Developer plan or higher. `BROWSERBASE_PROJECT_ID` is optional.
+
+The Control Panel's helper stays on your machine, so your service-account credentials are not uploaded. Session proxy credentials and browser traffic go to Browserbase in this mode; the card does not. [`examples/browserbase/payment_flow.py`](examples/browserbase/README.md) pays a vendor from a Browserbase browser with the session's stand-ins. This option has not yet been run against Browserbase's service; the [Browserbase guide](docs/browserbase.md) says what is and is not verified.
+
+### Sandbox setup for a vault without the Cards API
+
+An organization that uses the VGS vault without the Card Management Platform needs nothing else: the kit stores the test card through the vault alias API and creates the session from those aliases.
+
+1. Ask VGS to enable Agent Web Gateway on your Sandbox vault.
+2. Point the kit at that vault. The IDs here are placeholders:
+
+   ```sh
+   ./awg setup --organization AC_YOUR_ORGANIZATION --tenant tntYOURVAULT
+   ```
+
+   Setup creates the service account in that vault and saves its credentials in `~/.awg-dev-kit/sandbox.env`. If an administrator created the account instead, save its three values there yourself, readable only by you, in the form of [`sandbox.env.example`](tools/vgs-proxy-controls/sandbox.env.example): `VGS_TENANT`, `VGS_CLIENT_ID` and `VGS_CLIENT_SECRET`. It needs `aliases:write`, `reveal-sessions:read`, `reveal-sessions:write`, `agent-gateway:read` and `agent-gateway:write`.
+3. Check it, then start a browser. `AWG_CARD_STORE=aliases` skips the Cards API instead of trying it first:
+
+   ```sh
+   ./awg smoke
+   AWG_CARD_STORE=aliases ./awg browserbase https://the-vendor-you-are-paying.com/
+   ```
+
+The Sandbox hosts follow from the vault ID, so there is nothing else to configure: the session's proxy is `<vault ID>.sandbox.verygoodproxy.com` and the alias API is `<vault ID>.sandbox.vault-api.verygoodvault.com`.
+
+The rest works as on any other vault. Session aliases belong to one [reveal session](#4-reveal-sessions). A host the session does not list is handled by the vault's unlisted-host mode, and stays [guarded](#guarded-destinations) until someone trusts it in the Control Panel's gateway view or through the Destinations API. A vendor that encrypts card fields in the browser needs an [adapter](#2-adapters).
 
 ### Create sessions for cards
 

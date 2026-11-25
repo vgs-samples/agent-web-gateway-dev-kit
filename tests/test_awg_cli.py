@@ -377,6 +377,194 @@ else exit 93; fi''')
         self.assertNotIn('fixture-proxy-secret', refused.stdout + refused.stderr)
         self.assertEqual(list(self.state.glob('browser-use*')), [])
 
+    BROWSERBASE_CURL = '''
+out=""
+headers=""
+args="$*"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -o ]; then shift; out="$1"; fi
+  if [ "$1" = -D ]; then shift; headers="$1"; fi
+  shift
+done
+api=https://api.browserbase.com/v1
+printf '%s\\n' "$args" | sed -E 's/API-Key: [^ ]+/API-Key: <key>/' >> "$FIXTURE_ROOT/calls"
+if [[ "$args" = *openid-connect/token* ]]; then
+  printf '%s' '{"access_token":"fixture-token"}'
+elif [[ "$args" = *sandbox.vgsapi.com/cards* ]]; then
+  printf '%s' '{"data":{"id":"CRFixture","attributes":{"pan_alias":"tok_fixture_pan","cvc_alias":"tok_fixture_cvc","bin":"411111"}}}' > "$out"
+  printf 201
+elif [[ "$args" = *tntFixture.sandbox.vault-api.verygoodvault.com/aliases* ]]; then
+  printf '%s' '{"data":[{"aliases":[{"alias":"tok_fixture_pan","format":"UUID"}]},{"aliases":[{"alias":"tok_fixture_cvc","format":"UUID"}]}]}' > "$out"
+  printf 201
+elif [[ "$args" = *sandbox.vgsapi.com/reveal-sessions* ]]; then
+  printf '%s' '{"data":{"id":"RSFixture","attributes":{"expires_at":"2099-01-01T00:00:00Z","allowed_hosts":["example.com"],"proxy":{"url":"https://US%40fixture:fixture-proxy-secret@tntFixture.sandbox.verygoodproxy.com:3443","ca_bundle":"-----BEGIN CERTIFICATE-----\\nfixture\\n-----END CERTIFICATE-----\\n","pac_url":"https://sandbox.vgsapi.com/reveal-sessions/RSFixture.pac"}}}}' > "$out"
+  printf 201
+elif [[ "$args" = *"-K -"* ]]; then
+  cat > "$FIXTURE_ROOT/proxy-config"
+  [ -f "$FIXTURE_ROOT/direct" ] || printf 'HTTP/1.1 200 OK\\r\\nvgs-request-id: fixture-request\\r\\n' > "$headers"
+  printf 200
+elif [[ "$args" = *"-X POST $api/certificates"* ]]; then
+  file="${args#*file=@}"
+  cp "${file%%;*}" "$FIXTURE_ROOT/certificate-upload"
+  printf '%s' '{"id":"cert-fixture"}' > "$out"
+  printf 200
+elif [[ "$args" = *"-X POST $api/extensions"* ]]; then
+  printf '%s' '{"id":"ext-fixture","fileName":"panel.zip"}' > "$out"
+  printf 200
+elif [[ "$args" = *"-X POST $api/sessions/browser-fixture"* ]]; then
+  cat > "$FIXTURE_ROOT/release-body"
+  printf 200
+elif [[ "$args" = *"-X POST $api/sessions"* ]]; then
+  cat > "$FIXTURE_ROOT/browser-body"
+  if [ -f "$FIXTURE_ROOT/refuse" ]; then
+    printf '%s' '{"statusCode":403,"error":"Forbidden","message":"External proxies are not available"}' > "$out"
+    printf 403
+  else
+    printf '%s' '{"id":"browser-fixture","status":"RUNNING","connectUrl":"wss://connect.example/fixture-cdp-secret"}' > "$out"
+    printf 201
+  fi
+elif [[ "$args" = *"-X GET $api/sessions/browser-fixture/debug"* ]]; then
+  printf '%s' '{"debuggerFullscreenUrl":"https://live.example/fixture"}' > "$out"
+  printf 200
+elif [[ "$args" = *"-X GET $api/sessions/browser-fixture"* ]]; then
+  printf '%s' '{"status":"COMPLETED"}' > "$out"
+  printf 200
+elif [[ "$args" = *"-X DELETE $api/"* ]]; then
+  printf 204
+else exit 94; fi'''
+
+    def test_browserbase_passes_the_session_as_an_external_proxy_and_cleans_up(self):
+        (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
+        self.script('curl', self.BROWSERBASE_CURL)
+        self.script('uv', '''
+args="$*"
+if [[ "$args" = *build-extension.py* ]]; then
+  printf '%s\\n' "$args" > "$FIXTURE_ROOT/build-args"
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = --output ]; then printf fixture-zip > "$2"; fi
+    shift
+  done
+elif [[ "$args" = *panel-id.py* ]]; then
+  printf '%s\\n' "$args" > "$FIXTURE_ROOT/panel-id-args"
+  cat > "$FIXTURE_ROOT/panel-id-stdin"
+  echo abcdefghijklmnopabcdefghijklmnop
+elif [[ "$args" = *open-tabs.py* ]]; then
+  printf '%s\\n' "$args" > "$FIXTURE_ROOT/tabs-args"
+  cat > "$FIXTURE_ROOT/tabs-stdin"
+elif [[ "$args" = *start-proxy-controls.py* ]] && [ -f "$FIXTURE_ROOT/helper" ]; then
+  printf '%s\\n' "$args" > "$FIXTURE_ROOT/helper-args"
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = --output ]; then mkdir -p "$2"; printf 'const CATALOG = {"url": "http://127.0.0.1:4567"};' > "$2/background.js"; fi
+    shift
+  done
+  echo 'Proxy controls are ready. Keep this Terminal open.'
+  exec sleep 15
+elif [[ "$args" = *helper-relay.py* ]]; then
+  printf '%s\\n' "$args" > "$FIXTURE_ROOT/relay-args"
+  cat > "$FIXTURE_ROOT/relay-stdin"
+  exec sleep 15
+else exit 93; fi''')
+        missing = self.run_awg('browserbase')
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertIn('BROWSERBASE_API_KEY is not set', missing.stderr)
+        self.assertFalse((self.root / 'calls').exists())
+        self.assertIn('unknown option for browserbase', self.run_awg('browserbase', '--nope').stderr)
+
+        self.env['BROWSERBASE_API_KEY'] = 'fixture-browserbase-key'
+        panel = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop/popup.html'
+        result = self.run_awg('browserbase', 'https://example.com/checkout')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # The session's certificate authority is uploaded and trusted, rather than certificate errors ignored.
+        self.assertIn('BEGIN CERTIFICATE', (self.root / 'certificate-upload').read_text())
+        browser = json.loads((self.root / 'browser-body').read_text())
+        self.assertEqual(browser, {
+            'timeout': 1800, 'keepAlive': True, 'extensionId': 'ext-fixture',
+            'proxies': [{'type': 'external', 'server': 'https://tntFixture.sandbox.verygoodproxy.com:3443',
+                         'username': 'US@fixture', 'password': 'fixture-proxy-secret'}],
+            'proxySettings': {'caCertificates': ['cert-fixture']}})
+        # Browserbase sets the route, so the panel is built without the proxy permission and opened through DevTools.
+        self.assertIn('--managed-route', (self.root / 'build-args').read_text())
+        tabs = (self.root / 'tabs-args').read_text()
+        self.assertIn(panel + ' https://example.com/checkout', tabs)
+        for name in ('tabs-stdin', 'panel-id-stdin'):
+            self.assertEqual((self.root / name).read_text().strip(), 'wss://connect.example/fixture-cdp-secret')
+        self.assertNotIn('fixture-cdp-secret', tabs + (self.root / 'panel-id-args').read_text())
+        self.assertIn('Control Panel: open in a tab', result.stdout)
+        self.assertIn('https://live.example/fixture', result.stdout)
+        self.assertIn('Browserbase browser session: browser-fixture', result.stdout)
+        # The browser is released and what was uploaded is removed; secrets stay out of the output and off the command line.
+        calls = (self.root / 'calls').read_text()
+        self.assertEqual(json.loads((self.root / 'release-body').read_text()), {'status': 'REQUEST_RELEASE'})
+        for removed in ('extensions/ext-fixture', 'certificates/cert-fixture'):
+            self.assertIn('-X DELETE https://api.browserbase.com/v1/' + removed, calls)
+        for secret in ('fixture-browserbase-key', 'fixture-proxy-secret'):
+            self.assertNotIn(secret, result.stdout + result.stderr)
+        self.assertNotIn('fixture-proxy-secret', calls)
+        self.assertEqual(list(self.state.glob('browserbase*')), [])
+
+        # With the local helper running, its panel is uploaded and its requests are relayed over the connect address.
+        (self.root / 'helper').touch()
+        self.env['BROWSERBASE_PROJECT_ID'] = 'project-fixture'
+        full = self.run_awg('browserbase')
+        self.assertEqual(full.returncode, 0, full.stderr)
+        self.assertEqual(json.loads((self.root / 'browser-body').read_text())['projectId'], 'project-fixture')
+        self.assertIn('--managed-route', (self.root / 'helper-args').read_text())
+        self.assertIn('--folder', (self.root / 'build-args').read_text())
+        relay = (self.root / 'relay-args').read_text()
+        self.assertIn('helper-relay.py 4567 abcdefghijklmnopabcdefghijklmnop', relay)
+        self.assertNotIn('fixture-cdp-secret', relay)
+        self.assertEqual((self.root / 'relay-stdin').read_text().strip(), 'wss://connect.example/fixture-cdp-secret')
+        self.assertIn('connected to the helper on this machine', full.stdout)
+        self.assertEqual(list(self.state.glob('browserbase*')), [])
+        self.assertFalse((self.state / 'panel-extension').exists())
+        (self.root / 'helper').unlink()
+
+        # A refusal is reported with Browserbase's reason, and the uploaded certificate is still removed.
+        (self.root / 'refuse').touch()
+        (self.root / 'calls').unlink()
+        refused = self.run_awg('browserbase')
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn('HTTP 403: External proxies are not available', refused.stdout)
+        self.assertIn('Developer plan', refused.stdout)
+        self.assertNotIn('fixture-proxy-secret', refused.stdout + refused.stderr)
+        self.assertIn('-X DELETE https://api.browserbase.com/v1/certificates/cert-fixture', (self.root / 'calls').read_text())
+        self.assertEqual(list(self.state.glob('browserbase*')), [])
+
+    def test_smoke_checks_the_alias_api_the_proxy_and_browserbase(self):
+        (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
+        self.script('curl', self.BROWSERBASE_CURL)
+        result = self.run_awg('smoke')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        lines = result.stdout.splitlines()
+        self.assertEqual([line[:4] for line in lines], ['PASS', 'PASS', 'PASS', 'SKIP'], result.stdout)
+        self.assertIn('tntFixture', lines[0])
+        self.assertIn('through the alias API', lines[1])
+        self.assertIn('vgs-request-id: fixture-request', lines[2])
+        calls = (self.root / 'calls').read_text()
+        # The Cards API is never called, and the proxy password reaches curl on stdin only.
+        self.assertNotIn('sandbox.vgsapi.com/cards', calls)
+        self.assertIn('fixture-proxy-secret', (self.root / 'proxy-config').read_text())
+        self.assertNotIn('fixture-proxy-secret', calls + result.stdout + result.stderr)
+        self.assertEqual(sorted(p.name for p in self.state.iterdir()), ['card.json', 'latest-session', 'sandbox.env', 'sessions'])
+
+        self.env['BROWSERBASE_API_KEY'] = 'fixture-browserbase-key'
+        browserbase = self.run_awg('smoke', 'example.com')
+        self.assertEqual(browserbase.returncode, 0, browserbase.stdout + browserbase.stderr)
+        self.assertIn('PASS  browserbase: browser browser-fixture', browserbase.stdout)
+        self.assertNotIn('extensionId', json.loads((self.root / 'browser-body').read_text()))
+        calls = (self.root / 'calls').read_text()
+        self.assertIn('-X POST https://api.browserbase.com/v1/sessions/browser-fixture', calls)
+        self.assertIn('-X DELETE https://api.browserbase.com/v1/certificates/cert-fixture', calls)
+
+        # A request that did not pass through VGS, or a Browserbase refusal, fails the run.
+        (self.root / 'direct').touch()
+        (self.root / 'refuse').touch()
+        failed = self.run_awg('smoke')
+        self.assertEqual(failed.returncode, 1)
+        self.assertIn('FAIL  proxy: no vgs-request-id', failed.stdout)
+        self.assertIn('FAIL  browserbase: Browserbase answered HTTP 403', failed.stdout)
+        self.assertEqual(list(self.state.glob('smoke*')) + list(self.state.glob('browserbase*')), [])
+
     def test_session_uses_alias_api_when_cards_api_refuses(self):
         (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
         # Token payload: {"scope":"aliases:write reveal-sessions:write"} - no card scope.

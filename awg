@@ -8,6 +8,8 @@
 #   ./awg kernel [url]         session + a Kernel cloud browser routed through it (asks for your Kernel API key once)
 #   ./awg kernel-login         save or replace your Kernel API key
 #   ./awg browser-use [url]    ./awg start, plus a Chrome DevTools address for a Browser Use agent (--cloud: their cloud browser)
+#   ./awg browserbase [url]    session + a Browserbase cloud browser routed through it (needs BROWSERBASE_API_KEY)
+#   ./awg smoke [host]         check the saved credentials, a session through the alias API, its proxy, and Browserbase
 #   ./awg panel [options]      start only the control panel helper (options of start-proxy-controls.py)
 #   ./awg browser [options]    open only CloakBrowser with the control panel (--session FILE [url])
 #   ./awg cloak-login          save your CloakBrowser license key (once)
@@ -854,12 +856,290 @@ cmd_browser_use_cloud() {
   say "Closing the Browser Use browser and removing what was uploaded..."
 }
 
+# ---------------------------------------------------------------- Browserbase cloud browser
+
+BROWSERBASE_API="${BROWSERBASE_API_URL:-https://api.browserbase.com/v1}"
+BB_CODE=""; BB_BODY=""; BB_BROWSER=""; BB_CERTIFICATE=""; BB_EXTENSION=""; BB_ZIP=""; BB_CA=""
+BB_HELPER=""; BB_RELAY=""; BB_PANEL_DIR=""
+
+bb_call() {  # bb_call <method> <path> [json body]; sets BB_CODE and fills BB_BODY (a private file)
+  # The body carries the session's proxy password, so it goes over stdin, not the command line.
+  BB_CODE=$(printf '%s' "${3:-}" | curl -sS -o "$BB_BODY" -w '%{http_code}' -X "$1" "$BROWSERBASE_API$2" \
+    -H "X-BB-API-Key: $BROWSERBASE_API_KEY" -H 'Content-Type: application/json' ${3:+--data-binary @-}) || BB_CODE=000
+}
+
+bb_upload() {  # bb_upload <path> <file> <content type>; sets BB_CODE and fills BB_BODY
+  BB_CODE=$(curl -sS -o "$BB_BODY" -w '%{http_code}' -X POST "$BROWSERBASE_API$1" \
+    -H "X-BB-API-Key: $BROWSERBASE_API_KEY" -F "file=@$2;type=$3") || BB_CODE=000
+}
+
+bb_ok() { [ "$BB_CODE" = 200 ] || [ "$BB_CODE" = 201 ]; }
+
+# Browserbase's reason for a refusal: its message only, never the echoed request.
+bb_reason() { jq -r '(.message // .error // empty) | tostring' "$BB_BODY" 2>/dev/null | cut -c1-400 || true; }
+
+bb_cleanup() {
+  if [ -n "$BB_RELAY" ]; then pkill -P "$BB_RELAY" 2>/dev/null || true; kill "$BB_RELAY" 2>/dev/null || true; fi
+  if [ -n "$BB_HELPER" ]; then pkill -P "$BB_HELPER" 2>/dev/null || true; kill "$BB_HELPER" 2>/dev/null || true; fi
+  [ -z "$BB_PANEL_DIR" ] || rm -rf "$STATE_DIR/panel-extension"
+  rm -f "$STATE_DIR/browserbase-relay.log"
+  [ -z "$BB_BROWSER" ] || bb_call POST "/sessions/$BB_BROWSER" '{"status":"REQUEST_RELEASE"}'
+  [ -z "$BB_EXTENSION" ] || bb_call DELETE "/extensions/$BB_EXTENSION"
+  [ -z "$BB_CERTIFICATE" ] || bb_call DELETE "/certificates/$BB_CERTIFICATE"
+  [ -z "$BB_BODY" ] || rm -f "$BB_BODY"
+  [ -z "$BB_ZIP" ] || rm -f "$BB_ZIP"
+  [ -z "$BB_CA" ] || rm -f "$BB_CA"
+}
+
+# The browser to create: the reveal session as Browserbase's external proxy, trusting the session's certificate authority.
+bb_browser_body() {  # bb_browser_body <session file> <certificate id> <extension id or empty>
+  jq --arg cert "$2" --arg ext "$3" --arg project "${BROWSERBASE_PROJECT_ID:-}" '
+    def unpct: gsub("%(?<h>[0-9A-Fa-f]{2})"; (.h | ascii_downcase | explode
+      | map(if . > 96 then . - 87 else . - 48 end) | [.[0] * 16 + .[1]] | implode));
+    .data.attributes.proxy as $p
+    | ($p.url | capture("^(?<scheme>https?)://(?<user>[^:@/]+):(?<pass>[^@/]+)@(?<host>[^:/@]+):(?<port>[0-9]+)")) as $u
+    | {timeout: 1800, keepAlive: true,
+       proxies: [{type: "external", server: ($u.scheme + "://" + $u.host + ":" + $u.port),
+                  username: ($u.user | unpct), password: ($u.pass | unpct)}],
+       proxySettings: {caCertificates: [$cert]}}
+      + (if $project == "" then {} else {projectId: $project} end)
+      + (if $ext == "" then {} else {extensionId: $ext} end)' "$1" 2>/dev/null
+}
+
+# Registers the session with Browserbase and starts a browser on it. Sets BB_CERTIFICATE and BB_BROWSER,
+# and leaves Browserbase's answer in BB_BODY. Returns 1 with the reason printed when Browserbase refuses.
+bb_start_browser() {  # bb_start_browser <session file> <extension id or empty>
+  BB_CA="$STATE_DIR/browserbase-ca.$$.pem"
+  jq -er '.data.attributes.proxy.ca_bundle' "$1" > "$BB_CA" 2>/dev/null || { say "The saved session has no certificate authority."; return 1; }
+  bb_upload /certificates "$BB_CA" application/x-pem-file
+  if ! bb_ok; then
+    say "Browserbase answered HTTP $BB_CODE: $(bb_reason)"
+    [ "$BB_CODE" != 401 ] || say "Browserbase did not accept BROWSERBASE_API_KEY. Check the key in your Browserbase project settings."
+    say "Browserbase did not store the session's certificate authority."
+    return 1
+  fi
+  BB_CERTIFICATE=$(jq -r '.id // empty' "$BB_BODY")
+  [ -n "$BB_CERTIFICATE" ] || { say "Browserbase returned no certificate id."; return 1; }
+  bb_call POST /sessions "$(bb_browser_body "$1" "$BB_CERTIFICATE" "$2")"
+  if ! bb_ok; then
+    say "Browserbase answered HTTP $BB_CODE: $(bb_reason)"
+    [ "$BB_CODE" != 401 ] || say "Browserbase did not accept BROWSERBASE_API_KEY. Check the key in your Browserbase project settings."
+    if [ "$BB_CODE" = 402 ] || [ "$BB_CODE" = 403 ]; then say "Custom proxies and keep-alive browsers need Browserbase's Developer plan or higher."; fi
+    [ "$BB_CODE" != 429 ] || say "The Browserbase project has too many browsers running. Stop one and retry."
+    say "Browserbase did not start the browser."
+    return 1
+  fi
+  BB_BROWSER=$(jq -r '.id // empty' "$BB_BODY")
+  [ -n "$BB_BROWSER" ] || { say "Browserbase returned no browser session id."; return 1; }
+}
+
+# Browserbase (browserbase.com) runs the browser in its cloud. The reveal session's proxy is passed as
+# the browser's external proxy and its certificate authority is uploaded, so the browser's traffic
+# passes through the session.
+cmd_browserbase() {
+  local url="${1:-}" host="" session browser_id live="" cdp extension_id="" runtime_id="" helper_port=""
+  local -a tabs=()
+  case "$url" in
+    --help|-h) say "Usage: ./awg browserbase [url]
+Start a Browserbase cloud browser on a reveal session, with the Control Panel open in a tab.
+Needs BROWSERBASE_API_KEY. BROWSERBASE_PROJECT_ID is optional: Browserbase reads the project from the key."; return ;;
+    --*) fail "unknown option for browserbase: $url" ;;
+  esac
+  for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
+  [ -n "${BROWSERBASE_API_KEY:-}" ] || fail "BROWSERBASE_API_KEY is not set. Copy the API key from your Browserbase project settings (https://www.browserbase.com/settings), then run:
+       BROWSERBASE_API_KEY=… ./awg browserbase"
+  need_uv
+  [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
+  [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
+  session=$(latest_session)
+  if session_alive "$session" && { [ -z "$host" ] || jq -e --arg h "$host" '(.data.attributes.allowed_hosts // []) | index($h)' "$session" >/dev/null; }; then
+    say "Using the current session: $(basename "$session" .json)"
+  else
+    say "Creating a reveal session${host:+ for $host}..."
+    cmd_session "$host"
+    session=$(latest_session)
+  fi
+  bb_browser_body "$session" "" "" >/dev/null || fail "the saved session has no usable proxy details. Create a new one with ./awg session"
+
+  # The panel and Browserbase's answers hold this session's credentials, so everything is removed on the way out.
+  trap bb_cleanup EXIT
+  BB_BODY=$(mktemp "$STATE_DIR/browserbase.XXXXXX")
+  BB_ZIP="$STATE_DIR/browserbase-panel.$$.zip"
+
+  # The full Control Panel needs its helper, which holds the service-account credentials and stays on
+  # this machine. As with Browser Use, the kit relays the panel's helper requests over the browser's
+  # DevTools connection (tools/browser-use/helper-relay.py), and Browserbase sets the browser's route.
+  say ""
+  say "Starting the control panel helper on this machine..."
+  : > "$HELPER_LOG"
+  rm -rf "$STATE_DIR/panel-extension"
+  BB_PANEL_DIR="$STATE_DIR/panel-extension/$(date +%s)-$$"
+  mkdir -p "$STATE_DIR/panel-extension"
+  chmod 700 "$STATE_DIR/panel-extension"
+  PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
+    python "$PANEL_DIR/start-proxy-controls.py" --session "$session" --output "$BB_PANEL_DIR" --managed-route \
+    --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
+  BB_HELPER=$!
+  for _ in $(seq 1 60); do
+    grep -q 'Proxy controls are ready' "$HELPER_LOG" 2>/dev/null && break
+    kill -0 "$BB_HELPER" 2>/dev/null || break
+    sleep 0.5
+  done
+  helper_port=$(grep -o 'http://127\.0\.0\.1:[0-9]*' "$BB_PANEL_DIR/background.js" 2>/dev/null | head -1 | sed 's/.*://' || true)
+  [ -n "$helper_port" ] || say "The local helper did not start (see $HELPER_LOG). Loading the panel without it."
+
+  say "Uploading the Control Panel to Browserbase..."
+  if { if [ -n "$helper_port" ]; then
+         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --folder "$BB_PANEL_DIR" --output "$BB_ZIP"
+       else
+         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --session "$session" --credentials-file "$CREDENTIALS" \
+           --managed-route --output "$BB_ZIP"
+       fi; } && [ -s "$BB_ZIP" ]; then
+    bb_upload /extensions "$BB_ZIP" application/zip
+    if bb_ok; then
+      extension_id=$(jq -r '.id // empty' "$BB_BODY")
+      BB_EXTENSION="$extension_id"
+    else
+      say "Browserbase did not accept the Control Panel (HTTP $BB_CODE $(bb_reason)). Continuing without it."
+    fi
+  else
+    say "Could not build the Control Panel for Browserbase. Continuing without it."
+  fi
+
+  say "Starting a Browserbase browser on the session's proxy..."
+  bb_start_browser "$session" "$extension_id" || fail "the Browserbase browser was not started."
+  browser_id="$BB_BROWSER"
+  cdp=$(jq -r '.connectUrl // empty' "$BB_BODY")
+  bb_call GET "/sessions/$browser_id/debug"
+  if bb_ok; then live=$(jq -r '.debuggerFullscreenUrl // empty' "$BB_BODY"); fi
+
+  say ""
+  say "A Browserbase browser is running through session $(basename "$session" .json)."
+  # Browserbase's own identifier, for its dashboard, session replay and support.
+  say "Browserbase browser session: $browser_id"
+  if [ -n "$extension_id" ] && [ -n "$cdp" ]; then
+    # Browserbase does not say which ID Chrome gave the panel, so ask the browser. The connect address
+    # controls the browser, so it goes over stdin, not the command line.
+    runtime_id=$(printf '%s\n' "$cdp" | PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
+      --with websockets==15.0.1 python "$KIT_DIR/tools/browserbase/panel-id.py" 2>/dev/null | tr -cd 'a-p') || runtime_id=""
+  fi
+  if [ -n "$runtime_id" ]; then
+    if [ -n "$helper_port" ]; then
+      # Start the relay before the panel's tab opens, so its first helper request is answered.
+      say "Connecting the Browserbase browser to the local helper..."
+      printf '%s\n' "$cdp" | PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
+        --with websockets==15.0.1 python "$KIT_DIR/tools/browser-use/helper-relay.py" "$helper_port" "$runtime_id" \
+        > "$STATE_DIR/browserbase-relay.log" 2>&1 &
+      BB_RELAY=$!
+      sleep 2
+      if kill -0 "$BB_RELAY" 2>/dev/null; then
+        say "Control Panel: full, connected to the helper on this machine through the kit's relay. The route is fixed on the session's proxy."
+      else
+        say "The relay to the local helper did not stay open (see $STATE_DIR/browserbase-relay.log)."
+        say "The panel will show 'Helper unavailable'; session details still work."
+      fi
+    else
+      say "Control Panel: session details only. The route is fixed on the session's proxy."
+    fi
+    tabs+=("chrome-extension://$runtime_id/popup.html")
+  fi
+  [ -z "$url" ] || tabs+=("$url")
+  if [ ${#tabs[@]} -gt 0 ]; then
+    if [ -n "$cdp" ] && printf '%s\n' "$cdp" | PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
+         --with websockets==15.0.1 python "$KIT_DIR/tools/browser-use/open-tabs.py" "${tabs[@]}"; then
+      [ -z "$runtime_id" ] || say "Control Panel: open in a tab of the Browserbase browser."
+    else
+      [ -z "$runtime_id" ] || say "Control Panel: loaded, but it could not be opened automatically. Open chrome-extension://$runtime_id/popup.html in the browser."
+      [ -z "$url" ] || say "Open $url in the browser yourself."
+    fi
+  fi
+  [ -n "$runtime_id" ] || say "Control Panel: not loaded in this browser. Read the session's stand-ins from the session file instead."
+  if [ -n "$live" ]; then
+    say "Watch and control it here (keep this link private; it controls the browser):"
+    say "  $live"
+  else
+    say "Browserbase returned no live view link. Open the browser from your Browserbase dashboard."
+  fi
+  if [ -n "$cdp" ]; then
+    say "Connect your agent, Playwright or Stagehand to it here (keep it private, it also controls the browser):"
+    say "  $cdp"
+  fi
+  say ""
+  if [ -t 0 ]; then
+    read -r -p "Press Enter to close the Browserbase browser and remove what was uploaded. " _ || true
+  else
+    say "This command runs until the Browserbase browser closes (after 30 minutes) or it is stopped."
+    while bb_call GET "/sessions/$browser_id"; [ "$BB_CODE" = 200 ] && jq -e '.status == "RUNNING"' "$BB_BODY" >/dev/null 2>&1; do sleep 30; done
+  fi
+  say "Closing the Browserbase browser and removing what was uploaded..."
+}
+
+# ---------------------------------------------------------------- smoke test
+
+# Checks the pieces a Browserbase run depends on, one line each, against the real services. It stores
+# the public test card through the vault alias API only, so it also passes on a tenant without the Cards API.
+cmd_smoke() {
+  local host="${1:-example.com}" log headers ca session="" code failed=0
+  case "$host" in
+    --help|-h) say "Usage: ./awg smoke [host]
+Check the saved Sandbox credentials, a reveal session created through the alias API, a request to
+https://<host>/ through the session's proxy, and (with BROWSERBASE_API_KEY) a Browserbase browser on it.
+Nothing is typed or submitted anywhere."; return ;;
+    --*) fail "unknown option for smoke: $host" ;;
+  esac
+  for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
+  need_credentials
+  log=$(mktemp "$STATE_DIR/smoke.XXXXXX")
+  headers=$(mktemp "$STATE_DIR/smoke.XXXXXX")
+  ca=$(mktemp "$STATE_DIR/smoke.XXXXXX")
+  BB_BODY=$(mktemp "$STATE_DIR/browserbase.XXXXXX")
+  trap "bb_cleanup; rm -f '$log' '$headers' '$ca'" EXIT
+
+  if (access_token >/dev/null) 2>"$log"; then
+    say "PASS  credentials: VGS issued an access token for tenant $(cred VGS_TENANT)"
+  else
+    say "FAIL  credentials: $(head -1 "$log")"
+    return 1
+  fi
+
+  if (AWG_CARD_STORE=aliases cmd_session "$host") >"$log" 2>&1 && grep -q 'through the alias API' "$log"; then
+    session=$(latest_session)
+    say "PASS  session: $(basename "$session" .json) created for $host, with the test card stored through the alias API"
+    grep -A2 -E '^Note:' "$log" || true
+  else
+    say "FAIL  session: $(grep -E '^(error:|VGS answered|Alias API answered|A 403)' "$log" | head -3 | tr '\n' ' ')"
+    return 1
+  fi
+
+  # The proxy URL carries the session's proxy password, so curl reads it from stdin, not the command line.
+  jq -r '.data.attributes.proxy.ca_bundle // empty' "$session" > "$ca"
+  code=$(jq -r '"proxy = \"" + (.data.attributes.proxy.url // "") + "\""' "$session" \
+    | curl -sS -K - -o /dev/null -D "$headers" -w '%{http_code}' --max-time 30 \
+        --proxy-cacert "$ca" --cacert "$ca" "https://$host/" 2>/dev/null) || code=000
+  if grep -qi '^vgs-request-id:' "$headers"; then
+    say "PASS  proxy: https://$host/ answered HTTP $code through the session ($(grep -i '^vgs-request-id:' "$headers" | tail -1 | tr -d '\r'))"
+  else
+    say "FAIL  proxy: no vgs-request-id on https://$host/ through the session's proxy (HTTP $code)"
+    failed=1
+  fi
+
+  if [ -z "${BROWSERBASE_API_KEY:-}" ]; then
+    say "SKIP  browserbase: BROWSERBASE_API_KEY is not set"
+  elif bb_start_browser "$session" "" >"$log" 2>&1; then
+    say "PASS  browserbase: browser $BB_BROWSER started on the session's proxy with its certificate authority; closing it"
+  else
+    say "FAIL  browserbase: $(tr '\n' ' ' < "$log")"
+    failed=1
+  fi
+  return "$failed"
+}
+
 cmd_sitecheck() {
   need_uv
   (cd "$SITECHECK_DIR" && uv run awg-sitecheck "$@")
 }
 
-usage() { sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 case "${1:-}" in
   test)        shift; cmd_test "$@" ;;
@@ -868,6 +1148,8 @@ case "${1:-}" in
   start)       shift; cmd_start "$@" ;;
   kernel)      shift; cmd_kernel "$@" ;;
   browser-use) shift; cmd_browser_use "$@" ;;
+  browserbase) shift; cmd_browserbase "$@" ;;
+  smoke)       shift; cmd_smoke "$@" ;;
   panel)       shift; cmd_panel "$@" ;;
   browser)     shift; cmd_browser "$@" ;;
   cloak-login) shift; cmd_cloak_login "$@" ;;

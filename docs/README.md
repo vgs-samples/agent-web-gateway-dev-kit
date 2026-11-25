@@ -8,6 +8,7 @@ You do not need any of this to get started; `./awg start` is enough. These pages
 - [Browser proxying: egress, PAC routing, and checkout timing](browser-proxying.md)
 - [Browser Use: drive the browser with a Browser Use agent or Browser Harness](browser-use.md)
 - [Kernel cloud browser: run the session and Control Panel in Kernel instead of a local browser](kernel.md)
+- [Browserbase cloud browser: run the session and Control Panel in Browserbase, and check the setup with `./awg smoke`](browserbase.md)
 
 ## Learn Agent Web Gateway
 

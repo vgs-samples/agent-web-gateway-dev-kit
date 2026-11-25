@@ -22,6 +22,11 @@ Help the developer set up and use the VGS Agent Web Gateway dev kit. `./awg` wra
    - Give the developer the live view link it prints, and nobody else: the link controls the browser.
    - The panel's helper runs on the developer's machine and the Kernel browser reaches it through Kernel's SSH tunnel, which needs Kernel's CLI and `websocat`. The command installs them with Homebrew; without them the panel shows only the session and route switching.
    - `insufficient_plan` means the Kernel account's plan lacks custom proxies. Report it; do not work around it. See [docs/kernel.md](docs/kernel.md).
+5. Only if the developer asks for a Browserbase browser, run `./awg browserbase` (or `./awg browserbase https://<the site to test>/`) instead of step 3. It starts a Browserbase cloud browser with the session as its external proxy and the Control Panel open in a tab, and runs until the browser closes.
+   - It needs `BROWSERBASE_API_KEY` exported in the developer's own terminal, from a project on Browserbase's Developer plan or higher. Never ask for the key in chat. `BROWSERBASE_PROJECT_ID` is optional.
+   - It sends the session's proxy credentials and the browser's traffic to Browserbase. Do not choose it on the developer's behalf, and never use it outside Sandbox.
+   - Run `./awg smoke` first when something fails: it reports credentials, the session, its proxy and Browserbase separately as `PASS`, `FAIL` or `SKIP`. Report those lines; do not work around a `FAIL`.
+   - Give the developer the live view link and connect address it prints, and nobody else: each controls the browser. See [docs/browserbase.md](docs/browserbase.md).
 
 ## If a call is refused with 403
 
@@ -69,3 +74,4 @@ Do not work around a `403` by editing the kit, hand-writing `card.json` or `sand
 | Control Panel and MCP | `docs/control-panel.md`, `docs/mcp.md`, `docs/browser-proxying.md` |
 | Kernel cloud browser (only when the developer asks for it) | `docs/kernel.md` |
 | Browser Use agents and Browser Harness | `docs/browser-use.md` |
+| Browserbase cloud browser (only when the developer asks for it) | `docs/browserbase.md`, `examples/browserbase/README.md` |
