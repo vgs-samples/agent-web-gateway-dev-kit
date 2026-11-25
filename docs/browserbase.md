@@ -83,4 +83,5 @@ The session's proxy address, proxy username and password, and certificate author
 | `Browserbase did not start the browser` | Browserbase checks the proxy when it creates the browser. The line above has its reason; the session may have expired, or Browserbase cannot reach the session's proxy host and port. |
 | `Browserbase did not accept the Control Panel` | The browser still starts on the session, without the panel. |
 | `Control Panel: not loaded in this browser` | The panel was not found among the browser's extensions. Read the stand-ins from the session file. |
+| A dropdown in the Control Panel does not open | Browserbase's live view does not draw a browser's native dropdown lists. The choices are there: click the field, then press the down or up arrow key to move through them. |
 | Pages fail with a certificate error | The browser is not trusting the session's certificate authority. Report it with the Browserbase session ID. |
