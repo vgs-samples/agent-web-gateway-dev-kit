@@ -7,7 +7,7 @@ import unittest
 KIT = Path(__file__).resolve().parents[1]
 SESSION = {
     'allowed_hosts': ['vendor.example'],
-    'proxy': {'url': 'https://US%40fixture:fixture%2Fsecret@tntFixture.sandbox.verygoodproxy.com:3443',
+    'proxy': {'url': 'https://US%40fixture:fixture%2Fsecret@tntfixture.sandbox.verygoodproxy.com:3443',
               'ca_bundle': '-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----\n'},
     'cards': [{'label': 'main', 'number': {'alias': 'tok_fixture_pan', 'value': '4111110000001111'},
                'cvc': {'alias': 'tok_fixture_cvc', 'value': '987'}}],
@@ -25,7 +25,7 @@ class PaymentFlowTests(unittest.TestCase):
 
     def test_the_browser_goes_through_the_session_and_trusts_its_certificate_authority(self):
         body = self.example.browser_request(SESSION, 'cert-fixture', 'project-fixture')
-        self.assertEqual(body['proxies'], [{'type': 'external', 'server': 'https://tntFixture.sandbox.verygoodproxy.com:3443',
+        self.assertEqual(body['proxies'], [{'type': 'external', 'server': 'https://tntfixture.sandbox.verygoodproxy.com:3443',
                                             'username': 'US@fixture', 'password': 'fixture/secret'}])
         self.assertEqual(body['proxySettings'], {'caCertificates': ['cert-fixture']})
         self.assertEqual(body['projectId'], 'project-fixture')
