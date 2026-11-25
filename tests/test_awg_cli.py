@@ -415,7 +415,7 @@ elif [[ "$args" = *"-X POST $api/sessions"* ]]; then
     printf 201
   fi
 elif [[ "$args" = *"-X GET $api/sessions/browser-fixture/debug"* ]]; then
-  printf '%s' '{"debuggerFullscreenUrl":"https://live.example/fixture"}' > "$out"
+  printf '%s' '{"debuggerFullscreenUrl":"https://live.example/blank","pages":[{"url":"about:blank","debuggerFullscreenUrl":"https://live.example/blank"},{"url":"chrome-extension://abcdefghijklmnopabcdefghijklmnop/popup.html","debuggerFullscreenUrl":"https://live.example/fixture"},{"url":"https://example.com/checkout","debuggerFullscreenUrl":"https://live.example/site"}]}' > "$out"
   printf 200
 elif [[ "$args" = *"-X GET $api/sessions/browser-fixture"* ]]; then
   printf '%s' '{"status":"COMPLETED"}' > "$out"
@@ -481,7 +481,10 @@ else exit 93; fi''')
             self.assertEqual((self.root / name).read_text().strip(), 'wss://connect.example/fixture-cdp-secret')
         self.assertNotIn('fixture-cdp-secret', tabs + (self.root / 'panel-id-args').read_text())
         self.assertIn('Control Panel: open in a tab', result.stdout)
-        self.assertIn('https://live.example/fixture', result.stdout)
+        # The live view links are for the Control Panel's tab and the website's, not the blank first tab.
+        self.assertIn('Control Panel: https://live.example/fixture', result.stdout)
+        self.assertIn('example.com: https://live.example/site', result.stdout)
+        self.assertNotIn('https://live.example/blank', result.stdout)
         self.assertIn('Browserbase browser session: browser-fixture', result.stdout)
         # The browser is released and what was uploaded is removed; secrets stay out of the output and off the command line.
         calls = (self.root / 'calls').read_text()

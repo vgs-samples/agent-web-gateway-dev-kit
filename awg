@@ -936,7 +936,7 @@ bb_start_browser() {  # bb_start_browser <session file> <extension id or empty>
 # the browser's external proxy and its certificate authority is uploaded, so the browser's traffic
 # passes through the session.
 cmd_browserbase() {
-  local url="${1:-}" host="" session browser_id live="" cdp extension_id="" runtime_id="" helper_port=""
+  local url="${1:-}" host="" session browser_id live="" site="" cdp extension_id="" runtime_id="" helper_port=""
   local -a tabs=()
   case "$url" in
     --help|-h) say "Usage: ./awg browserbase [url]
@@ -1009,8 +1009,6 @@ Needs BROWSERBASE_API_KEY. BROWSERBASE_PROJECT_ID is optional: Browserbase reads
   bb_start_browser "$session" "$extension_id" || fail "the Browserbase browser was not started."
   browser_id="$BB_BROWSER"
   cdp=$(jq -r '.connectUrl // empty' "$BB_BODY")
-  bb_call GET "/sessions/$browser_id/debug"
-  if bb_ok; then live=$(jq -r '.debuggerFullscreenUrl // empty' "$BB_BODY"); fi
 
   say ""
   say "A Browserbase browser is running through session $(basename "$session" .json)."
@@ -1053,9 +1051,17 @@ Needs BROWSERBASE_API_KEY. BROWSERBASE_PROJECT_ID is optional: Browserbase reads
     fi
   fi
   [ -n "$runtime_id" ] || say "Control Panel: not loaded in this browser. Read the session's stand-ins from the session file instead."
+  # Browserbase's live view shows one tab per link, so give the Control Panel's tab and the website's, not the blank first tab.
+  bb_call GET "/sessions/$browser_id/debug"
+  if bb_ok; then
+    live=$(jq -r --arg tab "${runtime_id:+chrome-extension://$runtime_id/}" \
+      '([.pages[]? | select($tab != "" and (.url | startswith($tab)))][0].debuggerFullscreenUrl) // .debuggerFullscreenUrl // empty' "$BB_BODY")
+    site=$(jq -r --arg tab "$url" '[.pages[]? | select($tab != "" and (.url | startswith($tab)))][0].debuggerFullscreenUrl // empty' "$BB_BODY")
+  fi
   if [ -n "$live" ]; then
-    say "Watch and control it here (keep this link private; it controls the browser):"
-    say "  $live"
+    say "Watch and control it here (keep these links private; each controls the browser):"
+    say "  ${runtime_id:+Control Panel: }$live"
+    [ -z "$site" ] || say "  $host: $site"
   else
     say "Browserbase returned no live view link. Open the browser from your Browserbase dashboard."
   fi

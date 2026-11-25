@@ -2,7 +2,7 @@
 
 `./awg start` opens CloakBrowser on your machine. `./awg browserbase` is an alternative for teams that run their agents on [Browserbase](https://www.browserbase.com): the browser runs in Browserbase's cloud and its traffic passes through your reveal session. No browser or Docker is needed locally; the kit uses `curl`, `jq` and `uv`.
 
-> Run so far, against a Browserbase project on the free plan: Browserbase accepted the session's certificate authority and the Control Panel upload, then refused to start the browser because the free plan has no proxies. The rest follows Browserbase's published API and passes the kit's offline tests, which stub Browserbase and VGS. Not yet exercised: the browser starting on a session's proxy, the Control Panel in a Browserbase browser, the relay to the local helper, and a submitted payment.
+> Run against Browserbase's service: the browser started on the session's proxy with the session's certificate authority trusted, pages loaded through VGS with a `vgs-request-id`, and the Control Panel loaded, opened, and connected to the local helper through the relay, showing the tenant, the session and its stand-ins. Not yet exercised: creating a session or adding a card from the panel in a Browserbase browser, the payment example, and a submitted payment.
 
 ## What you need
 
@@ -21,6 +21,8 @@ export BROWSERBASE_API_KEY=…
 ./awg browserbase https://<the site to test>/
 ```
 
+[![Agent Web Gateway Control Panel running in a Browserbase cloud browser](images/browserbase-browser.png)](images/browserbase-browser.png)
+
 The command:
 
 1. Creates or reuses a reveal session with the VGS test card, the same way `./awg start` does.
@@ -28,7 +30,7 @@ The command:
 3. Uploads the session's certificate authority to Browserbase's [certificates](https://docs.browserbase.com/platform/browser/security/certificate-validation), so the browser trusts pages re-signed by VGS and nothing else new.
 4. Starts a Browserbase browser that uses the session as its [external proxy](https://docs.browserbase.com/platform/identity/proxies), trusts that certificate authority, and loads the panel.
 5. Opens the kit's relay so the panel in the cloud browser reaches the helper on your machine. The helper holds your service-account credentials, and they stay local. The kit keeps a connection to the browser's connect address open and the panel hands each helper request to the kit over it ([`tools/browser-use/helper-relay.py`](../tools/browser-use/helper-relay.py)). The relay only ever calls the helper's own address.
-6. Prints the browser's live view link and connect address, along with Browserbase's session ID for its dashboard, session replay and support. Pass the connect address to Playwright's `connect_over_cdp`, Stagehand, or your own agent.
+6. Prints a live view link for the Control Panel's tab and one for the website's tab, since Browserbase's live view shows one tab per link, and the browser's connect address, along with Browserbase's session ID for its dashboard, session replay and support. Pass the connect address to Playwright's `connect_over_cdp`, Stagehand, or your own agent.
 7. Releases the browser, removes the panel and the certificate, and stops the helper and relay, when you press Enter. Without a terminal, it runs until the browser closes after 30 minutes.
 
 Type the session's stand-ins into the payment form, as in any other session. Read them with `./awg session` output or the Control Panel.
@@ -40,7 +42,7 @@ Type the session's stand-ins into the payment form, as in any other session. Rea
 | Browser | CloakBrowser on your machine | Browserbase's cloud, viewed through a link |
 | Needs | CloakBrowser license key | Browserbase API key, on the Developer plan or higher |
 | Also installed | CloakBrowser | Nothing |
-| Control Panel | Loaded, with the local helper | Loaded and opened in a tab, with the local helper reached through the kit's relay. Not verified in a Browserbase browser |
+| Control Panel | Loaded, with the local helper | Loaded and opened in a tab, with the local helper reached through the kit's relay |
 | Route switching | In the panel | Not available. Browserbase sets the browser's route, so the browser stays on the session it started with |
 | Recording | In the panel | Not verified in a Browserbase browser. Browserbase keeps its own session replay |
 
