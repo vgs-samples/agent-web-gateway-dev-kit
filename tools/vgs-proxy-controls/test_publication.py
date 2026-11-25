@@ -51,6 +51,7 @@ class PublicationTests(unittest.TestCase):
 
     def test_customer_terms_and_internal_source_gate_remain_valid(self):
         self.assertFalse(inspect_file('README.md', b'Agent Web Gateway dev kit; Sandbox and Live. curl -o /dev/null'))
+        self.assertFalse(inspect_file('README.md', b'Tested on https://stripe.dev/elements-examples/'))
         self.assertFalse(inspect_file('popup.js', b'allow_dev_env=true'))
 
 
