@@ -92,3 +92,4 @@
 .standin-row>div{display:flex;align-items:center;justify-content:space-between;gap:8px}.standin-row code{font-size:16px;display:block;white-space:normal;overflow-wrap:anywhere}
 .standin-row .small-label{font-size:12px}.session-settings{margin-top:20px}.session-settings summary{font-size:13px}.session-settings dd{white-space:pre-wrap}
 .session-inspector .certificate-actions{margin-top:12px}.session-inspector .gateway-badge[data-active=true]{background:#eaf7ef;color:#166b3f}
+select.inline-list{height:auto!important;padding:4px 0!important;background-image:none!important;overflow-y:auto}select.inline-list option{padding:6px 12px}

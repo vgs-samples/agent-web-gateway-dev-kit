@@ -37,7 +37,7 @@ The kit comes with:
 - **An [Agent Web Gateway Control Panel Chromium extension](docs/control-panel.md)** for testing, debugging, and building adapters for new vendors and sites. [Download the latest build artifact](https://github.com/vgs-samples/agent-web-gateway-dev-kit/actions/workflows/control-panel-package.yml) from its newest successful run, or use the [download and build guide](docs/training/extension-distribution.md) to find the latest successful build. GitHub artifacts require sign-in and expire after 30 days.
 - **An [MCP companion](docs/mcp.md)** so your assistant can capture browser traffic, inspect HARs, and work with functions, adapters, destinations, and bindings. Writes must be enabled before it can modify those resources.
 - **[Adapter-authoring skills](skills/vgs-checkout-adapter/SKILL.md)** for reading HAR evidence, creating synthetic fixtures, writing VGS Compute functions, testing locally in Starlarky, and registering and verifying an adapter. Start with the [provider examples](examples/adapters/README.md).
-- **Cloud and agent browser options** for [Browser Use](docs/browser-use.md) and [Kernel](docs/kernel.md), each started with one command.
+- **Cloud and agent browser options** for [Browser Use](docs/browser-use.md), [Kernel](docs/kernel.md) and [Browserbase](docs/browserbase.md), each started with one command.
 - **Browser setup instructions** for [CloakBrowser](#agent-web-gateway-control-panel-chromium-extension), [Chrome for Testing, Chromium, Chrome, Edge, and Brave](docs/training/10-proxy-controls-extension.md#browser-launch-examples). Browser installation and extension loading differ; the guide covers each. Follow [Browser proxying best practices](docs/browser-proxying.md) for egress, PAC routing, and when to create the payment session.
 
 Clone the repo and open it in your coding assistant:
@@ -102,7 +102,7 @@ If your coding assistant's sandbox blocks the browser or local helper, run the c
 
 ### Use another browser
 
-Browser Use, Browser Use Cloud and Kernel each start with one command instead of `./awg start`. The commands, what each one needs, and agents to start from are in the [examples](examples/README.md#browsers).
+Browser Use, Browser Use Cloud, Kernel and Browserbase each start with one command instead of `./awg start`. The commands, what each one needs, and agents and a vendor payment flow to start from are in the [examples](examples/README.md#browsers).
 
 ### Create sessions for cards
 

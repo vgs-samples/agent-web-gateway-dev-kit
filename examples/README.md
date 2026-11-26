@@ -1,10 +1,10 @@
 # Examples
 
-How to run the kit with each browser, the agents to start from, and the provider adapter examples. Set the kit up first with `./awg setup`; the [README](../README.md) covers that and the concepts.
+How to run the kit with each browser, the agents and payment flow to start from, and the provider adapter examples. Set the kit up first with `./awg setup`; the [README](../README.md) covers that and the concepts.
 
 | Area | What is there |
 |---|---|
-| [Browsers](#browsers) | One command each for Browser Use, Browser Use Cloud and Kernel |
+| [Browsers](#browsers) | One command each for Browser Use, Browser Use Cloud, Kernel and Browserbase |
 | [Agents and payment flows](#agents-and-payment-flows) | Scripts that fill a payment form with a session's stand-ins |
 | [Provider adapters](#provider-adapters) | Adyen, CyberSource, Stripe and OPPWA functions, bindings, tests and fixtures |
 | [Client-side encryption](#client-side-encryption) | What the Adyen and CyberSource adapters do, step by step |
@@ -18,12 +18,23 @@ How to run the kit with each browser, the agents to start from, and the provider
 | [Browser Use](https://github.com/browser-use/browser-use), on your machine | `./awg browser-use` | The same as `./awg start` | [Browser Use](../docs/browser-use.md) |
 | [Browser Use Cloud](https://cloud.browser-use.com) | `./awg browser-use --cloud` | `BROWSER_USE_API_KEY`, for a project with custom proxies enabled | [Browser Use](../docs/browser-use.md#use-a-browser-use-cloud-browser) |
 | [Kernel](https://kernel.sh) | `./awg kernel` | A Kernel API key on a Start-Up or Enterprise plan; the first run asks for it | [Kernel](../docs/kernel.md) |
+| [Browserbase](https://www.browserbase.com) | `./awg browserbase` | `BROWSERBASE_API_KEY`, on the Developer plan or higher | [Browserbase](../docs/browserbase.md) |
 
 `./awg browser-use` opens the kit's own browser with a Chrome DevTools address on `127.0.0.1:9222` for your agent.
 
-The other two run the browser in the provider's cloud, so no local browser and no Docker are needed. Each creates or reuses an active test-card session, starts a cloud browser with the session as its proxy and the Control Panel open in a tab, and prints a live view link for watching and driving it.
+The other three run the browser in the provider's cloud, so no local browser and no Docker are needed. Each creates or reuses an active test-card session, starts a cloud browser with the session as its proxy and the Control Panel open in a tab, and prints a live view link for watching and driving it.
+
+**Browser Use Cloud**
+
+[![Agent Web Gateway Control Panel running in a Browser Use cloud browser](../docs/images/browser-use-browser.png)](../docs/images/browser-use-browser.png)
+
+**Kernel**
 
 [![Agent Web Gateway Control Panel running in a Kernel cloud browser](../docs/images/kernel-browser.png)](../docs/images/kernel-browser.png)
+
+**Browserbase**
+
+[![Agent Web Gateway Control Panel running in a Browserbase cloud browser, seen in Browserbase's dashboard](../docs/images/browserbase-browser.png)](../docs/images/browserbase-browser.png)
 
 The Control Panel's helper stays on your machine, so your service-account credentials are not uploaded. The session's proxy credentials and the browser's traffic do go to the provider; the card does not. Each guide says what has been verified with that provider.
 
@@ -35,6 +46,7 @@ Each of these types the session's stand-ins, never a card, and submits nothing u
 |---|---|---|
 | [`browser-use/checkout_agent.py`](browser-use/README.md) | The kit's browser on your machine, or a Browser Use cloud browser | A Browser Use agent on your machine fills the payment form and stops before submitting |
 | [`browser-use/cloud_run.py`](browser-use/README.md) | Browser Use Cloud | A hosted agent run with the session as its custom proxy and the stand-ins as secret bindings |
+| [`browserbase/payment_flow.py`](browserbase/README.md) | Browserbase | A Playwright script opens a vendor's payment page, fills it, and submits only with `--submit` |
 
 Each folder's README has the commands and says what has been run against the provider.
 
