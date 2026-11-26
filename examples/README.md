@@ -24,7 +24,17 @@ How to run the kit with each browser, the agents and payment flow to start from,
 
 The other three run the browser in the provider's cloud, so no local browser and no Docker are needed. Each creates or reuses an active test-card session, starts a cloud browser with the session as its proxy and the Control Panel open in a tab, and prints a live view link for watching and driving it.
 
+**Browser Use Cloud**
+
+[![Agent Web Gateway Control Panel running in a Browser Use cloud browser](../docs/images/browser-use-browser.png)](../docs/images/browser-use-browser.png)
+
+**Kernel**
+
 [![Agent Web Gateway Control Panel running in a Kernel cloud browser](../docs/images/kernel-browser.png)](../docs/images/kernel-browser.png)
+
+**Browserbase**
+
+[![Agent Web Gateway Control Panel running in a Browserbase cloud browser, seen in Browserbase's dashboard](../docs/images/browserbase-browser.png)](../docs/images/browserbase-browser.png)
 
 The Control Panel's helper stays on your machine, so your service-account credentials are not uploaded. The session's proxy credentials and the browser's traffic do go to the provider; the card does not. Each guide says what has been verified with that provider.
 

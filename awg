@@ -30,6 +30,7 @@ CREDENTIALS="$STATE_DIR/sandbox.env"
 SESSIONS_DIR="$STATE_DIR/sessions"
 CARD_FILE="$STATE_DIR/card.json"
 LATEST="$STATE_DIR/latest-session"
+EGRESS_FILE="$STATE_DIR/.proxy-controls-egress.json"
 HELPER_LOG="$STATE_DIR/helper.log"
 PROFILE_DIR="$STATE_DIR/cloak-profile"
 
@@ -158,8 +159,12 @@ Log in with VGS, confirm the organization, and provision a Sandbox service accou
 
 # ---------------------------------------------------------------- session
 
-session_alive() {  # session_alive <file>
-  [ -f "$1" ] && jq -e '(.data.attributes.expires_at | fromdateiso8601) > (now + 60)' "$1" >/dev/null 2>&1
+session_alive() {  # session_alive <file>; with AWG_EGRESS set, the session must also go out through that proxy
+  [ -f "$1" ] && jq -e '(.data.attributes.expires_at | fromdateiso8601) > (now + 60)' "$1" >/dev/null 2>&1 || return 1
+  [ -z "${AWG_EGRESS:-}" ] || jq -e --arg name "$AWG_EGRESS" --slurpfile saved "$EGRESS_FILE" '
+    ([$saved[0].profiles[]? | select((.name | ascii_downcase) == ($name | ascii_downcase))][0].proxy) as $proxy
+    | (.data.attributes.egress_proxy_settings // {}) as $own
+    | $proxy != null and $own.hostname == $proxy.hostname and $own.port == $proxy.port' "$1" >/dev/null 2>&1
 }
 
 latest_session() { [ -f "$LATEST" ] && cat "$LATEST" || true; }
@@ -258,10 +263,16 @@ store_test_card() {  # store_test_card <token>
 }
 
 cmd_session() {
-  local hosts="${1:-}" token tenant body response code id file
+  local hosts="${1:-}" token tenant request response code id file
   for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
   need_credentials
   mkdir -p "$SESSIONS_DIR"
+  # AWG_EGRESS names a proxy saved in the Control Panel. VGS sends the session's traffic out through it.
+  if [ -n "${AWG_EGRESS:-}" ]; then
+    [ -f "$EGRESS_FILE" ] || fail "AWG_EGRESS is set, but no proxy has been saved yet. Save one in the Control Panel under Egress proxy settings."
+    jq -e --arg name "$AWG_EGRESS" 'any(.profiles[]?; (.name | ascii_downcase) == ($name | ascii_downcase))' "$EGRESS_FILE" >/dev/null 2>&1 \
+      || fail "no saved proxy is named \"$AWG_EGRESS\". Saved: $(jq -r '[.profiles[]?.name] | join(", ")' "$EGRESS_FILE" 2>/dev/null)"
+  fi
   tenant=$(cred VGS_TENANT)
   token=$(access_token)
   report_account_scopes "$token"
@@ -289,29 +300,37 @@ cmd_session() {
        {\"pan_alias\": \"tok_sandbox_…\", \"bin\": \"411111\", \"length\": 16}"
   fi
 
-  body=$(jq -n --arg hosts "$hosts" --slurpfile c "$CARD_FILE" '
+  # The request can hold the egress proxy's password, so it goes to curl as a private file.
+  request=$(mktemp "$SESSIONS_DIR/new.XXXXXX")
+  jq -n --arg hosts "$hosts" --slurpfile c "$CARD_FILE" --arg egress "${AWG_EGRESS:-}" \
+    --slurpfile saved "$([ -n "${AWG_EGRESS:-}" ] && printf '%s' "$EGRESS_FILE" || printf /dev/null)" '
     ($c[0]) as $card
+    | ([$saved[0].profiles[]? | select((.name | ascii_downcase) == ($egress | ascii_downcase))][0].proxy) as $proxy
     | {label: "main", number: {alias: $card.pan_alias, bin: $card.bin, length: $card.length}}
       + (if $card.fresh == true and $card.cvc_alias then {cvc: {alias: $card.cvc_alias, length: 3, storage: "VOLATILE"}} else {} end) as $entry
     | {data: {type: "reveal-sessions", attributes:
-        ({cards: [$entry]} + (if $hosts == "" then {} else {allowed_hosts: ($hosts | split(","))} end))}}')
+        ({cards: [$entry]} + (if $hosts == "" then {} else {allowed_hosts: ($hosts | split(","))} end)
+         + (if $proxy then {egress_proxy_settings: $proxy} else {} end))}}' > "$request"
   response=$(mktemp "$SESSIONS_DIR/new.XXXXXX")
   code=$(curl -sS -o "$response" -w '%{http_code}' "$API/reveal-sessions" \
     -H "Authorization: Bearer $token" -H "VGS-Tenant: $tenant" \
-    -H 'Content-Type: application/vnd.api+json' -d "$body") || code=000
+    -H 'Content-Type: application/vnd.api+json' --data-binary "@$request") || code=000
   if [ "$code" != 201 ]; then
     say "VGS answered HTTP $code:"
     jq -c '.errors // .' "$response" 2>/dev/null | cut -c1-500 || true
-    rm -f "$response"
+    rm -f "$response" "$request"
     [ "$code" != 403 ] || say "A 403 here means the service account lacks reveal-sessions:write, or Agent Web Gateway is not enabled for tenant $tenant."
     fail "the session was not created."
   fi
   id=$(jq -r .data.id "$response")
   file="$SESSIONS_DIR/$id.json"
   mv "$response" "$file"
+  # The Control Panel reads the egress proxy's credentials for this session from its saved request.
+  if [ -n "${AWG_EGRESS:-}" ]; then mv "$request" "$SESSIONS_DIR/$id.request.json"; else rm -f "$request"; fi
   printf '%s' "$file" > "$LATEST"
   jq '{id: .data.id, expires_at: .data.attributes.expires_at, allowed_hosts: (.data.attributes.allowed_hosts // []),
-       unlisted_host_mode: .data.attributes.unlisted_host_mode}' "$file"
+       unlisted_host_mode: .data.attributes.unlisted_host_mode}
+      + ((.data.attributes.egress_proxy_settings // {}) | if .hostname then {egress_proxy: "\(.hostname):\(.port)"} else {} end)' "$file"
   say "Session saved to $file"
 }
 

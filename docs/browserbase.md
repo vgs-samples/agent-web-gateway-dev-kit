@@ -2,7 +2,7 @@
 
 `./awg start` opens CloakBrowser on your machine. `./awg browserbase` is an alternative for teams that run their agents on [Browserbase](https://www.browserbase.com): the browser runs in Browserbase's cloud and its traffic passes through your reveal session. No browser or Docker is needed locally; the kit uses `curl`, `jq` and `uv`.
 
-> Run against Browserbase's service: the browser started on the session's proxy with the session's certificate authority trusted, pages loaded through VGS with a `vgs-request-id`, and the Control Panel loaded, opened, and connected to the local helper through the relay, showing the tenant, the session and its stand-ins. Not yet exercised: creating a session or adding a card from the panel in a Browserbase browser, the payment example, and a submitted payment.
+> Run against Browserbase's service: the browser started on the session's proxy with the session's certificate authority trusted, pages loaded through VGS with a `vgs-request-id`, and the Control Panel loaded, opened, and connected to the local helper through the relay, showing the tenant, the session and its stand-ins. Not yet exercised: `AWG_EGRESS`, creating a session or adding a card from the panel in a Browserbase browser, the payment example, and a submitted payment.
 
 ## What you need
 
@@ -13,6 +13,7 @@
 |---|---|
 | `BROWSERBASE_API_KEY` | Required. The project's API key. Export it in your own terminal; the kit does not save it. |
 | `BROWSERBASE_PROJECT_ID` | Optional. Browserbase reads the project from the key; set this when the key covers more than one. |
+| `AWG_EGRESS` | Optional. The name of a proxy saved in the Control Panel. See [Egress proxy](#egress-proxy). |
 
 ## Run it
 
@@ -21,7 +22,9 @@ export BROWSERBASE_API_KEY=…
 ./awg browserbase https://<the site to test>/
 ```
 
-[![Agent Web Gateway Control Panel running in a Browserbase cloud browser](images/browserbase-browser.png)](images/browserbase-browser.png)
+[![Agent Web Gateway Control Panel running in a Browserbase cloud browser, seen in Browserbase's dashboard](images/browserbase-browser.png)](images/browserbase-browser.png)
+
+Browserbase's live view does not draw a browser's own dropdown lists, so in a hosted browser the panel opens each list inside the page.
 
 The command:
 
@@ -34,6 +37,18 @@ The command:
 7. Releases the browser, removes the panel and the certificate, and stops the helper and relay, when you press Enter. Without a terminal, it runs until the browser closes after 30 minutes.
 
 Type the session's stand-ins into the payment form, as in any other session. Read them with `./awg session` output or the Control Panel.
+
+## Egress proxy
+
+A Browserbase browser stays on the session it started with, so the [egress proxy](browser-proxying.md) has to be part of that session. Name a proxy you saved in the Control Panel when you start the browser:
+
+```sh
+AWG_EGRESS="My proxy" ./awg browserbase https://<the site to test>/
+```
+
+The kit creates the session with that proxy as its `egress_proxy_settings`, so traffic goes from the Browserbase browser to VGS, and from VGS through your proxy to the website. The proxy's address and credentials are sent to VGS only, not to Browserbase. A current session is reused only when it already goes out through the named proxy. `AWG_EGRESS` works the same way with `./awg session` and the other browser commands.
+
+To save a proxy, open **Egress proxy** in the panel's new-session form and choose **Add a new proxy…**. Saved proxies are kept on your machine in `~/.awg-dev-kit`. Choosing a different proxy in the panel creates a new session, which this browser cannot switch to; run the command again with `AWG_EGRESS` instead.
 
 ## What is different from `./awg start`
 
@@ -83,5 +98,5 @@ The session's proxy address, proxy username and password, and certificate author
 | `Browserbase did not start the browser` | Browserbase checks the proxy when it creates the browser. The line above has its reason; the session may have expired, or Browserbase cannot reach the session's proxy host and port. |
 | `Browserbase did not accept the Control Panel` | The browser still starts on the session, without the panel. |
 | `Control Panel: not loaded in this browser` | The panel was not found among the browser's extensions. Read the stand-ins from the session file. |
-| A dropdown in the Control Panel does not open | Browserbase's live view does not draw a browser's native dropdown lists. The choices are there: click the field, then press the down or up arrow key to move through them. |
+| `no saved proxy is named …` | `AWG_EGRESS` does not match a proxy saved in the Control Panel. The message lists the saved names. |
 | Pages fail with a certificate error | The browser is not trusting the session's certificate authority. Report it with the Browserbase session ID. |

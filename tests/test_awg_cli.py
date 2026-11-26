@@ -543,7 +543,8 @@ elif [[ "$args" = *tntFixture.sandbox.vault-api.verygoodvault.com/aliases* ]]; t
   printf '%s' '{"data":[{"aliases":[{"alias":"tok_fixture_pan","format":"UUID"}]},{"aliases":[{"alias":"tok_fixture_cvc","format":"UUID"}]}]}' > "$out"
   printf 201
 elif [[ "$args" = *sandbox.vgsapi.com/reveal-sessions* ]]; then
-  printf '%s' "$args" > "$FIXTURE_ROOT/session-request"
+  # The request body reaches curl as a private file, not on the command line.
+  for arg in $args; do case "$arg" in @*) cat "${arg#@}" > "$FIXTURE_ROOT/session-request" ;; esac; done
   printf '%s' '{"data":{"id":"RSFixture","attributes":{"expires_at":"2099-01-01T00:00:00Z"}}}' > "$out"
   printf 201
 else exit 94; fi''')
@@ -568,6 +569,46 @@ else exit 94; fi''')
         request = (self.root / 'session-request').read_text()
         self.assertIn('tok_fixture_pan', request)
         self.assertIn('tok_fixture_cvc', request)
+
+    def test_session_goes_out_through_a_saved_egress_proxy_when_asked(self):
+        (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
+        proxy = {'type': 'custom', 'scheme': 'https', 'hostname': 'egress.example', 'port': 8443,
+                 'username': 'fixture-user', 'password': 'fixture-egress-secret'}
+        (self.state / '.proxy-controls-egress.json').write_text(json.dumps(
+            {'version': 1, 'profiles': [{'id': 'a' * 32, 'name': 'Fixture Proxy', 'proxy': proxy}]}))
+        self.script('curl', '''
+out=""
+args="$*"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -o ]; then shift; out="$1"; fi
+  shift
+done
+if [[ "$args" = *openid-connect/token* ]]; then
+  printf '%s' '{"access_token":"fixture-token"}'
+elif [[ "$args" = *sandbox.vgsapi.com/cards* ]]; then
+  printf '%s' '{"data":{"id":"CRFixture","attributes":{"pan_alias":"tok_fixture_pan","cvc_alias":"tok_fixture_cvc","bin":"411111"}}}' > "$out"
+  printf 201
+elif [[ "$args" = *sandbox.vgsapi.com/reveal-sessions* ]]; then
+  printf '%s' "$args" > "$FIXTURE_ROOT/session-args"
+  printf '%s' '{"data":{"id":"RSFixture","attributes":{"expires_at":"2099-01-01T00:00:00Z","egress_proxy_settings":{"type":"custom","scheme":"https","hostname":"egress.example","port":8443,"username":"fixture-user","has_password":true}}}}' > "$out"
+  printf 201
+else exit 94; fi''')
+
+        def session(name):
+            return subprocess.run(['/bin/bash', str(KIT / 'awg'), 'session'], env={**self.env, 'AWG_EGRESS': name},
+                                  capture_output=True, text=True, timeout=20)
+        result = session('fixture proxy')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('"egress_proxy": "egress.example:8443"', result.stdout)
+        # The proxy's password stays off the command line and out of the output.
+        self.assertNotIn('fixture-egress-secret', (self.root / 'session-args').read_text() + result.stdout + result.stderr)
+        # The Control Panel reads the proxy's credentials for the session from the saved request.
+        saved = json.loads((self.state / 'sessions/RSFixture.request.json').read_text())
+        self.assertEqual(saved['data']['attributes']['egress_proxy_settings'], proxy)
+        self.assertEqual(list((self.state / 'sessions').glob('new.*')), [])
+        unknown = session('Other Proxy')
+        self.assertNotEqual(unknown.returncode, 0)
+        self.assertIn('Saved: Fixture Proxy', unknown.stderr)
 
     def test_scope_granted_as_a_role_but_absent_from_the_token_is_reported_as_such(self):
         (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
