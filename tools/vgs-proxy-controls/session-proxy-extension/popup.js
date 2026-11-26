@@ -450,20 +450,22 @@ async function loadSessionInspector(selected,key) {
 }
 
 // A hosted browser's live view may not draw a native dropdown's list, so in one the choices open inside the page.
-let dropdownOpened = 0;
+let dropdownOpening = false;
 function closeDropdown(select) { select.size = 0; select.classList.remove("inline-list"); }
 document.addEventListener("mousedown", event => {
     const select = event.target.closest?.("select");
+    dropdownOpening = false;
     if (!state?.managedRoute || !select || select.disabled || select.size > 1) return;
     event.preventDefault();
     select.size = Math.min(Math.max([...select.options].filter(option => !option.hidden).length, 2), 8);
     select.classList.add("inline-list");
-    dropdownOpened = Date.now();
+    dropdownOpening = true;
     select.focus();
 });
 document.addEventListener("click", event => {
     const select = event.target.closest?.("select");
-    // The click that opened the list also arrives here; a later one is a choice.
-    if (select && select.size > 1 && Date.now() - dropdownOpened > 250) closeDropdown(select);
+    // The click that opened the list also arrives here, however slowly; a later one is a choice.
+    if (dropdownOpening) { dropdownOpening = false; return; }
+    if (select && select.size > 1) closeDropdown(select);
 });
 document.addEventListener("focusout", event => { if (event.target.matches?.("select")) closeDropdown(event.target); });
