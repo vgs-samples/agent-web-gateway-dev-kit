@@ -1,5 +1,52 @@
 # Agent Web Gateway Dev Kit
 
+**Let an AI agent pay on any website without ever holding the card.** The agent types a stand-in. VGS swaps in the real card after the request has left the browser, and only where your destination policy allows it.
+
+[![Offline tests](https://github.com/vgs-samples/agent-web-gateway-dev-kit/actions/workflows/bootstrap.yml/badge.svg)](https://github.com/vgs-samples/agent-web-gateway-dev-kit/actions/workflows/bootstrap.yml)
+[![Control Panel package](https://github.com/vgs-samples/agent-web-gateway-dev-kit/actions/workflows/control-panel-package.yml/badge.svg)](https://github.com/vgs-samples/agent-web-gateway-dev-kit/actions/workflows/control-panel-package.yml)
+
+[Quickstart](#quickstart) · [Browsers](examples/README.md#browsers) · [Adapters](examples/README.md#provider-adapters) · [Control Panel](docs/control-panel.md) · [Concepts](#terminology) · [All docs](docs/README.md)
+
+<!-- Replace this screenshot with a short recording (docs/images/awg-demo.gif): ./awg start, the browser opens,
+     a stand-in is typed into a payment form, and the destination receives the card. -->
+[![The Control Panel in the kit's browser: a reveal session, its stand-in card number and security code, and the browser's route through VGS](tools/vgs-proxy-controls/screenshots/control-panel.png)](tools/vgs-proxy-controls/screenshots/control-panel.png)
+
+## Who sees the card
+
+| | Sees the real card? | What it holds instead |
+|---|---|---|
+| Your agent and its browser | No | Session stand-ins that stop working when the session ends |
+| A cloud browser provider (Browser Use Cloud, Kernel, Browserbase) | No | The same stand-ins, and the session's proxy details |
+| A destination your policy blocks | No | The stand-ins, unchanged |
+| A destination your policy permits | Yes | The card, delivered by VGS inside the request |
+
+Permitted means trusted, or [guarded](#guarded-destinations) and still within its reveal limits.
+
+## Quickstart
+
+You need a VGS organization with a Sandbox vault that has Agent Web Gateway enabled.
+
+```sh
+git clone https://github.com/vgs-samples/agent-web-gateway-dev-kit.git
+cd agent-web-gateway-dev-kit
+./awg setup    # log in to VGS and create Sandbox credentials, once
+./awg start    # a test-card session and a browser with the Control Panel
+```
+
+Type the session's stand-ins from the Control Panel into a payment form, and watch the request go through VGS. Use Sandbox and public test cards only.
+
+## Works with
+
+| Where the browser runs | Command |
+|---|---|
+| CloakBrowser on your machine | `./awg start` |
+| [Browser Use](docs/browser-use.md) on your machine | `./awg browser-use` |
+| [Browser Use Cloud](docs/browser-use.md#use-a-browser-use-cloud-browser) | `./awg browser-use --cloud` |
+| [Kernel](docs/kernel.md) | `./awg kernel` |
+| [Browserbase](docs/browserbase.md) | `./awg browserbase` |
+
+Payment providers that encrypt card fields in the browser need an adapter. The kit has worked examples for [Adyen, CyberSource, Stripe and OPPWA](examples/README.md#provider-adapters), and the tools to write your own.
+
 ## What is the VGS Agent Web Gateway?
 
 The [VGS Agent Web Gateway](https://docs.verygoodsecurity.com/agentic-commerce/developer-resources/api-reference/agent-web-gateway) lets an AI agent use sensitive data on a website without giving that data to the agent or its browser. Cards, email addresses, passwords, Social Security numbers - the agent works with short-lived, tightly scoped tokens called **session aliases**. VGS replaces them with the real values inside the gateway, before the request reaches an approved destination.
@@ -40,14 +87,7 @@ The kit comes with:
 - **Cloud and agent browser options** for [Browser Use](docs/browser-use.md), [Kernel](docs/kernel.md) and [Browserbase](docs/browserbase.md), each started with one command.
 - **Browser setup instructions** for [CloakBrowser](#agent-web-gateway-control-panel-chromium-extension), [Chrome for Testing, Chromium, Chrome, Edge, and Brave](docs/training/10-proxy-controls-extension.md#browser-launch-examples). Browser installation and extension loading differ; the guide covers each. Follow [Browser proxying best practices](docs/browser-proxying.md) for egress, PAC routing, and when to create the payment session.
 
-Clone the repo and open it in your coding assistant:
-
-```sh
-git clone https://github.com/vgs-samples/agent-web-gateway-dev-kit.git
-cd agent-web-gateway-dev-kit
-```
-
-Give the assistant access to this directory and paste:
+To set it up with a coding assistant, open the cloned repo in it, give it access to the directory and paste:
 
 > Read AGENTS.md and set up this dev kit. Use the checkout adapter skill when we work on a provider integration. Read the README and setup guide first, run the offline checks, and help me connect my Sandbox organization. Keep credentials and private captures out of chat and source control.
 
@@ -59,7 +99,8 @@ The assistant needs file and terminal access. You can also run account setup you
 
 Setup installs [VGS CLI](https://docs.verygoodsecurity.com/vault/developer-tools/vgs-cli/getting-started) with `uv`, runs `vgs login`, and asks which organization to use. It selects a Sandbox tenant, creates the service account, saves the credentials locally, and checks access. Your organization needs a Sandbox tenant with Agent Web Gateway enabled. See the [setup guide](docs/setup.md) for dependencies and recovery.
 
-### If the service account is missing scopes
+<details>
+<summary><strong>If the service account is missing scopes</strong></summary>
 
 `./awg setup` and `./awg start` print `Note: … lacks: …` with the exact scope names when the account is missing any. The kit carries on with the scopes the account has. Scopes cannot be added to an existing service account, so to get one with every scope the kit uses, run:
 
@@ -69,7 +110,10 @@ Setup installs [VGS CLI](https://docs.verygoodsecurity.com/vault/developer-tools
 
 You can do this yourself if your VGS login is allowed to create service accounts in the organization; otherwise ask your organization's administrator. If the new account is still missing scopes, your organization has not been granted them, and only VGS can enable them. See [missing scopes](docs/setup.md#missing-scopes).
 
-### If your vault has no Cards API
+</details>
+
+<details>
+<summary><strong>If your vault has no Cards API</strong></summary>
 
 Nothing else is needed. The kit tries the Cards API, and when it is refused it stores the test card through the vault alias API and creates the session from those aliases. To point the kit at a particular Sandbox vault and skip the Cards API outright (the IDs are placeholders):
 
@@ -79,6 +123,8 @@ AWG_CARD_STORE=aliases ./awg start
 ```
 
 The vault needs Agent Web Gateway enabled by VGS, and the service account needs `aliases:write`, `reveal-sessions:read`, `reveal-sessions:write`, `agent-gateway:read` and `agent-gateway:write`. The Sandbox hosts follow from the vault ID, so there is no host to configure. See the [setup guide](docs/setup.md#automatic-service-account-creation).
+
+</details>
 
 ## Agent Web Gateway Control Panel Chromium Extension
 
