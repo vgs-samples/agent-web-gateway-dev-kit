@@ -6,6 +6,69 @@ indicates gateway processing failed; it is not a merchant decline. The status
 alone does not identify the failing Larky line. Distinguish it from an explicit
 reveal refusal and preserve the request ID.
 
+## CyberSource Flex stage evidence
+
+Run the stage report locally on the supplied HAR. From the repository root, this
+example uses the bundled synthetic token request.
+
+```sh
+python3 skills/vgs-checkout-adapter/scripts/har-index.py --cybersource \
+  examples/adapters/cybersource/fixtures/encrypt.synthetic.har
+```
+
+The bundled example has three bindings. Deployments can add more capture or
+payment routes. Use the bindings from the version under investigation. Keep their
+order and copy only the classification stage and exact route into a local JSON
+file. This example describes two bindings that share a stage:
+
+```json
+{"bindings":[
+  {"key":"encrypt","when":{"host":"flex.cybersource.com","method":"POST","path":"/flex/v2/tokens"}},
+  {"key":"encrypt","when":{"host":"www.alaskaair.com","method":"POST","path":"/book/api/bsmPayments"}}
+]}
+```
+
+Use `capture`, `bridge-sdk`, or `encrypt` for each `key`. Each `when` needs a
+literal hostname, uppercase method, and absolute path without wildcards, query,
+or fragment. Omit credentials, input mappings, and session or card values.
+From a standalone or installed skill directory, pass the file explicitly:
+
+```sh
+python3 scripts/har-index.py --cybersource-bindings /private/routes.json /private/capture.har
+```
+
+`bindingsSource` identifies `explicit-file` or `bundled-example`. Each row gives
+the zero-based HAR `entry` and the zero-based `bindingIndex` in the selected
+file's `bindings` array. An empty `mismatchedFields` list means host, method
+and path matched. Otherwise the row lists which fields differed for a candidate
+with the same final path component. An exact match suppresses near misses for
+that entry within its stage. An empty stage has no candidate. Confirm binding
+enablement and effective vault content-type policy separately.
+
+Exact rows indicate whether the response recorded nonempty `VGS-Request-Id`,
+`VGS-Upstream` and `VGS-Upstream-Response-Time` headers. If the HAR records
+an unambiguous HTTP code in `VGS-Upstream-Status-Code`, the report includes
+that code separately from the browser status. Cached responses can retain
+these headers. Their presence does not identify which adapter function ran.
+
+| Stage | What the HAR can establish |
+| --- | --- |
+| Capture | The checkout response was recorded. The function returns it unchanged, so confirming a context write requires same-session gateway evidence. |
+| Bridge SDK | For the SDK, `cacheControlNoStorePrivate` means the recorded directives were exactly `no-store` and `private`. That policy, a cache flag or 304, and transfer size are auxiliary evidence. The injected marker in the recorded body identifies patched bytes. |
+| Encrypt | On exact `POST /flex/v2/tokens` rows (`flex-tokens`), the helper classifies the browser **request** bytes. An `AWGCS1` envelope with paired letters matches the relay encoding. A compact JWS- or JWE-shaped request bypasses the function’s relay guard if delivered as recorded. A 201 or response MIME type cannot establish the request shape. Exact `POST /book/api/bsmPayments` rows carry the label `bsm-payments` and describe the separate merchant payment request. |
+
+A native-looking `eyJ…` payload in a failing token POST leaves the
+cache and root cause unknown. If the HAR also contains patched SDK bytes, first
+correlate the failing frame's loaded script with that SDK entry and its token
+POST. If the same frame used the patch and produced a normal payload, check the
+bridge guard privately. It requires at least one submitted card field and exact
+string equality for every submitted `number` or `securityCode`. Compare each
+with the stand-in used by that SDK and the expected stand-in for the same
+session and selected card label, if configured. Report only field presence and
+equality booleans. Mark unavailable comparisons unknown. Keep the card values,
+stand-ins and label private. Correlate gateway dispatch, reveal count and upstream
+transformation to the specific request before attributing a downstream failure.
+
 ## Capture and establish the baseline
 
 Export the browser HAR with the failing request body and available response body,
