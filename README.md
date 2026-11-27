@@ -1,4 +1,7 @@
-<p align="center"><a href="https://www.verygoodsecurity.com"><img src="tools/vgs-proxy-controls/session-proxy-extension/assets/vgs-logo.svg" width="170" alt="VGS"></a></p>
+<p align="center"><a href="https://www.verygoodsecurity.com"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/vgs-logo-dark.svg">
+  <img src="tools/vgs-proxy-controls/session-proxy-extension/assets/vgs-logo.svg" width="170" alt="VGS">
+</picture></a></p>
 
 # Agent Web Gateway Dev Kit
 
