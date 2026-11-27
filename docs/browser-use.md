@@ -72,8 +72,10 @@ Any program on your machine can drive the browser through the DevTools address w
 ### Run it
 
 ```sh
-BROWSER_USE_API_KEY=… ./awg browser-use --cloud https://<the site to test>/
+./awg browser-use --cloud https://<the site to test>/
 ```
+
+The first run asks for your Browser Use Cloud API key and saves it in `~/.awg-dev-kit/browser-use-key`, readable only by you. Later runs use the saved key. A key in `BROWSER_USE_API_KEY` is used instead and saved the same way. To replace the saved key, run `./awg browser-use-login`.
 
 [![Agent Web Gateway Control Panel running in a Browser Use cloud browser](images/browser-use-browser.png)](images/browser-use-browser.png)
 
@@ -138,7 +140,7 @@ The session's proxy address, proxy username and password, and certificate author
 
 | Output | Meaning |
 |---|---|
-| `BROWSER_USE_API_KEY is not set` | Export the key or put it in front of the command. |
+| `BROWSER_USE_API_KEY is not set and no Browser Use Cloud API key is saved` | The command had no terminal to ask in. Run `./awg browser-use-login` in your own terminal once. |
 | `Browser Use answered HTTP 401` | Browser Use did not accept the key. |
 | `Browser Use answered HTTP 403` | Custom proxies are not enabled for the Browser Use project. They are an enterprise feature that Browser Use enables on request. |
 | `Browser Use did not accept the Control Panel` | The browser still starts on the session, without the panel. |

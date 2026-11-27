@@ -330,6 +330,11 @@ else exit 93; fi''')
         self.env['BROWSER_USE_API_KEY'] = 'fixture-browser-use-key'
         result = self.run_awg('browser-use', '--cloud', 'https://example.com/checkout')
         self.assertEqual(result.returncode, 0, result.stderr)
+        # The key is saved privately on first use, so later runs need nothing in the environment.
+        saved = self.state / 'browser-use-key'
+        self.assertEqual(saved.read_text().strip(), 'fixture-browser-use-key')
+        self.assertEqual(saved.stat().st_mode & 0o777, 0o600)
+        del self.env['BROWSER_USE_API_KEY']
         browser = json.loads((self.root / 'browser-body').read_text())
         self.assertEqual(browser['customProxy'], {
             'host': 'tntFixture.sandbox.verygoodproxy.com', 'port': 3443, 'protocol': 'https', 'username': 'US@fixture',
@@ -465,6 +470,11 @@ else exit 93; fi''')
         panel = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop/popup.html'
         result = self.run_awg('browserbase', 'https://example.com/checkout')
         self.assertEqual(result.returncode, 0, result.stderr)
+        # The key is saved privately on first use, so later runs need nothing in the environment.
+        saved = self.state / 'browserbase-key'
+        self.assertEqual(saved.read_text().strip(), 'fixture-browserbase-key')
+        self.assertEqual(saved.stat().st_mode & 0o777, 0o600)
+        del self.env['BROWSERBASE_API_KEY']
         # The session's certificate authority is uploaded and trusted, rather than certificate errors ignored.
         self.assertIn('BEGIN CERTIFICATE', (self.root / 'certificate-upload').read_text())
         browser = json.loads((self.root / 'browser-body').read_text())
