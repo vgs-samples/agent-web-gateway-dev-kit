@@ -3,6 +3,7 @@
 #
 #   ./awg test                 run the kit's offline tests (no credentials, nothing sent to VGS)
 #   ./awg setup [--organization AC…]  log in and provision Sandbox credentials
+#   ./awg credentials [dev|sandbox|live]  list saved credential files (never their contents)
 #   ./awg session [hosts]      create a reveal session for a test card (hosts: comma-separated)
 #   ./awg start [url]          one step: session + control panel helper + CloakBrowser
 #   ./awg kernel [url]         session + a Kernel cloud browser routed through it (asks for your Kernel API key once)
@@ -15,7 +16,7 @@
 #   ./awg sitecheck [args]     run the awg-sitecheck tool (arguments of awg-sitecheck)
 #
 # uv supplies Python for the kit, the browser and VGS CLI; nothing is compiled.
-# Private files live in ~/.awg-dev-kit, readable only by you.
+# Private files live in ~/.vgs/awg/{dev,sandbox,live}, readable only by you.
 set -euo pipefail
 umask 077
 
@@ -25,8 +26,15 @@ SITECHECK_DIR="$KIT_DIR/tools/sitecheck"
 PYTHON_VERSION="3.12"
 VGS_CLI_VERSION="1.37.0"
 
-STATE_DIR="${AWG_HOME:-$HOME/.awg-dev-kit}"
-CREDENTIALS="$STATE_DIR/sandbox.env"
+AWG_ROOT="${AWG_HOME:-$HOME/.vgs/awg}"
+ENVIRONMENT="${AWG_ENVIRONMENT:-sandbox}"
+case "$ENVIRONMENT" in
+  dev) DOMAIN=io ;;
+  sandbox|live) DOMAIN=com ;;
+  *) printf 'error: AWG_ENVIRONMENT must be dev, sandbox, or live\n' >&2; exit 1 ;;
+esac
+STATE_DIR="$AWG_ROOT/$ENVIRONMENT"
+CREDENTIALS="$STATE_DIR/$ENVIRONMENT.env"
 SESSIONS_DIR="$STATE_DIR/sessions"
 CARD_FILE="$STATE_DIR/card.json"
 LATEST="$STATE_DIR/latest-session"
@@ -34,8 +42,9 @@ EGRESS_FILE="$STATE_DIR/.proxy-controls-egress.json"
 HELPER_LOG="$STATE_DIR/helper.log"
 PROFILE_DIR="$STATE_DIR/cloak-profile"
 
-API="https://sandbox.vgsapi.com"
-AUTH="https://auth.verygoodsecurity.com/auth/realms/vgs/protocol/openid-connect/token"
+API="https://sandbox.vgsapi.$DOMAIN"
+[ "$ENVIRONMENT" != live ] || API="https://vgsapi.com"
+AUTH="https://auth.verygoodsecurity.$DOMAIN/auth/realms/vgs/protocol/openid-connect/token"
 
 say()  { printf '%s\n' "$*"; }
 fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -117,10 +126,39 @@ cmd_test() {
 
 # ---------------------------------------------------------------- credentials
 
+cmd_credentials() {
+  case "${1:-}" in
+    ""|dev|sandbox|live) ;;
+    --help|-h) say "Usage: ./awg credentials [dev|sandbox|live]
+List saved service-account files under ~/.vgs/awg (AWG_HOME overrides the root).
+Supports environment files, dashboard exports and CLI YAML/JSON. Secrets are never shown."; return ;;
+    *) fail "credentials expects dev, sandbox, or live" ;;
+  esac
+  [ $# -le 1 ] || fail "credentials accepts at most one environment"
+  kit_python "$PANEL_DIR/saved_accounts.py" "$@"
+}
+
 cred() { grep -E "^$1=" "$CREDENTIALS" | head -1 | cut -d= -f2-; }
 
 need_credentials() {
-  [ -f "$CREDENTIALS" ] || fail "no saved credentials. Run:  ./awg setup"
+  if [ ! -f "$CREDENTIALS" ]; then
+    cmd_credentials "$ENVIRONMENT" >&2
+    fail "no saved credentials at $CREDENTIALS. Run ./awg setup for Sandbox; save an existing DEV account as dev.env for DEV."
+  fi
+  local configured_api configured_auth configured_environment
+  configured_api=$(cred VGS_API || true)
+  configured_auth=$(cred VGS_AUTH_URL || true)
+  configured_environment=$(cred VGS_ENVIRONMENT || true)
+  [ -z "$configured_api" ] || [ "$configured_api" = "$API" ] || fail "credentials do not match AWG_ENVIRONMENT"
+  [ -z "$configured_auth" ] || [ "$configured_auth" = "$AUTH" ] || fail "credential authentication endpoint does not match AWG_ENVIRONMENT"
+  [ -z "$configured_environment" ] || [ "$configured_environment" = "$ENVIRONMENT" ] || fail "credentials do not match AWG_ENVIRONMENT"
+}
+
+ensure_credentials() {
+  if [ ! -f "$CREDENTIALS" ] && [ "$ENVIRONMENT" = sandbox ]; then
+    AWG_IN_START=1 cmd_setup
+  fi
+  need_credentials
 }
 
 access_token() {
@@ -151,6 +189,7 @@ Log in with VGS, confirm the organization, and provision a Sandbox service accou
     esac
     shift
   done
+  [ "$ENVIRONMENT" = sandbox ] || fail "automatic setup is Sandbox only. Existing credentials belong in $CREDENTIALS."
   need_vgs_cli
   "$CLI_ENV/bin/python" "$KIT_DIR/tools/bootstrap/setup.py" --state-dir "$STATE_DIR" \
     --vgs "$CLI_ENV/bin/vgs" ${SETUP_ARGS[@]+"${SETUP_ARGS[@]}"}
@@ -226,7 +265,7 @@ explain_card_refusal() {  # explain_card_refusal <token>
 store_test_aliases() {  # store_test_aliases <token> <tenant>
   local response code
   response=$(mktemp "$STATE_DIR/card.XXXXXX")
-  code=$(curl -sS -o "$response" -w '%{http_code}' -X POST "https://$2.sandbox.vault-api.verygoodvault.com/aliases" \
+  code=$(curl -sS -o "$response" -w '%{http_code}' -X POST "https://$2.sandbox.vault-api.verygoodvault.$DOMAIN/aliases" \
     -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
     -d '{"data":[{"value":"4111111111111111","format":"UUID","storage":"PERSISTENT"},{"value":"123","format":"UUID","storage":"VOLATILE"}]}') || code=000
   if [ "$code" = 201 ] && jq -e '.data | length == 2' "$response" >/dev/null 2>&1; then
@@ -338,12 +377,12 @@ cmd_session() {
 
 cmd_panel() {
   [ -f "$PANEL_DIR/start-proxy-controls.py" ] || fail "control panel not found in $PANEL_DIR"
-  kit_python "$PANEL_DIR/start-proxy-controls.py" "$@"
+  kit_python "$PANEL_DIR/start-proxy-controls.py" --environment "$ENVIRONMENT" "$@"
 }
 
 cmd_browser() {
   have openssl || fail "openssl is required to trust the session's certificate. Install it with your package manager."
-  cloak_python python "$KIT_DIR/tools/cloak/launch-panel.py" "$@"
+  cloak_python python "$KIT_DIR/tools/cloak/launch-panel.py" --profile "$PROFILE_DIR" "$@"
 }
 
 cmd_cloak_login() {
@@ -376,7 +415,7 @@ cmd_start() {
   local url="${1:-}" host="" session helper_pid extension
   for tool in curl jq openssl; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
   need_uv
-  [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
+  ensure_credentials
   need_cloak_license
   close_earlier_browser
   [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
@@ -401,7 +440,7 @@ cmd_start() {
   chmod 700 "$STATE_DIR/panel-extension"
   PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
     python "$PANEL_DIR/start-proxy-controls.py" --session "$session" --output "$extension" \
-    --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
+    --environment "$ENVIRONMENT" --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
   helper_pid=$!
   # Capture the PID now: EXIT runs after this function's locals leave scope. uv runs the helper as
   # a child, so stop that too; --exit-with-pid covers the case where this script is killed outright.
@@ -524,7 +563,7 @@ cmd_kernel() {
   for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
   need_kernel_key
   need_uv
-  [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
+  ensure_credentials
   [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
   session=$(latest_session)
   if session_alive "$session" && { [ -z "$host" ] || jq -e --arg h "$host" '(.data.attributes.allowed_hosts // []) | index($h)' "$session" >/dev/null; }; then
@@ -567,7 +606,7 @@ cmd_kernel() {
     chmod 700 "$STATE_DIR/panel-extension"
     PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
       python "$PANEL_DIR/start-proxy-controls.py" --session "$session" --output "$KERNEL_PANEL_DIR" \
-      --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
+      --environment "$ENVIRONMENT" --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
     KERNEL_HELPER=$!
     for _ in $(seq 1 60); do
       grep -q 'Proxy controls are ready' "$HELPER_LOG" 2>/dev/null && break
@@ -585,7 +624,7 @@ cmd_kernel() {
          kit_python "$KIT_DIR/tools/kernel/build-extension.py" --folder "$KERNEL_PANEL_DIR" --output "$KERNEL_ZIP"
        else
          kit_python "$KIT_DIR/tools/kernel/build-extension.py" --session "$session" \
-           --credentials-file "$CREDENTIALS" --output "$KERNEL_ZIP"
+           --environment "$ENVIRONMENT" --credentials-file "$CREDENTIALS" --output "$KERNEL_ZIP"
        fi; } && [ -s "$KERNEL_ZIP" ]; then
     KERNEL_CODE=$(curl -sS -o "$KERNEL_BODY" -w '%{http_code}' -X POST "$KERNEL_API/extensions" \
       -H "Authorization: Bearer $KERNEL_API_KEY" -F "file=@$KERNEL_ZIP;type=application/zip" \
@@ -741,7 +780,7 @@ cmd_browser_use_cloud() {
   for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
   need_provider_key "${BROWSER_USE_KEY[@]}"
   need_uv
-  [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
+  ensure_credentials
   [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
   session=$(latest_session)
   if session_alive "$session" && { [ -z "$host" ] || jq -e --arg h "$host" '(.data.attributes.allowed_hosts // []) | index($h)' "$session" >/dev/null; }; then
@@ -770,7 +809,7 @@ cmd_browser_use_cloud() {
   chmod 700 "$STATE_DIR/panel-extension"
   PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
     python "$PANEL_DIR/start-proxy-controls.py" --session "$session" --output "$BU_PANEL_DIR" --managed-route \
-    --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
+    --environment "$ENVIRONMENT" --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
   BU_HELPER=$!
   for _ in $(seq 1 60); do
     grep -q 'Proxy controls are ready' "$HELPER_LOG" 2>/dev/null && break
@@ -786,7 +825,7 @@ cmd_browser_use_cloud() {
   if { if [ -n "$helper_port" ]; then
          kit_python "$KIT_DIR/tools/kernel/build-extension.py" --folder "$BU_PANEL_DIR" --output "$BU_ZIP"
        else
-         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --session "$session" --credentials-file "$CREDENTIALS" \
+         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --environment "$ENVIRONMENT" --session "$session" --credentials-file "$CREDENTIALS" \
            --managed-route --output "$BU_ZIP"
        fi; } && [ -s "$BU_ZIP" ]; then
     BU_CODE=$(curl -sS -o "$BU_BODY" -w '%{http_code}' -X POST "$BROWSER_USE_API/extensions" \
@@ -973,7 +1012,7 @@ The first run asks for your Browserbase API key and saves it. BROWSERBASE_PROJEC
   for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
   need_provider_key "${BROWSERBASE_KEY[@]}"
   need_uv
-  [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
+  ensure_credentials
   [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
   session=$(latest_session)
   if session_alive "$session" && { [ -z "$host" ] || jq -e --arg h "$host" '(.data.attributes.allowed_hosts // []) | index($h)' "$session" >/dev/null; }; then
@@ -1002,7 +1041,7 @@ The first run asks for your Browserbase API key and saves it. BROWSERBASE_PROJEC
   chmod 700 "$STATE_DIR/panel-extension"
   PYTHONDONTWRITEBYTECODE=1 uv run --quiet --no-project --python "$PYTHON_VERSION" \
     python "$PANEL_DIR/start-proxy-controls.py" --session "$session" --output "$BB_PANEL_DIR" --managed-route \
-    --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
+    --environment "$ENVIRONMENT" --credentials-file "$CREDENTIALS" --sessions-dir "$SESSIONS_DIR" --exit-with-pid "$$" > "$HELPER_LOG" 2>&1 &
   BB_HELPER=$!
   for _ in $(seq 1 60); do
     grep -q 'Proxy controls are ready' "$HELPER_LOG" 2>/dev/null && break
@@ -1016,7 +1055,7 @@ The first run asks for your Browserbase API key and saves it. BROWSERBASE_PROJEC
   if { if [ -n "$helper_port" ]; then
          kit_python "$KIT_DIR/tools/kernel/build-extension.py" --folder "$BB_PANEL_DIR" --output "$BB_ZIP"
        else
-         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --session "$session" --credentials-file "$CREDENTIALS" \
+         kit_python "$KIT_DIR/tools/kernel/build-extension.py" --environment "$ENVIRONMENT" --session "$session" --credentials-file "$CREDENTIALS" \
            --managed-route --output "$BB_ZIP"
        fi; } && [ -s "$BB_ZIP" ]; then
     bb_upload /extensions "$BB_ZIP" application/zip
@@ -1109,11 +1148,24 @@ cmd_sitecheck() {
   (cd "$SITECHECK_DIR" && uv run awg-sitecheck "$@")
 }
 
-usage() { sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() {
+  sed -n '/^# One entry point/,/^set -euo/{ /^#/s/^# \{0,1\}//p; }' "${BASH_SOURCE[0]}"
+  say "AWG_ENVIRONMENT selects dev or sandbox (default); credentials lists all environments, including live."
+  say "AWG_HOME overrides ~/.vgs/awg; each environment has its own subdirectory."
+}
+
+# Listing Live files does not enable the test-card/browser workflow against Live.
+if [ "$ENVIRONMENT" = live ]; then
+  case "${1:-}" in
+    credentials|test|""|-h|--help|help) ;;
+    *) fail "the dev kit runs in dev or sandbox. Use './awg credentials live' to list saved Live credentials." ;;
+  esac
+fi
 
 case "${1:-}" in
   test)        shift; cmd_test "$@" ;;
   setup)       shift; cmd_setup "$@" ;;
+  credentials) shift; cmd_credentials "$@" ;;
   session)     shift; cmd_session "$@" ;;
   start)       shift; cmd_start "$@" ;;
   kernel)      shift; cmd_kernel "$@" ;;

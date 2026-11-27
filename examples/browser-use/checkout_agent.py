@@ -24,7 +24,7 @@ import sys
 
 from browser_use import Agent, Browser
 
-STATE = Path(os.environ.get("AWG_HOME", Path.home() / ".awg-dev-kit"))
+STATE = Path(os.environ.get("AWG_HOME", Path.home() / ".vgs" / "awg")).expanduser() / os.environ.get("AWG_ENVIRONMENT", "sandbox")
 # The local browser by default. For ./awg browser-use --cloud, set AWG_CDP_URL to the DevTools address it prints.
 CDP = os.environ.get("AWG_CDP_URL") or "http://127.0.0.1:" + os.environ.get("AWG_CDP_PORT", "9222")
 

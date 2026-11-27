@@ -284,7 +284,9 @@ def onboard(state, executable, organization=None, tenant=None, force=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--state-dir", type=Path, required=True)
+    parser.add_argument("--state-dir", type=Path,
+                        default=Path(os.environ.get("AWG_HOME", Path.home() / ".vgs" / "awg")) / "sandbox",
+                        help="Private Sandbox directory (default: ~/.vgs/awg/sandbox)")
     parser.add_argument("--vgs", required=True)
     parser.add_argument("--organization")
     parser.add_argument("--tenant")

@@ -3,7 +3,9 @@ import base64
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -17,9 +19,10 @@ class WrapperTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.bin = self.root / 'bin'
         self.bin.mkdir()
-        self.state = self.root / 'state'
-        self.state.mkdir()
-        self.env = {**os.environ, 'AWG_HOME': str(self.state), 'PATH': str(self.bin) + ':' + os.environ['PATH'],
+        self.awg_root = self.root / 'state'
+        self.state = self.awg_root / 'sandbox'
+        self.state.mkdir(parents=True)
+        self.env = {**os.environ, 'AWG_HOME': str(self.awg_root), 'AWG_ENVIRONMENT': 'sandbox', 'PATH': str(self.bin) + ':' + os.environ['PATH'],
                     'FIXTURE_ROOT': str(self.root), 'CLOAKBROWSER_LICENSE_KEY': 'fixture-license'}
 
     def script(self, name, body):
@@ -67,10 +70,49 @@ else exit 93; fi''')
         self.assertIn('venv --quiet --python 3.12', uv_args)
         self.assertIn('vgs-cli==1.37.0', uv_args)
         self.assertNotIn('unexpected-pyenv', result.stderr)
+        self.assertIn('--state-dir\n' + str(self.state), (self.root / 'setup-args').read_text())
         self.assertIn('--organization\nACExample\n--tenant\ntntSandbox', (self.root / 'setup-args').read_text())
         # Bash 3.2 + set -u also needs to handle no setup arguments; the CLI is installed once.
         self.assertEqual(self.run_awg('setup').returncode, 0)
         self.assertEqual((self.root / 'uv-args').read_text(), uv_args)
+
+    def test_credentials_lists_all_environments_without_secrets(self):
+        # Execute the actual discovery script; uv itself is the only stub.
+        self.script('uv', 'while [ "$1" != python ]; do shift; done\nshift\nexec ' + shlex.quote(sys.executable) + ' "$@"')
+        for environment in ('dev', 'sandbox', 'live'):
+            directory = self.awg_root / environment
+            directory.mkdir(exist_ok=True)
+            (directory / (environment + '.env')).write_text('VGS_CLIENT_ID=fixture-id\nVGS_CLIENT_SECRET=fixture-secret-never-show\n')
+        result = self.run_awg('credentials')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for environment in ('dev', 'sandbox', 'live'):
+            self.assertIn(environment + '.env', result.stdout)
+        self.assertNotIn('fixture-secret', result.stdout + result.stderr)
+        self.env['AWG_ENVIRONMENT'] = 'live'
+        filtered = self.run_awg('credentials', 'live')
+        self.assertEqual(filtered.returncode, 0, filtered.stderr)
+        self.assertIn('live.env', filtered.stdout)
+        self.assertNotIn('sandbox.env', filtered.stdout)
+
+    def test_dev_uses_its_own_directory_and_rejects_mismatched_endpoints_before_network(self):
+        directory = self.awg_root / 'dev'
+        directory.mkdir()
+        (directory / 'dev.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\nVGS_API=https://sandbox.vgsapi.com\n')
+        self.env['AWG_ENVIRONMENT'] = 'dev'
+        self.script('curl', 'echo unexpected-network >&2; exit 99')
+        result = self.run_awg('session')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('credentials do not match AWG_ENVIRONMENT', result.stderr)
+        self.assertNotIn('unexpected-network', result.stderr)
+
+    def test_live_listing_does_not_enable_provisioning_or_browser_workflows(self):
+        self.script('uv', 'echo unexpected-runtime >&2; exit 99')
+        self.env['AWG_ENVIRONMENT'] = 'live'
+        for command in ('setup', 'session', 'start', 'kernel', 'browserbase'):
+            result = self.run_awg(command)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('dev kit runs in dev or sandbox', result.stderr)
+            self.assertNotIn('unexpected-runtime', result.stderr)
 
     def test_start_builds_session_and_cleans_up_helper(self):
         (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')

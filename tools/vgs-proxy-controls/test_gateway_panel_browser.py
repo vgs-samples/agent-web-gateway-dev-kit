@@ -1,4 +1,6 @@
 """Gateway views and CA downloads against local synthetic API fixtures."""
+import os
+from unittest.mock import patch
 import argparse
 import json
 from pathlib import Path
@@ -51,8 +53,8 @@ def main():
     from playwright.sync_api import sync_playwright, expect
     server=context=None
     try:
-        with tempfile.TemporaryDirectory(prefix='awg-gateway-') as temporary, sync_playwright() as p:
-            root=Path(temporary); client=Client(); saved=root/'RSFIXTURE.json'
+        with tempfile.TemporaryDirectory(prefix='awg-gateway-') as temporary, patch.dict(os.environ, {'AWG_HOME': temporary}), sync_playwright() as p:
+            root=Path(temporary).resolve(); client=Client(); saved=root/'RSFIXTURE.json'
             attrs={'expires_at':'2099-01-01T00:00:00Z','proxy':{'url':domains('sandbox',client.tenant)['proxy'].replace('https://','https://fixture:secret@'),
                 'ca_bundle':PEM,'pac_url':'https://sandbox.vgsapi.com/reveal-sessions/RSFIXTURE.pac'}}
             attrs['tokens']=[{'format':'card_number','value':'fixture-card-standin'},{'format':'card_cvc','value':'fixture-cvc-standin'}]
@@ -74,6 +76,44 @@ def main():
             page=context.new_page(); page.set_viewport_size({'width':1500,'height':1050}); errors=[]; page.on('pageerror',lambda e:errors.append(str(e)))
             page.goto(worker.url.rsplit('/',1)[0]+'/popup.html')
             expect(page.locator('#state')).to_have_text('No Proxy')
+            # Credentials are discovered locally, separately for each environment; no secret reaches the page.
+            for environment in ('sandbox', 'live'):
+                directory=root/environment; directory.mkdir()
+                (directory/(environment+'.env')).write_text('VGS_CLIENT_ID=fixture-id\nVGS_CLIENT_SECRET=fixture-private-list-secret\n')
+            (root/'sandbox'/'second account.txt').write_text('clientId=fixture-id\nclientSecret=fixture-private-list-secret\n')
+            page.locator('[data-view=settings]').click()
+            page.locator('#refresh-account-files').click()
+            expect(page.locator('#account-saved-status')).to_have_text('2 saved credential files.')
+            page.select_option('#account-saved-file',str(root/'sandbox'/'second account.txt'))
+            expect(page.locator('#account-file')).to_have_value(str(root/'sandbox'/'second account.txt'))
+            page.fill('#account-file','/manual/account.json')
+            page.locator('#refresh-account-files').click()
+            expect(page.locator('#refresh-account-files')).to_be_enabled()
+            expect(page.locator('#account-file')).to_have_value('/manual/account.json')
+            page.select_option('#environment-select','live')
+            expect(page.locator('#account-saved-status')).to_have_text('1 saved credential file.')
+            expect(page.locator('#account-file')).to_have_value('')
+            assert page.locator('#account-saved-file option').all_text_contents()==['Enter a file path…','live.env']
+            page.select_option('#account-saved-file',str(root/'live'/'live.env'))
+            expect(page.locator('#account-file')).to_have_value(str(root/'live'/'live.env'))
+            page.select_option('#account-saved-file','')
+            expect(page.locator('#account-file')).to_have_value('')
+            page.fill('#account-file','/missing/fixture-account.env')
+            page.locator('#connect-account').click()
+            expect(page.locator('#account-file-error')).to_contain_text('could not read')
+            page.select_option('#environment-select','sandbox')
+            expect(page.locator('#account-saved-status')).to_have_text('2 saved credential files.')
+            assert 'fixture-private-list-secret' not in page.locator('body').inner_text()
+            assert page.locator('#account-setup').count()==0
+            if args.screenshots_dir:
+                args.screenshots_dir.mkdir(parents=True,exist_ok=True)
+                page.screenshot(path=str(args.screenshots_dir/'saved-credentials.png'),full_page=True)
+                page.set_viewport_size({'width':390,'height':844})
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+                page.screenshot(path=str(args.screenshots_dir/'saved-credentials-mobile.png'),full_page=True)
+                page.set_viewport_size({'width':1500,'height':1050})
+            page.locator('[data-view=controls]').click()
+
             expect(page.locator('[data-mode="pac"] .route-name')).to_have_text('VGS Reveal Session PAC File')
             expect(page.locator('[data-mode="session"] .route-name')).to_have_text('VGS Reveal Session Proxy')
             with page.expect_download() as event: page.locator('#download-proxy-ca').click()
@@ -93,6 +133,8 @@ def main():
             expect(page.locator('#session-id')).to_have_text('RSSECOND')
             expect(page.locator('#session-inspector-state')).to_have_text('Active in browser')
             expect(page.locator('#state')).to_have_text('No Proxy')
+
+
             page.reload()
             expect(page.locator('#selected-session-tokens')).to_contain_text('second-card-standin')
             expect(page.locator('#session-inspector-title')).to_have_text('Session aliases')

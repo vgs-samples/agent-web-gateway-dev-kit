@@ -87,7 +87,7 @@ function render() {
 async function request(message) {
     if (busy) {
         if (message.type === "getState") refreshPending = true;
-        if (["creationStatus", "cardStatus", "accountFileSelectionStatus"].includes(message.type)) setTimeout(() => request(message), 1000);
+        if (["creationStatus", "cardStatus"].includes(message.type)) setTimeout(() => request(message), 1000);
         return;
     }
     busy = true;
@@ -98,8 +98,6 @@ async function request(message) {
         if (!response) throw new Error("No response");
         if (response.accountConnected) globalThis.resetGateway?.();
         state = response;
-        if (response.fileSelection) renderFileSelection(response.fileSelection);
-        else if (["browseAccountFile", "accountFileSelectionStatus"].includes(message.type)) { accountPicker=null; document.getElementById('account-file-status').textContent=''; }
         if (response.operation) renderOperation(response.operation);
         if (response.accountError) { document.getElementById("account-file-error").textContent = response.accountError; document.getElementById("account-file-error").hidden = false; }
         if (response.cardOperation) renderCardOperation(response.cardOperation);
@@ -114,7 +112,6 @@ async function request(message) {
         }
         return response;
     } catch (_) {
-        if (["browseAccountFile", "accountFileSelectionStatus"].includes(message.type)) { accountPicker=null; document.getElementById('account-file-status').textContent=''; }
         state = {...state, mode: "unavailable", canControl: false, availableModes: []};
         handleCreationTransportFailure(message);
         errorLabel.textContent = "Could not reach the proxy controls. Reload this tab to try again.";
@@ -149,7 +146,7 @@ function renderAccount() {
     mcpConfig.textContent = mcp?.enabled ? JSON.stringify(mcp.clientConfig, null, 2) : '';
     const env = state.environment || "sandbox";
     document.getElementById("environment-select").value = env;
-    document.getElementById("environment-select").disabled = busy || creationRunning() || !!accountPicker;
+    document.getElementById("environment-select").disabled = busy || creationRunning();
     document.getElementById("environment-shortcut").textContent = environmentLabel(env);
     document.getElementById("creation-environment").textContent = environmentLabel(env);
     document.getElementById("environment-status").textContent = account?.configured === false
@@ -161,7 +158,6 @@ function renderAccount() {
         : !account?.connected ? 'Connect your service account in Settings to create a session.'
         : 'Session creation requires reveal-sessions:write permission.';
     renderAccountFile();
-    renderAccountSetup(env, account?.tenantId);
     document.getElementById("tenant-id").textContent = account?.tenantId || "Not configured";
     document.getElementById("account-status").textContent = account?.configured === false ? "Not configured" : account?.connected ? "Connected locally" : "Helper unavailable";
     const scopeList = document.getElementById("account-scopes");
@@ -199,58 +195,6 @@ function renderAccount() {
     document.getElementById("capture-description").textContent = account?.sensitiveHarEnabled === true
         ? "This browser profile allows HAR exports with sensitive headers."
         : "For an existing browser, enable DevTools → Settings → Network → Allow to generate HAR with sensitive data.";
-}
-
-let accountSetupKey = '';
-function renderAccountSetup(environment, tenantId) {
-    const env = ['dev', 'sandbox', 'live'].includes(environment) ? environment : 'sandbox';
-    // Only an identifier may be interpolated into the copyable shell commands.
-    const tenant = /^[A-Za-z0-9_-]{1,255}$/.test(tenantId || '') ? tenantId : 'YOUR_TENANT_ID';
-    const key = env + ':' + tenant;
-    if (accountSetupKey === key) return;
-    accountSetupKey = key;
-    const cli = env === 'dev' ? 'vgs -e dev' : 'vgs';
-    document.getElementById('account-setup-context').textContent = env === 'dev'
-        ? 'These commands target Dev.'
-        : `Use your ${environmentLabel(env)} tenant. Sandbox and Live share the same CLI login.`;
-    document.getElementById('account-login-command').textContent = `${cli} login`;
-    document.getElementById('account-generate-command').textContent = `AWG_ORGANIZATION_ID="YOUR_ORGANIZATION_ID"
-AWG_TENANT_ID="${tenant}"
-AWG_ACCOUNT_DIR="$HOME/.vgs/agent-web-gateway/${env}"
-mkdir -p "$AWG_ACCOUNT_DIR"
-chmod 700 "$AWG_ACCOUNT_DIR"
-(
-  umask 077
-  set -o noclobber
-  ${cli} generate service-account \\
-    -t agent-web-gateway-admin \\
-    -T "$AWG_TENANT_ID" \\
-    > "$AWG_ACCOUNT_DIR/service-account.yaml"
-)`;
-    document.getElementById('account-apply-command').textContent = `(
-  umask 077
-  set -o noclobber
-  ${cli} apply service-account \\
-    -O "$AWG_ORGANIZATION_ID" \\
-    -f "$AWG_ACCOUNT_DIR/service-account.yaml" \\
-    > "$AWG_ACCOUNT_DIR/service-account-credentials.yaml"
-)`;
-    document.getElementById('account-created-file').textContent = `~/.vgs/agent-web-gateway/${env}/service-account-credentials.yaml`;
-    document.getElementById('account-copy-status').textContent = '';
-}
-for (const button of document.querySelectorAll('[data-copy-command]')) {
-    button.addEventListener('click', async () => {
-        const code = document.getElementById(button.dataset.copyCommand);
-        const status = document.getElementById('account-copy-status');
-        try {
-            await navigator.clipboard.writeText(code.textContent);
-            status.textContent = 'Copied. Paste into your Terminal.';
-        } catch (_) {
-            const range = document.createRange(); range.selectNodeContents(code);
-            const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
-            status.textContent = 'Commands selected. Press Cmd+C or Ctrl+C to copy.';
-        }
-    });
 }
 
 function showView(view) {
@@ -318,50 +262,39 @@ document.getElementById('browser-egress-form').addEventListener('submit', async 
     }
 });
 
-let accountDraftDirty=false, accountDraftEnvironment=null, accountTenantChoices=[], accountPicker=null;
+let accountDraftDirty=false, accountDraftEnvironment=null, accountTenantChoices=[];
 function renderAccountFile() {
     if (accountDraftEnvironment !== state.environment) {
-        accountDraftDirty=false; accountDraftEnvironment=state.environment; accountTenantChoices=[]; accountPicker=null;
+        accountDraftDirty=false; accountDraftEnvironment=state.environment; accountTenantChoices=[];
         document.getElementById('account-file-error').hidden=true;
         document.getElementById('account-file-status').textContent='';
     }
     if (!accountDraftDirty) {
         document.getElementById('account-file').value=state.account?.credentialsFile || '';
     }
+    const saved=document.getElementById('account-saved-file');
+    const files=state.account?.credentialFiles || [];
+    saved.replaceChildren(new Option('Enter a file path…',''));
+    for(const file of files)saved.add(new Option(file.name,file.path));
+    saved.value=files.some(file=>file.path===document.getElementById('account-file').value)?document.getElementById('account-file').value:'';
+    document.getElementById('account-saved-location').textContent=state.account?.credentialsDirectory || `~/.vgs/awg/${state.environment || 'sandbox'}`;
+    document.getElementById('account-saved-status').textContent=!state.catalogAvailable?'Connect the local helper to list saved credentials.':state.account?.credentialsError || (files.length?`${files.length} saved credential file${files.length===1?'':'s'}.`:'No saved credentials here. Enter a file path or run ./awg setup for Sandbox.');
     const selector=document.getElementById('account-tenant-select');
     const previous=selector.value; selector.replaceChildren();
     for(const row of accountTenantChoices) selector.add(new Option(row.name === row.tenantId ? row.tenantId : row.name + ' · ' + row.tenantId,row.tenantId));
     if(accountTenantChoices.some(row=>row.tenantId===previous))selector.value=previous;
     document.getElementById('account-tenant-choice').hidden=accountTenantChoices.length<2;
     document.getElementById('connect-account').textContent=accountTenantChoices.length>1?'Use selected tenant':'Connect account';
-    for (const field of document.getElementById('account-file-form').elements) field.disabled=busy || !!accountPicker || creationRunning() || !state.catalogAvailable;
-    document.getElementById('browse-account-file').textContent=accountPicker?'Choosing…':'Browse…';
+    for (const field of document.getElementById('account-file-form').elements) field.disabled=busy || creationRunning() || !state.catalogAvailable;
 }
-function renderFileSelection(selection) {
-    accountPicker=null;
-    if(selection.environment!==state.environment)return;
-    const status=document.getElementById('account-file-status');
-    if(selection.status==='pending') {
-        accountPicker=selection;
-        status.textContent='Choose a file in the file explorer, or cancel to keep the current path.';
-        setTimeout(()=>{if(accountPicker?.requestId===selection.requestId)request({type:'accountFileSelectionStatus',environment:selection.environment,requestId:selection.requestId});},500);
-    } else if(selection.status==='selected') {
-        accountDraftDirty=true; accountTenantChoices=[];
-        document.getElementById('account-file').value=selection.credentialsFile;
-        status.textContent='File selected. Click Connect account to load it.';
-    } else if(selection.status==='cancelled') status.textContent='File selection cancelled.';
-    else {
-        status.textContent='';
-        const error=document.getElementById('account-file-error');
-        error.textContent=selection.error || 'File explorer is unavailable. Enter the local file path instead.';
-        error.hidden=false;
-    }
-}
-document.getElementById('browse-account-file').addEventListener('click',()=>{
-    accountPicker={status:'pending',environment:state.environment};
+document.getElementById('refresh-account-files').addEventListener('click',()=>request({type:'listAccountFiles',environment:state.environment}));
+document.getElementById('account-saved-file').addEventListener('change', event=>{
+    accountDraftDirty=true; accountTenantChoices=[];
+    document.getElementById('account-file').value=event.target.value;
     document.getElementById('account-file-error').hidden=true;
-    document.getElementById('account-file-status').textContent='Opening file explorer…';
-    request({type:'browseAccountFile',environment:state.environment});
+    document.getElementById('account-file-status').textContent=event.target.value?'File selected. Click Connect account to load it.':'';
+    renderAccountFile();
+    if(!event.target.value)document.getElementById('account-file').focus();
 });
 document.getElementById('account-file').addEventListener('input',()=>{accountDraftDirty=true;accountTenantChoices=[];renderAccountFile();document.getElementById('account-file-status').textContent='';});
 document.getElementById('account-file-form').addEventListener('submit',async event=>{

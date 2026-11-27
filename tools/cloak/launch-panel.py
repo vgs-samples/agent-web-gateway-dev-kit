@@ -21,7 +21,8 @@ from urllib.request import urlopen
 
 KIT = Path(__file__).resolve().parents[2]
 DEFAULT_EXTENSION = KIT / "tools" / "vgs-proxy-controls" / ".private-extension"
-DEFAULT_PROFILE = Path.home() / ".awg-dev-kit" / "cloak-profile"
+DEFAULT_PROFILE = (Path(os.environ.get("AWG_HOME", Path.home() / ".vgs" / "awg")).expanduser()
+                   / os.environ.get("AWG_ENVIRONMENT", "sandbox") / "cloak-profile")
 
 
 def ca_pin(session_path):

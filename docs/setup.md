@@ -35,7 +35,11 @@ These scopes support test-card storage, sessions, and gateway authoring. They do
 
 The creation response contains the one-time client secret. Setup captures stdout and stderr privately, authenticates the new account, and checks read access to Sandbox sessions and destinations. It only replaces the kit's saved credentials after those checks succeed. It does not create a reveal session, tokenize a card, enable a binding, or submit a payment during setup.
 
-Private state lives in `~/.awg-dev-kit` (override with `AWG_HOME`):
+Credentials and private state are grouped under `~/.vgs/awg/<environment>`. `AWG_HOME` overrides the **root**, so each environment still gets its own subdirectory. `AWG_ENVIRONMENT` defaults to `sandbox` for the test workflows. The wrapper reads `<root>/<environment>/<environment>.env`; automatic account provisioning remains Sandbox-only. Live files can be listed and selected in the Control Panel; the wrapper does not run test-card or browser workflows against Live.
+
+Run `./awg credentials` to list all saved service-account files, or `./awg credentials sandbox` (or `live`) to filter. The local scan recognizes `.env`, dashboard `.txt`, and CLI `.yaml`/`.yml`/`.json` exports. It shows filenames only, ignores invalid files and files declaring another environment, and does not recurse into runtime folders or contact VGS. In the Control Panel, choose an entry from **Settings → Service account → Saved credentials**, or enter a file path directly. **Refresh** rescans the selected environment on the helper's machine.
+
+Setup writes the following files under `~/.vgs/awg/sandbox`:
 
 | Path | Purpose |
 |---|---|
@@ -46,7 +50,7 @@ Private state lives in `~/.awg-dev-kit` (override with `AWG_HOME`):
 | `vgs-cli-…/` | VGS CLI in its private virtual environment |
 | `sessions/` | Original reveal-session creation responses |
 
-Directories use mode 0700 and files use mode 0600. VGS CLI also maintains its own login/keyring state. Do not commit or share either location. Choose an `AWG_HOME` outside the repository.
+Directories use mode 0700 and files use mode 0600. VGS CLI also maintains its own login/keyring state. Do not commit or share either location. Choose an `AWG_HOME` outside the repository. Existing `~/.awg-dev-kit` state is not moved automatically. To reuse its account, copy `sandbox.env` into `~/.vgs/awg/sandbox/sandbox.env` locally (directory 0700, file 0600); the panel can also connect to its original path directly. For interrupted setup, use the previous version and state location to complete recovery before moving credentials. Do not run fresh setup solely to relocate an existing account.
 
 ## Missing scopes
 
