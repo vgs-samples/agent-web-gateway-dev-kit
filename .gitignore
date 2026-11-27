@@ -19,6 +19,7 @@ runs/
 registrations/
 browsers/
 *.har
+!skills/vgs-checkout-adapter/assets/cybersource-relay-payment-decline.har
 *netlog*.json
 *.webm
 *.mp4

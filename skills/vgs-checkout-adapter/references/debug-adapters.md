@@ -16,6 +16,8 @@ python3 skills/vgs-checkout-adapter/scripts/har-index.py --cybersource \
   examples/adapters/cybersource/fixtures/encrypt.synthetic.har
 ```
 
+The [redacted payment-decline capture](../assets/cybersource-relay-payment-decline.har) shows a patched SDK and an `AWGCS1` token request from the same iframe document. The token endpoint returned 201 and the merchant payment endpoint returned 400 with `PaymentDeclined`. The capture retains the observed marker classifications. The private bodies used to compute them have been removed.
+
 The bundled example has three bindings. Deployments can add more capture or
 payment routes. Use the bindings from the version under investigation. Keep their
 order and copy only the classification stage and exact route into a local JSON
