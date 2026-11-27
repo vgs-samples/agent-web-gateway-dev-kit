@@ -103,6 +103,8 @@ Type the session's stand-ins into the payment form, as in any other session. Rea
 | Creating sessions, adding cards, scopes, gateway views | In the panel | In the panel, through the relay. Creating a session and adding a card are not verified in a Browser Use browser |
 | Recording | In the panel | Not verified in a Browser Use browser |
 
+To give the browser an egress proxy, start it with the name of a proxy saved in the Control Panel: `AWG_EGRESS="My proxy" ./awg browser-use --cloud`. See [Egress proxy](browserbase.md#egress-proxy).
+
 ### In your own code
 
 The same thing is the `customProxy` field of `POST /api/v4/browsers`, or `browserSettings.customProxy` on an agent run: `host`, `port`, `protocol`, `username` and `password` from the session's proxy URL, and `caBundle` from the session's `ca_bundle`. With Browser Use's Python SDK, a hosted agent run on a reveal session looks like this:
