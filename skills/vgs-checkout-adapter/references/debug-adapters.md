@@ -19,9 +19,27 @@ python3 skills/vgs-checkout-adapter/scripts/har-index.py --cybersource \
 The [redacted payment-decline capture](../assets/cybersource-relay-payment-decline.har) shows a patched SDK and an `AWGCS1` token request from the same iframe document. The token endpoint returned 201 and the merchant payment endpoint returned 400 with `PaymentDeclined`. The capture retains the observed marker classifications. The private bodies used to compute them have been removed.
 
 The bundled example has three bindings. Deployments can add more capture or
-payment routes. Use the bindings from the version under investigation. Keep their
-order and copy only the classification stage and exact route into a local JSON
-file. This example describes two bindings that share a stage:
+payment routes. Use the bindings from the version under investigation. Read them
+back from VGS with the session kit, which needs its `.env` service account and
+makes only read requests:
+
+```sh
+cd skills/vgs-checkout-adapter/scripts/session-kit
+./read-bindings.sh cybersource --session RS… --output /private/routes.json
+```
+
+It prints the adapter's published version and, for each binding, its stage, exact
+route and whether it is enabled. With `--session` it adds the session's state,
+reveal and refusal counts, and whether the session selected this adapter, another
+one, or automatic matching. `--output` writes the route list for the report below.
+Function inputs, session values and credentials are not printed. Bindings whose
+path has a wildcard are counted in `bindingsNotExactRoutes` and left out, because
+the report compares exact routes. The vault route's content-type policy is not
+readable with a kit service account and is listed under `notChecked`.
+
+Without API access, keep the bindings' order and copy only the classification
+stage and exact route into a local JSON file by hand. This example describes two
+bindings that share a stage:
 
 ```json
 {"bindings":[
@@ -44,8 +62,10 @@ the zero-based HAR `entry` and the zero-based `bindingIndex` in the selected
 file's `bindings` array. An empty `mismatchedFields` list means host, method
 and path matched. Otherwise the row lists which fields differed for a candidate
 with the same final path component. An exact match suppresses near misses for
-that entry within its stage. An empty stage has no candidate. Confirm binding
-enablement and effective vault content-type policy separately.
+that entry within its stage. An empty stage has no candidate. When the file came
+from `read-bindings.sh`, each row also carries `bindingEnabled`; a matched request
+on a disabled binding was not processed by its function. Confirm the effective
+vault content-type policy separately.
 
 Exact rows indicate whether the response recorded nonempty `VGS-Request-Id`,
 `VGS-Upstream` and `VGS-Upstream-Response-Time` headers. If the HAR records

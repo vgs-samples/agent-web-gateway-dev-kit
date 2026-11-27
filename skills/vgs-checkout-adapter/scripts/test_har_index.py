@@ -129,6 +129,24 @@ class CyberSourceTests(unittest.TestCase):
             self.assertEqual([(r['bindingIndex'], r['mismatchedFields']) for r in rows if r['entry'] == 2],
                              [(2, ['method']), (5, ['host', 'method'])])
 
+    def test_enabled_flag_from_a_readback_is_reported_per_row(self):
+        raw = json.dumps({'log': {'entries': [self.entry('encrypt')]}}).encode()
+        when = {'host': 'flex.cybersource.com', 'method': 'POST', 'path': '/flex/v2/tokens'}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp, 'routes.json')
+            for enabled in (True, False):
+                path.write_text(json.dumps({'bindings': [{'key': 'encrypt', 'when': when, 'enabled': enabled,
+                                                          'adapterVersion': 2}]}))
+                row, = module.cybersource_report(raw, path)['stages']['encrypt']
+                self.assertIs(row['bindingEnabled'], enabled)
+            path.write_text(json.dumps({'bindings': [{'key': 'encrypt', 'when': when}]}))
+            self.assertNotIn('bindingEnabled', module.cybersource_report(raw, path)['stages']['encrypt'][0])
+            path.write_text(json.dumps({'bindings': [{'key': 'encrypt', 'when': when, 'enabled': 'yes'}]}))
+            with self.assertRaises(module.BindingsError):
+                module.cybersource_report(raw, path)
+        # The bundled example's flags are placeholders, so they are not reported.
+        self.assertNotIn('bindingEnabled', module.cybersource_report(raw)['stages']['encrypt'][0])
+
     def test_standalone_cli_and_private_binding_errors(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp, SCRIPT.name)

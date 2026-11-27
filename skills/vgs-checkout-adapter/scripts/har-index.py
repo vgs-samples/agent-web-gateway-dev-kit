@@ -125,6 +125,7 @@ class BindingsError(ValueError):
 
 
 def load_bindings(path):
+    path_given = path is not None
     if path is None:
         path = Path(__file__).resolve().parent / '../../../examples/adapters/cybersource/adapter.json'
     try:
@@ -142,7 +143,11 @@ def load_bindings(path):
                     not re.fullmatch(r'[A-Z]+', method) or
                     not re.fullmatch(r'/[^\s\x00-\x1f\x7f?#*\\]*', route_path)):
                 raise ValueError
-            routes.append((stage, {**when, 'host': host.lower()}))
+            # A list read back from VGS says whether each binding is enabled; the example's flags are placeholders.
+            enabled = binding.get('enabled') if path_given else None
+            if enabled not in (None, True, False):
+                raise ValueError
+            routes.append((stage, {**when, 'host': host.lower()}, enabled))
         return routes
     except (OSError, ValueError, KeyError, TypeError, RecursionError):
         raise BindingsError('Cannot read CyberSource bindings. Supply a valid --cybersource-bindings PATH.') from None
@@ -151,13 +156,13 @@ def load_bindings(path):
 def cybersource_report(raw, bindings_path=None):
     bindings = load_bindings(bindings_path)
     entries = json.loads(raw)['log']['entries']
-    stages = {stage: [] for stage, _ in bindings}
+    stages = {stage: [] for stage, _, _ in bindings}
     for index, entry in enumerate(entries):
         req = entry.get('request', {})
         url = urlsplit(req.get('url', ''))
         route = {'host': url.hostname, 'method': req.get('method'), 'path': url.path}
-        exact_stages = {stage for stage, when in bindings if route == when}
-        for binding_index, (stage, when) in enumerate(bindings):
+        exact_stages = {stage for stage, when, _ in bindings if route == when}
+        for binding_index, (stage, when, enabled) in enumerate(bindings):
             # Keep version/path and wrong-host near misses without listing unrelated traffic.
             if url.path.rstrip('/').rsplit('/', 1)[-1] != when['path'].rstrip('/').rsplit('/', 1)[-1]:
                 continue
@@ -165,6 +170,8 @@ def cybersource_report(raw, bindings_path=None):
             if mismatch and stage in exact_stages:
                 continue
             row = {'entry': index, 'bindingIndex': binding_index, 'mismatchedFields': mismatch}
+            if enabled is not None:
+                row['bindingEnabled'] = enabled
             if not mismatch:
                 row.update(stage_evidence(stage, when, entry))
             stages[stage].append(row)
