@@ -36,6 +36,10 @@ The other three run the browser in the provider's cloud, so no local browser and
 
 [![Agent Web Gateway Control Panel running in a Browserbase cloud browser, seen in Browserbase's dashboard](../docs/images/browserbase-browser.png)](../docs/images/browserbase-browser.png)
 
+Each cloud command asks for the provider's API key on its first run and saves it in `~/.awg-dev-kit`, readable only by you. Replace a saved key with `./awg kernel-login`, `./awg browser-use-login` or `./awg browserbase-login`.
+
+A cloud browser stays on the session it started with. To send that session out through an egress proxy you saved in the Control Panel, start the browser with its name: `AWG_EGRESS="My proxy" ./awg browserbase`. The [Browserbase guide](../docs/browserbase.md#egress-proxy) explains it; it works the same for the other commands.
+
 The Control Panel's helper stays on your machine, so your service-account credentials are not uploaded. The session's proxy credentials and the browser's traffic do go to the provider; the card does not. Each guide says what has been verified with that provider.
 
 ## Agents and payment flows

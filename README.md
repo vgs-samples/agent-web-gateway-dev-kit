@@ -102,7 +102,7 @@ If your coding assistant's sandbox blocks the browser or local helper, run the c
 
 ### Use another browser
 
-Browser Use, Browser Use Cloud, Kernel and Browserbase each start with one command instead of `./awg start`. The commands, what each one needs, and agents and a vendor payment flow to start from are in the [examples](examples/README.md#browsers).
+Browser Use, Browser Use Cloud, Kernel and Browserbase each start with one command instead of `./awg start`. The commands, what each one needs, and agents and a vendor payment flow to start from are in the [examples](examples/README.md#browsers). The cloud commands ask for the provider's API key on the first run and save it privately on your machine, so later runs need nothing.
 
 ### Create sessions for cards
 
@@ -164,6 +164,8 @@ An **egress proxy** is the outbound proxy that connects to the destination. You 
 **2. Proxy only required hosts through VGS using the session's PAC file.** The generated PAC rules send hosts that need session handling through VGS. Other traffic goes straight to the configured egress proxy, or directly when no egress is configured. PAC routing chooses by host, not by individual URL path; adapter bindings perform the finer matching inside VGS.
 
 [![Top: all browser traffic goes through VGS and then the egress proxy. Bottom: PAC-selected hosts go through VGS, while other traffic goes directly to the same egress proxy. Addresses are illustrative.](docs/images/awg-egress-routing.png)](docs/images/awg-egress-routing.png)
+
+To start a session on a proxy you saved in the Control Panel, put its name in front of any session or browser command: `AWG_EGRESS="My proxy" ./awg start`. A cloud browser stays on the session it started with, so this is how one gets an egress proxy.
 
 See [browser proxying and egress setup](docs/browser-proxying.md) for the routing controls and certificate setup.
 

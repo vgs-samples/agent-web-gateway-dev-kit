@@ -75,6 +75,11 @@ only control **Egress Proxy** mode. Supply the matching settings in the creation
 form, or use a matching **Saved proxy** profile loaded by the helper. **VGS Proxy**
 and **PAC File** use the egress recorded in the reveal session.
 
+From the command line, `AWG_EGRESS="<saved proxy name>"` in front of `./awg session`
+or any browser command creates the session with that saved proxy as its egress.
+Cloud browsers need this, because they cannot switch to a session created later
+in the panel.
+
 If your provider supports a sticky egress session, keep its identifier and
 credentials consistent across both routes. Reusing a proxy hostname alone does
 not guarantee the same public IP; that depends on the provider's configuration.

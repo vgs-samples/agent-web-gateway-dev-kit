@@ -40,6 +40,8 @@ Type the session's stand-ins into the payment form, as in any other session. Rea
 | Creating sessions, adding cards, scopes, gateway views | In the panel | In the panel, through the tunnel |
 | Recording | In the panel | Not verified in a Kernel browser |
 
+To give the browser an egress proxy, start it with the name of a proxy saved in the Control Panel: `AWG_EGRESS="My proxy" ./awg kernel`. See [Egress proxy](browserbase.md#egress-proxy).
+
 ## What Kernel receives
 
 The session's proxy address, proxy username and password, and certificate authority are sent to Kernel's API, both as the proxy definition and inside the uploaded panel, and the browser's traffic runs in Kernel's cloud. The live view link controls the browser, so keep it private. Use Sandbox and the public test card only. Your VGS client secret is never sent to Kernel: the helper that holds it runs on your machine. The panel in the Kernel browser can call that helper through the tunnel while the command runs, and adding a card there uses a short-lived VGS access token in the browser.
