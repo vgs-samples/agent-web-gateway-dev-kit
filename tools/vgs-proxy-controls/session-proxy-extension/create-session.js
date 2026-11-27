@@ -254,7 +254,14 @@ function renderCardOperation(value) {
 
 el('open-create').addEventListener('click', async () => {
     if (!state.account?.creationAvailable) { showView('settings'); el('account-file').focus(); return; }
-    resetCreation(); showView('create'); el('create-title').focus(); await loadAdapters(); await loadEgressProfiles();
+    // The card and the new session are sent to VGS from this browser. Through a session's proxy or an
+    // egress proxy that request can fail, so creating a session starts on No Proxy.
+    const proxied = !state.managedRoute && state.mode !== 'direct' && state.availableModes?.includes('direct');
+    if (proxied) await request({type: 'setMode', mode: 'direct'});
+    resetCreation(); showView('create'); el('create-title').focus();
+    if (proxied && state.mode === 'direct')
+        el('creation-status').textContent = 'The browser is on No Proxy while you create a session, so the card goes straight to VGS. Choose the route again in Browser Settings afterwards.';
+    await loadAdapters(); await loadEgressProfiles();
 });
 for(const id of ['back-create','cancel-create','created-back']) el(id).addEventListener('click',()=>{
     if(creationRunning())return;
