@@ -16,9 +16,9 @@ How to run the kit with each browser, the agents and payment flow to start from,
 | Your agent runs on | Command | You need | Guide |
 |---|---|---|---|
 | [Browser Use](https://github.com/browser-use/browser-use), on your machine | `./awg browser-use` | The same as `./awg start` | [Browser Use](../docs/browser-use.md) |
-| [Browser Use Cloud](https://cloud.browser-use.com) | `./awg browser-use --cloud` | `BROWSER_USE_API_KEY`, for a project with custom proxies enabled | [Browser Use](../docs/browser-use.md#use-a-browser-use-cloud-browser) |
+| [Browser Use Cloud](https://cloud.browser-use.com) | `./awg browser-use --cloud` | A Browser Use Cloud API key for a project with custom proxies enabled; the first run asks for it | [Browser Use](../docs/browser-use.md#use-a-browser-use-cloud-browser) |
 | [Kernel](https://kernel.sh) | `./awg kernel` | A Kernel API key on a Start-Up or Enterprise plan; the first run asks for it | [Kernel](../docs/kernel.md) |
-| [Browserbase](https://www.browserbase.com) | `./awg browserbase` | `BROWSERBASE_API_KEY`, on the Developer plan or higher | [Browserbase](../docs/browserbase.md) |
+| [Browserbase](https://www.browserbase.com) | `./awg browserbase` | A Browserbase API key on the Developer plan or higher; the first run asks for it | [Browserbase](../docs/browserbase.md) |
 
 `./awg browser-use` opens the kit's own browser with a Chrome DevTools address on `127.0.0.1:9222` for your agent.
 

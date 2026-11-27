@@ -11,16 +11,17 @@
 
 | Variable | Purpose |
 |---|---|
-| `BROWSERBASE_API_KEY` | Required. The project's API key. Export it in your own terminal; the kit does not save it. |
+| `BROWSERBASE_API_KEY` | Optional. The project's API key, used instead of the saved one and saved the same way. |
 | `BROWSERBASE_PROJECT_ID` | Optional. Browserbase reads the project from the key; set this when the key covers more than one. |
 | `AWG_EGRESS` | Optional. The name of a proxy saved in the Control Panel. See [Egress proxy](#egress-proxy). |
 
 ## Run it
 
 ```sh
-export BROWSERBASE_API_KEY=…
 ./awg browserbase https://<the site to test>/
 ```
+
+The first run asks for your Browserbase API key and saves it in `~/.awg-dev-kit/browserbase-key`, readable only by you. Later runs use the saved key. To replace it, run `./awg browserbase-login`.
 
 [![Agent Web Gateway Control Panel running in a Browserbase cloud browser, seen in Browserbase's dashboard](images/browserbase-browser.png)](images/browserbase-browser.png)
 
@@ -91,8 +92,8 @@ The session's proxy address, proxy username and password, and certificate author
 
 | Output | Meaning |
 |---|---|
-| `BROWSERBASE_API_KEY is not set` | Export the key or put it in front of the command. |
-| `Browserbase answered HTTP 401` | Browserbase did not accept the key. |
+| `BROWSERBASE_API_KEY is not set and no Browserbase API key is saved` | The command had no terminal to ask in. Run `./awg browserbase-login` in your own terminal once. |
+| `Browserbase answered HTTP 401` | Browserbase did not accept the key. Save a new one with `./awg browserbase-login`. |
 | `Browserbase answered HTTP 402` or `403` | The project's plan lacks custom proxies or keep-alive browsers. |
 | `Browserbase did not store the session's certificate authority` | The certificate upload was refused; the line above it has Browserbase's reason. |
 | `Browserbase did not start the browser` | Browserbase checks the proxy when it creates the browser. The line above has its reason; the session may have expired, or Browserbase cannot reach the session's proxy host and port. |

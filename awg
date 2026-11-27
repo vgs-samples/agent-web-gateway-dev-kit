@@ -6,9 +6,9 @@
 #   ./awg session [hosts]      create a reveal session for a test card (hosts: comma-separated)
 #   ./awg start [url]          one step: session + control panel helper + CloakBrowser
 #   ./awg kernel [url]         session + a Kernel cloud browser routed through it (asks for your Kernel API key once)
-#   ./awg kernel-login         save or replace your Kernel API key
-#   ./awg browser-use [url]    ./awg start, plus a Chrome DevTools address for a Browser Use agent (--cloud: their cloud browser)
-#   ./awg browserbase [url]    session + a Browserbase cloud browser routed through it (needs BROWSERBASE_API_KEY)
+#   ./awg <provider>-login     save or replace an API key: kernel-login, browser-use-login, browserbase-login
+#   ./awg browser-use [url]    ./awg start, plus a Chrome DevTools address for a Browser Use agent (--cloud: their cloud browser; asks for your API key once)
+#   ./awg browserbase [url]    session + a Browserbase cloud browser routed through it (asks for your Browserbase API key once)
 #   ./awg panel [options]      start only the control panel helper (options of start-proxy-controls.py)
 #   ./awg browser [options]    open only CloakBrowser with the control panel (--session FILE [url])
 #   ./awg cloak-login          save your CloakBrowser license key (once)
@@ -431,45 +431,53 @@ kernel_call() {  # kernel_call <method> <path> [json body]; sets KERNEL_CODE and
     -H "Authorization: Bearer $KERNEL_API_KEY" -H 'Content-Type: application/json' ${3:+--data-binary @-}) || KERNEL_CODE=000
 }
 
-# Kernel's API key is asked for once and kept in a private file. KERNEL_API_KEY in the environment
-# still works, and is saved the same way so the next run needs nothing.
-KERNEL_KEY_FILE="$STATE_DIR/kernel-key"
-
-save_kernel_key() {  # save_kernel_key <key>
+# Each cloud browser provider's API key is asked for once and kept in a private file. The key in the
+# environment still works, and is saved the same way so the next run needs nothing.
+#   <provider> <variable> <slug> <where to create a key> <command that uses it>
+save_provider_key() {  # save_provider_key <slug> <key>
   mkdir -p "$STATE_DIR"
   chmod 700 "$STATE_DIR"
-  printf '%s\n' "$1" > "$KERNEL_KEY_FILE.tmp"
-  chmod 600 "$KERNEL_KEY_FILE.tmp"
-  mv "$KERNEL_KEY_FILE.tmp" "$KERNEL_KEY_FILE"
+  printf '%s\n' "$2" > "$STATE_DIR/$1-key.tmp"
+  chmod 600 "$STATE_DIR/$1-key.tmp"
+  mv "$STATE_DIR/$1-key.tmp" "$STATE_DIR/$1-key"
 }
 
-cmd_kernel_login() {
+provider_login() {
   local key=""
-  [ -t 0 ] || fail "run './awg kernel-login' in your own terminal to save the Kernel API key."
-  say "Create an API key in your Kernel account (https://kernel.sh), then paste it below. It is saved privately and not shown."
-  read -r -s -p "Kernel API key: " key
+  [ -t 0 ] || fail "run './awg $3-login' in your own terminal to save the $1 API key."
+  say "Create an API key in your $1 account ($4), then paste it below. It is saved privately and not shown."
+  read -r -s -p "$1 API key: " key
   say ""
   key=$(printf '%s' "$key" | tr -d '[:space:]')
   [ -n "$key" ] || fail "no key entered."
-  save_kernel_key "$key"
-  KERNEL_API_KEY="$key"
-  say "Saved. ./awg kernel will use it from now on."
+  save_provider_key "$3" "$key"
+  printf -v "$2" '%s' "$key"
+  say "Saved. ./awg $5 will use it from now on."
 }
+
+need_provider_key() {
+  local file="$STATE_DIR/$3-key" key="${!2:-}"
+  if [ -n "$key" ]; then
+    [ "$(tr -d '[:space:]' < "$file" 2>/dev/null || true)" = "$key" ] || save_provider_key "$3" "$key"
+    return
+  fi
+  if [ -s "$file" ]; then
+    chmod 600 "$file" 2>/dev/null || true
+    printf -v "$2" '%s' "$(tr -d '[:space:]' < "$file")"
+    [ -z "${!2}" ] || return 0
+  fi
+  [ -t 0 ] || fail "$2 is not set and no $1 API key is saved. Run './awg $3-login' in your own terminal once."
+  provider_login "$@"
+}
+
+KERNEL_KEY=(Kernel KERNEL_API_KEY kernel https://kernel.sh kernel)
+BROWSER_USE_KEY=("Browser Use Cloud" BROWSER_USE_API_KEY browser-use https://cloud.browser-use.com "browser-use --cloud")
+BROWSERBASE_KEY=(Browserbase BROWSERBASE_API_KEY browserbase https://www.browserbase.com/settings browserbase)
 
 need_kernel_key() {
   # Kernel's CLI, which opens the tunnel to the local helper, reads the key from the environment.
   export KERNEL_API_KEY="${KERNEL_API_KEY:-}"
-  if [ -n "$KERNEL_API_KEY" ]; then
-    [ "$(tr -d '[:space:]' < "$KERNEL_KEY_FILE" 2>/dev/null || true)" = "$KERNEL_API_KEY" ] || save_kernel_key "$KERNEL_API_KEY"
-    return
-  fi
-  if [ -s "$KERNEL_KEY_FILE" ]; then
-    chmod 600 "$KERNEL_KEY_FILE" 2>/dev/null || true
-    KERNEL_API_KEY=$(tr -d '[:space:]' < "$KERNEL_KEY_FILE")
-    [ -z "$KERNEL_API_KEY" ] || return 0
-  fi
-  [ -t 0 ] || fail "KERNEL_API_KEY is not set and no Kernel API key is saved. Run './awg kernel-login' in your own terminal once."
-  cmd_kernel_login
+  need_provider_key "${KERNEL_KEY[@]}"
 }
 
 KERNEL_BROWSER=""; KERNEL_PROXY=""; KERNEL_EXTENSION=""; KERNEL_ZIP=""
@@ -718,7 +726,7 @@ cmd_browser_use() {
     --help|-h) say "Usage: ./awg browser-use [--cloud] [url]
 Open the kit's browser on a reveal session with Chrome DevTools on 127.0.0.1:\${AWG_CDP_PORT:-9222},
 for a Browser Use agent:  Browser(cdp_url='http://127.0.0.1:9222')
---cloud starts a Browser Use cloud browser on the session instead (needs BROWSER_USE_API_KEY)."; return ;;
+--cloud starts a Browser Use cloud browser on the session instead. The first run asks for your API key and saves it."; return ;;
     --*) fail "unknown option for browser-use: $1" ;;
   esac
   [[ "${AWG_CDP_PORT:=9222}" =~ ^[0-9]+$ ]] || fail "AWG_CDP_PORT must be a port number."
@@ -731,8 +739,7 @@ cmd_browser_use_cloud() {
   local url="${1:-}" host="" session body browser_id live cdp extension_id="" runtime_id="" helper_port=""
   local -a tabs=()
   for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
-  [ -n "${BROWSER_USE_API_KEY:-}" ] || fail "BROWSER_USE_API_KEY is not set. Create an API key in your Browser Use Cloud account (https://cloud.browser-use.com), then run:
-       BROWSER_USE_API_KEY=… ./awg browser-use --cloud"
+  need_provider_key "${BROWSER_USE_KEY[@]}"
   need_uv
   [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
   [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
@@ -805,7 +812,7 @@ cmd_browser_use_cloud() {
   fi
   if [ "$BU_CODE" != 201 ] && [ "$BU_CODE" != 200 ]; then
     say "Browser Use answered HTTP $BU_CODE: $(bu_reason)"
-    [ "$BU_CODE" != 401 ] || say "Browser Use did not accept BROWSER_USE_API_KEY. Check the key in your Browser Use Cloud account."
+    [ "$BU_CODE" != 401 ] || say "Browser Use did not accept the API key. Check it in your Browser Use Cloud account, then save a new one with:  ./awg browser-use-login"
     [ "$BU_CODE" != 403 ] || say "A 403 here usually means custom proxies are not enabled for this Browser Use project. They are an enterprise feature: ask Browser Use (sales@browser-use.com) to enable them."
     [ "$BU_CODE" != 402 ] || say "The Browser Use account is out of credits or over its spend limit."
     [ "$BU_CODE" != 429 ] || say "The Browser Use account has too many browsers running. Stop one and retry."
@@ -932,7 +939,7 @@ bb_start_browser() {  # bb_start_browser <session file> <extension id or empty>
   bb_upload /certificates "$BB_CA" application/x-pem-file
   if ! bb_ok; then
     say "Browserbase answered HTTP $BB_CODE: $(bb_reason)"
-    [ "$BB_CODE" != 401 ] || say "Browserbase did not accept BROWSERBASE_API_KEY. Check the key in your Browserbase project settings."
+    [ "$BB_CODE" != 401 ] || say "Browserbase did not accept the API key. Check it in your Browserbase project settings, then save a new one with:  ./awg browserbase-login"
     say "Browserbase did not store the session's certificate authority."
     return 1
   fi
@@ -941,7 +948,7 @@ bb_start_browser() {  # bb_start_browser <session file> <extension id or empty>
   bb_call POST /sessions "$(bb_browser_body "$1" "$BB_CERTIFICATE" "$2")"
   if ! bb_ok; then
     say "Browserbase answered HTTP $BB_CODE: $(bb_reason)"
-    [ "$BB_CODE" != 401 ] || say "Browserbase did not accept BROWSERBASE_API_KEY. Check the key in your Browserbase project settings."
+    [ "$BB_CODE" != 401 ] || say "Browserbase did not accept the API key. Check it in your Browserbase project settings, then save a new one with:  ./awg browserbase-login"
     if [ "$BB_CODE" = 402 ] || [ "$BB_CODE" = 403 ]; then say "Custom proxies and keep-alive browsers need Browserbase's Developer plan or higher."; fi
     [ "$BB_CODE" != 429 ] || say "The Browserbase project has too many browsers running. Stop one and retry."
     say "Browserbase did not start the browser."
@@ -960,12 +967,11 @@ cmd_browserbase() {
   case "$url" in
     --help|-h) say "Usage: ./awg browserbase [url]
 Start a Browserbase cloud browser on a reveal session, with the Control Panel open in a tab.
-Needs BROWSERBASE_API_KEY. BROWSERBASE_PROJECT_ID is optional: Browserbase reads the project from the key."; return ;;
+The first run asks for your Browserbase API key and saves it. BROWSERBASE_PROJECT_ID is optional: Browserbase reads the project from the key."; return ;;
     --*) fail "unknown option for browserbase: $url" ;;
   esac
   for tool in curl jq; do have "$tool" || fail "$tool is required. Install it with your package manager (macOS: brew install $tool)."; done
-  [ -n "${BROWSERBASE_API_KEY:-}" ] || fail "BROWSERBASE_API_KEY is not set. Copy the API key from your Browserbase project settings (https://www.browserbase.com/settings), then run:
-       BROWSERBASE_API_KEY=… ./awg browserbase"
+  need_provider_key "${BROWSERBASE_KEY[@]}"
   need_uv
   [ -f "$CREDENTIALS" ] || AWG_IN_START=1 cmd_setup
   [ -z "$url" ] || host=$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[/:?].*$##')
@@ -1116,7 +1122,9 @@ case "${1:-}" in
   panel)       shift; cmd_panel "$@" ;;
   browser)     shift; cmd_browser "$@" ;;
   cloak-login) shift; cmd_cloak_login "$@" ;;
-  kernel-login) shift; cmd_kernel_login "$@" ;;
+  kernel-login) provider_login "${KERNEL_KEY[@]}" ;;
+  browser-use-login) provider_login "${BROWSER_USE_KEY[@]}" ;;
+  browserbase-login) provider_login "${BROWSERBASE_KEY[@]}" ;;
   sitecheck)   shift; cmd_sitecheck "$@" ;;
   ""|-h|--help|help) usage ;;
   *) usage; fail "unknown command: $1" ;;
