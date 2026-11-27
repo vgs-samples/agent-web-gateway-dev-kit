@@ -1,3 +1,5 @@
+<p align="center"><a href="https://www.verygoodsecurity.com"><img src="tools/vgs-proxy-controls/session-proxy-extension/assets/vgs-logo.svg" width="170" alt="VGS"></a></p>
+
 # Agent Web Gateway Dev Kit
 
 **Let an AI agent use sensitive data on a website without giving that data to the agent or its browser.** The agent enters session aliases. VGS replaces them with the real values inside the gateway, before the request reaches an approved destination.
