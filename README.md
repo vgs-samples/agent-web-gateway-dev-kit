@@ -7,9 +7,6 @@
 
 **Let an AI agent use sensitive data on a website without giving that data to the agent or its browser.** The agent enters session aliases. VGS replaces them with the real values inside the gateway, before the request reaches an approved destination.
 
-[![Offline tests](https://github.com/vgs-samples/agent-web-gateway-dev-kit/actions/workflows/bootstrap.yml/badge.svg)](https://github.com/vgs-samples/agent-web-gateway-dev-kit/actions/workflows/bootstrap.yml)
-[![Control Panel package](https://github.com/vgs-samples/agent-web-gateway-dev-kit/actions/workflows/control-panel-package.yml/badge.svg)](https://github.com/vgs-samples/agent-web-gateway-dev-kit/actions/workflows/control-panel-package.yml)
-
 [Quickstart](#quickstart) · [Browsers](examples/README.md#browsers) · [Adapters](examples/README.md#provider-adapters) · [Control Panel](docs/control-panel.md) · [Terminology](#terminology) · [All docs](docs/README.md)
 
 [![Agent Web Gateway Control Panel showing a reveal session, its session aliases, and the browser's route through VGS](tools/vgs-proxy-controls/screenshots/control-panel.png)](tools/vgs-proxy-controls/screenshots/control-panel.png)
