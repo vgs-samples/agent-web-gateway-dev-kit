@@ -42,6 +42,19 @@ Before enabling this example:
 
 The bridge response is marked `no-store, private` because it includes session-specific aliases. The original provider SDK is not redistributed. The [SDK fixture](fixtures/bridge-sdk.synthetic.har) includes a tiny authored SDK double with the relevant patch anchor. It illustrates the flow and tests our bridge, not the actual vendor SDK.
 
+## If the adapter does not run
+
+The token function acts only on the relay payload that the bridged SDK sends. If the browser runs the provider's original SDK, the SDK encrypts the session aliases itself, the token function passes that request through unchanged, and Flex still answers `201`. The signs are:
+
+- The body of `POST /flex/v2/tokens` starts with `eyJ` instead of `AWGCS1:`.
+- The card's last four digits in the returned token are the session alias's, the same digits that were typed into the form.
+
+The usual cause is that the browser loaded `iframe.min.js` from its cache, so the request never went through VGS and the SDK-response function could not run. This happens when the checkout was first opened on another route, such as No Proxy or Egress Proxy, and then reloaded on the VGS route. In the browser's Network panel the script shows "(disk cache)" in place of a size. Tick **Disable cache** there, stay on the VGS route, and reload before entering the session aliases.
+
+Two other causes give the same signs: the page loads a Microform version other than the bound path, or the tenant does not process `application/javascript` responses.
+
+To confirm from a HAR without submitting a payment, run the skill's [CyberSource stage report](../../../skills/vgs-checkout-adapter/references/debug-adapters.md#cybersource-flex-stage-evidence). It reports whether the SDK came from cache, whether it carries the bridge, and which of the two shapes the token request has.
+
 ## Fixtures and tests
 
 Each function has its own synthetic HAR. Requests and responses in these files are authored test data.
