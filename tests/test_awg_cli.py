@@ -355,7 +355,7 @@ else exit 93; fi''')
         for secret in ('fixture-browser-use-key', 'fixture-proxy-secret'):
             self.assertNotIn(secret, result.stdout + result.stderr)
         self.assertNotIn('fixture-proxy-secret', calls)
-        self.assertEqual(list(self.state.glob('browser-use*')), [])
+        self.assertEqual([path.name for path in self.state.glob('browser-use*')], ['browser-use-key'])
 
         # With the local helper running, the panel built by the helper is uploaded and its helper
         # requests are relayed over the DevTools address, which again stays off the command line.
@@ -369,7 +369,7 @@ else exit 93; fi''')
         self.assertNotIn('fixture-cdp-secret', relay)
         self.assertEqual((self.root / 'relay-stdin').read_text().strip(), 'wss://cdp.example/fixture-cdp-secret')
         self.assertIn('connected to the helper on this machine', full.stdout)
-        self.assertEqual(list(self.state.glob('browser-use*')), [])
+        self.assertEqual([path.name for path in self.state.glob('browser-use*')], ['browser-use-key'])
         self.assertFalse((self.state / 'panel-extension').exists())
         (self.root / 'helper').unlink()
 
@@ -380,7 +380,7 @@ else exit 93; fi''')
         self.assertIn('custom proxies are not enabled', refused.stdout)
         self.assertIn('body.customProxy: not enabled', refused.stdout)
         self.assertNotIn('fixture-proxy-secret', refused.stdout + refused.stderr)
-        self.assertEqual(list(self.state.glob('browser-use*')), [])
+        self.assertEqual([path.name for path in self.state.glob('browser-use*')], ['browser-use-key'])
 
     BROWSERBASE_CURL = '''
 out=""
@@ -504,7 +504,7 @@ else exit 93; fi''')
         for secret in ('fixture-browserbase-key', 'fixture-proxy-secret'):
             self.assertNotIn(secret, result.stdout + result.stderr)
         self.assertNotIn('fixture-proxy-secret', calls)
-        self.assertEqual(list(self.state.glob('browserbase*')), [])
+        self.assertEqual([path.name for path in self.state.glob('browserbase*')], ['browserbase-key'])
 
         # With the local helper running, its panel is uploaded and its requests are relayed over the connect address.
         (self.root / 'helper').touch()
@@ -519,7 +519,7 @@ else exit 93; fi''')
         self.assertNotIn('fixture-cdp-secret', relay)
         self.assertEqual((self.root / 'relay-stdin').read_text().strip(), 'wss://connect.example/fixture-cdp-secret')
         self.assertIn('connected to the helper on this machine', full.stdout)
-        self.assertEqual(list(self.state.glob('browserbase*')), [])
+        self.assertEqual([path.name for path in self.state.glob('browserbase*')], ['browserbase-key'])
         self.assertFalse((self.state / 'panel-extension').exists())
         (self.root / 'helper').unlink()
 
@@ -532,7 +532,7 @@ else exit 93; fi''')
         self.assertIn('Developer plan', refused.stdout)
         self.assertNotIn('fixture-proxy-secret', refused.stdout + refused.stderr)
         self.assertIn('-X DELETE https://api.browserbase.com/v1/certificates/cert-fixture', (self.root / 'calls').read_text())
-        self.assertEqual(list(self.state.glob('browserbase*')), [])
+        self.assertEqual([path.name for path in self.state.glob('browserbase*')], ['browserbase-key'])
 
     def test_session_uses_alias_api_when_cards_api_refuses(self):
         (self.state / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture\n')
