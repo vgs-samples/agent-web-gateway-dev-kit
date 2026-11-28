@@ -105,6 +105,19 @@ else exit 93; fi''')
         self.assertIn('credentials do not match AWG_ENVIRONMENT', result.stderr)
         self.assertNotIn('unexpected-network', result.stderr)
 
+    def test_credentials_from_an_earlier_version_are_pointed_out_instead_of_running_setup(self):
+        # Earlier versions saved sandbox.env directly in the root. Setup must not create a second account over it.
+        (self.awg_root / 'sandbox.env').write_text('VGS_TENANT=tntFixture\nVGS_CLIENT_ID=fixture\nVGS_CLIENT_SECRET=fixture-secret-never-show\n')
+        self.script('uv', 'echo unexpected-runtime >&2; exit 99')
+        self.script('curl', 'echo unexpected-network >&2; exit 99')
+        result = self.run_awg('start')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('found credentials from an earlier version in ' + str(self.awg_root), result.stderr)
+        self.assertIn('cp -p "' + str(self.awg_root / 'sandbox.env') + '" "' + str(self.state / 'sandbox.env') + '"', result.stderr)
+        for unexpected in ('unexpected-runtime', 'unexpected-network', 'fixture-secret'):
+            self.assertNotIn(unexpected, result.stdout + result.stderr)
+        self.assertFalse((self.state / 'sandbox.env').exists())
+
     def test_live_listing_does_not_enable_provisioning_or_browser_workflows(self):
         self.script('uv', 'echo unexpected-runtime >&2; exit 99')
         self.env['AWG_ENVIRONMENT'] = 'live'

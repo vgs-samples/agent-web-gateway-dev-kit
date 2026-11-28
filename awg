@@ -156,6 +156,13 @@ need_credentials() {
 
 ensure_credentials() {
   if [ ! -f "$CREDENTIALS" ] && [ "$ENVIRONMENT" = sandbox ]; then
+    # Earlier versions kept everything directly in this folder. It is not moved automatically,
+    # and running setup here would create a second service account beside the one already saved.
+    local earlier="${AWG_HOME:-$HOME/.awg-dev-kit}"
+    [ ! -f "$earlier/sandbox.env" ] || fail "found credentials from an earlier version in $earlier. To keep using that account, run:
+       mkdir -p \"$STATE_DIR\" && chmod 700 \"$STATE_DIR\" && cp -p \"$earlier/sandbox.env\" \"$CREDENTIALS\"
+       Saved API keys, proxies and cards in that folder can be copied the same way; see docs/setup.md.
+       To create a new service account instead, run:  ./awg setup"
     AWG_IN_START=1 cmd_setup
   fi
   need_credentials
