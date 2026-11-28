@@ -28,7 +28,7 @@ from urllib.parse import unquote, urlsplit
 
 from browser_use_sdk.v4 import BrowserUse
 
-STATE = Path(os.environ.get("AWG_HOME", Path.home() / ".awg-dev-kit"))
+STATE = Path(os.environ.get("AWG_HOME", Path.home() / ".vgs" / "awg")).expanduser() / os.environ.get("AWG_ENVIRONMENT", "sandbox")
 
 
 def main():

@@ -21,7 +21,7 @@
 ./awg browserbase https://<the site to test>/
 ```
 
-The first run asks for your Browserbase API key and saves it in `~/.awg-dev-kit/browserbase-key`, readable only by you. Later runs use the saved key. To replace it, run `./awg browserbase-login`.
+The first run asks for your Browserbase API key and saves it in `~/.vgs/awg/sandbox/browserbase-key`, readable only by you. Later runs use the saved key. To replace it, run `./awg browserbase-login`.
 
 [![Agent Web Gateway Control Panel running in a Browserbase cloud browser, seen in Browserbase's dashboard](images/browserbase-browser.png)](images/browserbase-browser.png)
 
@@ -49,7 +49,7 @@ AWG_EGRESS="My proxy" ./awg browserbase https://<the site to test>/
 
 The kit creates the session with that proxy as its `egress_proxy_settings`, so traffic goes from the Browserbase browser to VGS, and from VGS through your proxy to the website. The proxy's address and credentials are sent to VGS only, not to Browserbase. A current session is reused only when it already goes out through the named proxy. `AWG_EGRESS` works the same way with `./awg session` and the other browser commands.
 
-To save a proxy, open **Egress proxy** in the panel's new-session form and choose **Add a new proxy…**. Saved proxies are kept on your machine in `~/.awg-dev-kit`. Choosing a different proxy in the panel creates a new session, which this browser cannot switch to; run the command again with `AWG_EGRESS` instead.
+To save a proxy, open **Egress proxy** in the panel's new-session form and choose **Add a new proxy…**. Saved proxies are kept on your machine in `~/.vgs/awg/sandbox`. Choosing a different proxy in the panel creates a new session, which this browser cannot switch to; run the command again with `AWG_EGRESS` instead.
 
 ## What is different from `./awg start`
 

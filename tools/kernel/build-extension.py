@@ -15,13 +15,14 @@ import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "vgs-proxy-controls"))
 
-from environments import EnvironmentClient  # noqa: E402
+from environments import EnvironmentClient, ENVIRONMENTS  # noqa: E402
 from session_catalog import alive, session_config  # noqa: E402
 from session_proxy_extension import write_extension  # noqa: E402
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--environment", choices=list(ENVIRONMENTS), default="sandbox")
     parser.add_argument("--session", type=Path, help="Original saved reveal-session creation response")
     parser.add_argument("--credentials-file", type=Path, help="Private service-account environment file")
     parser.add_argument("--folder", type=Path, help="Zip this already generated extension folder instead of building one")
@@ -48,8 +49,8 @@ def main():
         attributes = json.loads(session.read_text())["data"]["attributes"]
         if not alive(attributes):
             raise ValueError("Session expired or revoked")
-        tenant = EnvironmentClient(args.credentials_file.expanduser().resolve(), "sandbox").tenant
-        config = session_config(session, attributes["proxy"]["ca_bundle"], "sandbox", tenant)
+        tenant = EnvironmentClient(args.credentials_file.expanduser().resolve(), args.environment).tenant
+        config = session_config(session, attributes["proxy"]["ca_bundle"], args.environment, tenant)
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary) / "extension"
             write_extension(folder, config["pacUrl"], config["credentials"], config["proxies"]["session"],

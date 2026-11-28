@@ -20,7 +20,7 @@ FILES = [
     'session-proxy-extension/collect-card.js', 'COLLECT-SDK.md',
     'session-proxy-extension/vendor/vgs-collect-dev-4.0.1.js',
     'session-proxy-extension/vendor/vgs-collect-4.0.1.js',
-    'account_files.py', 'test_account_files.py', 'credential_picker.py', 'test_credential_picker.py',
+    'account_files.py', 'test_account_files.py', 'saved_accounts.py', 'test_saved_accounts.py', 'credential_picker.py', 'test_credential_picker.py',
     'session_form.py', 'test_session_form.py', 'session-proxy-extension/create-session.js', 'environments.py', 'environments.example.json', 'test_environments.py', 'BRAND-ASSETS.md', 'session_operations.py', 'capture_preferences.py',
     'private-card-tokenizer.py', 'test_session_operations.py',
     'session-proxy-extension/assets/vgs-logo.svg',

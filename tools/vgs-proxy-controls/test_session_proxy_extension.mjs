@@ -67,6 +67,7 @@ async function fixture(previous, noEgress = false, saved = {}, environmentSuppor
         fetched.push({url, options});
         if (failFetch) throw new Error('SECRET fetch error');
         if (url.endsWith('/collect-token')) return {ok:true,json:async()=>({accessToken:'fixture-transient',environment:'dev',tenantId:'fixture-tenant',method:'aliases'})};
+        if (url.endsWith('/credentials/files')) return {ok: true, json: async () => ({credentialsDirectory: '/fixture/' + url.split('/')[4], credentialFiles: [{name: 'account.env', path: '/fixture/account.env'}]})};
         if (url.endsWith('/account')) return {ok: true, json: async () => ({configured: !url.includes('/sandbox/') && !url.includes('/live/'), connected: true})};
         return {ok: true, json: async () => url.endsWith('/config') ? structuredClone(next)
             : url.endsWith('/pac') ? {pacScript: 'function FindProxyForURL() {}', fetchedAt: '2026-01-01T00:00:00Z'}
@@ -435,4 +436,19 @@ test('a managed route reaches the helper through the relay, never directly', asy
     const failed = await f.message({type: 'refreshSessions'});
     assert.match(failed.catalogError, /Could not refresh sessions/);
     assert.doesNotMatch(JSON.stringify(failed), /SECRET|catalog-secret/);
+});
+
+
+test('saved credentials refresh is local, environment-scoped and preserves the current route', async () => {
+    const f = await fixture(undefined, false, {}, true);
+    await f.message({type: 'setEnvironment', environment: 'live'});
+    const before = f.sets.length;
+    const result = await f.message({type: 'listAccountFiles', environment: 'live'});
+    assert.equal(result.account.credentialFiles[0].name, 'account.env');
+    assert.equal(f.fetched.at(-1).url, 'http://127.0.0.1:1234/environments/live/credentials/files');
+    assert.equal(f.sets.length, before);
+    const count = f.fetched.length;
+    const stale = await f.message({type: 'listAccountFiles', environment: 'dev'});
+    assert.equal(stale.ok, false);
+    assert.equal(f.fetched.length, count);
 });

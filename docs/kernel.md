@@ -15,7 +15,7 @@
 ./awg kernel https://<the site to test>/
 ```
 
-The first run asks for your Kernel API key and saves it in `~/.awg-dev-kit/kernel-key`, readable only by you. Later runs use the saved key. A key in `KERNEL_API_KEY` is used instead and saved the same way. To replace the saved key, run `./awg kernel-login`.
+The first run asks for your Kernel API key and saves it in `~/.vgs/awg/sandbox/kernel-key`, readable only by you. Later runs use the saved key. A key in `KERNEL_API_KEY` is used instead and saved the same way. To replace the saved key, run `./awg kernel-login`.
 
 The command:
 

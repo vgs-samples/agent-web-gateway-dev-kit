@@ -13,6 +13,7 @@ from pathlib import Path
 import threading
 
 from environments import EnvironmentClient, ENVIRONMENTS
+from saved_accounts import default_account
 from session_catalog import Catalog, CatalogServer, alive, session_config
 from session_proxy_extension import write_extension
 
@@ -22,7 +23,7 @@ def main():
     parser.add_argument('--environment', choices=list(ENVIRONMENTS), default='sandbox')
     parser.add_argument('--profiles-file', type=Path, help='Private JSON mapping of additional environment profiles')
     parser.add_argument('--session', required=True, type=Path, help='Original saved reveal-session creation response')
-    parser.add_argument('--credentials-file', required=True, type=Path, help='Private service-account export or environment file; see sandbox.env.example')
+    parser.add_argument('--credentials-file', type=Path, help='Private service-account file; defaults to saved credentials in ~/.vgs/awg/<environment>')
     parser.add_argument('--sessions-dir', type=Path, help='Directory of RS….json creation responses and matching .request.json files')
     parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parent / '.private-extension', help='Private generated extension directory')
     parser.add_argument('--exit-with-pid', type=int, help='Stop when this process is gone')
@@ -48,10 +49,11 @@ def main():
     mcp_lock = None
     connection_file = None
     try:
+        credentials_file = args.credentials_file or default_account(args.environment)
         document = json.loads(session_path.read_text())
         if not alive(document['data']['attributes']):
             raise ValueError('Session expired or revoked')
-        client = EnvironmentClient(args.credentials_file.expanduser().resolve(), args.environment)
+        client = EnvironmentClient(credentials_file.expanduser().resolve(), args.environment)
         config = session_config(session_path, document['data']['attributes']['proxy']['ca_bundle'], args.environment, client.tenant)
         profiles = json.loads(args.profiles_file.read_text()) if args.profiles_file else None
         if args.mcp_write and not args.enable_mcp:

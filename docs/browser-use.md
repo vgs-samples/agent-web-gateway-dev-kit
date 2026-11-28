@@ -75,7 +75,7 @@ Any program on your machine can drive the browser through the DevTools address w
 ./awg browser-use --cloud https://<the site to test>/
 ```
 
-The first run asks for your Browser Use Cloud API key and saves it in `~/.awg-dev-kit/browser-use-key`, readable only by you. Later runs use the saved key. A key in `BROWSER_USE_API_KEY` is used instead and saved the same way. To replace the saved key, run `./awg browser-use-login`.
+The first run asks for your Browser Use Cloud API key and saves it in `~/.vgs/awg/sandbox/browser-use-key`, readable only by you. Later runs use the saved key. A key in `BROWSER_USE_API_KEY` is used instead and saved the same way. To replace the saved key, run `./awg browser-use-login`.
 
 [![Agent Web Gateway Control Panel running in a Browser Use cloud browser](images/browser-use-browser.png)](images/browser-use-browser.png)
 

@@ -36,7 +36,7 @@ bash setup.sh
 ### 2. Fill in `.env`
 
 Copy the VGS credential and tenant values locally from
-`${AWG_HOME:-$HOME/.awg-dev-kit}/sandbox.env`, then add your selected egress proxy.
+`${AWG_HOME:-$HOME/.vgs/awg}/sandbox/sandbox.env`, then add your selected egress proxy.
 Keep both files private. Use plain `KEY=value` lines, with no quotes and no `export`.
 
 | Key | What to put |

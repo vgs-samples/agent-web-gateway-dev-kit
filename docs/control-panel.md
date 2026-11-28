@@ -52,11 +52,14 @@ extensions (for example, your existing CloakBrowser or Chrome for Testing).
 The base helper uses Python's standard library; no Python packages are needed.
 The optional [MCP companion](mcp.md) adds selected-tab recording, full HAR access
 and gateway authoring tools for a connected assistant, with its own dependencies.
-In **Settings → Service account**, use **Browse…** to choose a local credentials
-file, or enter its path. Selection fills the path; **Connect account** loads it.
-Cancelling leaves the current path unchanged. The native file explorer runs on
-the helper's computer (macOS, Windows, or Linux with Zenity/KDialog installed).
-Only the selected path reaches the extension; file contents remain in the helper.
+In **Settings → Service account**, choose from **Saved credentials** or enter a
+credentials-file path directly, then click **Connect account**. The helper lists
+valid account files in `~/.vgs/awg/<environment>` for the selected environment.
+**Refresh** rescans that folder. `AWG_HOME` overrides the common root. Filenames
+reach the extension; secrets remain in the helper. The helper can also discover
+credentials when launched without `--credentials-file`: it uses `<environment>.env`
+when present, otherwise the only saved account. Multiple alternatives require an
+explicit file path.
 Use a dedicated browser already configured with the reveal session's
 VGS CA through your team's approved browser setup. This extension does not install
 certificates or disable TLS verification.
@@ -72,7 +75,7 @@ certificates or disable TLS verification.
    Keep the folder intact. Run the commands below from that folder.
 2. If you cloned the full dev kit, run `./awg setup` at its root. It installs VGS CLI
    with `uv`, runs `vgs login`, asks for your organization, and creates the
-   Sandbox service credentials automatically. Use `~/.awg-dev-kit/sandbox.env`.
+   Sandbox service credentials automatically. Use `~/.vgs/awg/sandbox/sandbox.env`.
    See the [setup guide](setup.md).
    For this standalone package, use an existing private credentials file or copy
    `sandbox.env.example` outside the package and fill it locally. Session operations need both
@@ -286,14 +289,10 @@ No restart or browser reload is needed. The file contents never enter the extens
 Failure keeps the previously connected account; changing accounts keeps the current
 browser route/session. New accounts receive separate session-storage directories.
 
-Expand **Create a service account with the CLI** beside the file picker for a
-copyable login → generate → review → apply → connect walkthrough. Commands follow
-the selected environment and save the one-time credentials in a
-private file without overwriting an existing file. The guide requires a CLI build
-containing `agent-web-gateway-admin`; it does not execute commands or create an
-account from the extension. For the stable CLI release, use `./awg setup` from
-the full dev kit instead. Choose the resulting credentials file with **Browse…**,
-then **Connect account**.
+Use `./awg setup` from the dev kit to create Sandbox credentials in
+`~/.vgs/awg/sandbox/sandbox.env`, then refresh **Saved credentials** and connect.
+The extension only selects and connects existing accounts; provisioning is handled
+by the setup script.
 
 Supported formats are the dashboard's downloaded `clientId="…"` / `clientSecret="…"`
 text file, CLI `kind: ServiceAccount` YAML/JSON (with `data.clientId`,

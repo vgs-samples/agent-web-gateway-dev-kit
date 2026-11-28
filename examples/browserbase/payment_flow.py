@@ -32,7 +32,7 @@ from urllib.parse import unquote, urlsplit
 from urllib.request import Request, urlopen
 import uuid
 
-STATE = Path(os.environ.get("AWG_HOME", Path.home() / ".awg-dev-kit"))
+STATE = Path(os.environ.get("AWG_HOME", Path.home() / ".vgs" / "awg")).expanduser() / os.environ.get("AWG_ENVIRONMENT", "sandbox")
 API = os.environ.get("BROWSERBASE_API_URL", "https://api.browserbase.com/v1")
 
 NUMBER = ('input[autocomplete="cc-number"], input[name*="cardnumber" i], input[name*="card-number" i], '

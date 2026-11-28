@@ -7,6 +7,8 @@ import argparse
 import base64
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
+from unittest.mock import patch
 from pathlib import Path
 import tempfile
 import threading
@@ -86,8 +88,8 @@ def main():
         )
         pac_url = f'http://127.0.0.1:{pac_server.server_port}/fixture.pac'
         credentials = {f'127.0.0.1:{server.server_port}': secrets[server.role] for server in (vgs, egress)}
-        with tempfile.TemporaryDirectory(prefix='awg-toggle-browser-') as root, sync_playwright() as p:
-            root = Path(root)
+        with tempfile.TemporaryDirectory(prefix='awg-toggle-browser-') as root, patch.dict(os.environ, {'AWG_HOME': root}), sync_playwright() as p:
+            root = Path(root).resolve()
             extension = root / 'extension'
             class FixtureCatalog:
                 lock = threading.Lock()
@@ -258,32 +260,16 @@ def main():
                     controls.evaluate('document.fonts.ready')
                     controls.screenshot(path=str(args.screenshot.with_name('controls-pac.png')),full_page=True)
                 controls.locator('button[data-view=settings]').click()
-                assert not controls.locator('#account-setup').evaluate('(el)=>el.open')
-                controls.locator('#account-setup summary').click()
-                assert controls.locator('#account-login-command').inner_text() == 'vgs -e dev login'
-                generated = controls.locator('#account-generate-command').inner_text()
-                assert '-t agent-web-gateway-admin' in generated and '-T "$AWG_TENANT_ID"' in generated
-                assert 'vgs -e dev generate service-account' in generated
-                assert 'AWG_TENANT_ID="tntTrainingDemo"' in generated
-                applied = controls.locator('#account-apply-command').inner_text()
-                assert 'vgs -e dev apply service-account' in applied and '-O "$AWG_ORGANIZATION_ID"' in applied
-                assert 'umask 077' in applied and 'set -o noclobber' in applied
-                assert '> "$AWG_ACCOUNT_DIR/service-account-credentials.yaml"' in applied
-                controls.evaluate('''() => Object.defineProperty(navigator, 'clipboard', {configurable:true, value:{writeText:async text=>{window.fixtureClipboard=text;}}})''')
-                controls.get_by_role('button',name='Copy create account commands',exact=True).click()
-                controls.locator('#account-copy-status').filter(has_text='Copied.').wait_for()
-                assert controls.evaluate('window.fixtureClipboard') == applied
-                controls.evaluate('''() => renderAccountSetup('dev', '$(touch unsafe)')''')
-                assert 'AWG_TENANT_ID="YOUR_TENANT_ID"' in controls.locator('#account-generate-command').inner_text()
-                assert 'touch unsafe' not in controls.locator('#account-generate-command').inner_text()
-                controls.evaluate('()=>renderAccountSetup(state.environment,state.account.tenantId)')
+                assert controls.locator('#account-setup').count() == 0
+                assert controls.locator('#account-saved-file').is_visible()
+                assert controls.locator('#account-file').is_visible()
+                assert str(root / 'dev') == controls.locator('#account-saved-location').inner_text()
                 if args.screenshot:
-                    controls.screenshot(path=str(args.screenshot.with_name('account-setup.png')),full_page=True)
+                    controls.screenshot(path=str(args.screenshot.with_name('saved-credentials.png')),full_page=True)
                     controls.set_viewport_size({'width':390,'height':844})
                     assert controls.evaluate('document.documentElement.scrollWidth <= innerWidth')
-                    controls.screenshot(path=str(args.screenshot.with_name('account-setup-mobile.png')),full_page=True)
+                    controls.screenshot(path=str(args.screenshot.with_name('saved-credentials-mobile.png')),full_page=True)
                     controls.set_viewport_size({'width':1440,'height':1000})
-                controls.locator('#account-setup summary').click()
                 controls.locator('button[data-view=controls]').click()
                 assert not controls.locator('#create-form').is_visible()
                 controls.locator('#open-create').click()
@@ -486,9 +472,8 @@ def main():
                 for env, expected in [('sandbox', 'https://sandbox.vgsapi.com'), ('live', 'https://vgsapi.com')]:
                     controls.select_option('#environment-select', env)
                     controls.locator('#environment-status').filter(has_text='Not connected').wait_for()
-                    assert controls.locator('#account-login-command').text_content() == 'vgs login'
-                    assert 'vgs -e dev' not in controls.locator('#account-apply-command').text_content()
-                    assert f'/agent-web-gateway/{env}/' in controls.locator('#account-created-file').text_content()
+                    assert controls.locator('#account-saved-location').inner_text() == str(root / env)
+                    assert controls.locator('#account-saved-status').inner_text().startswith('No saved credentials')
                     assert controls.locator('#environment-domains').count() == 0
                     assert not controls.locator('#environment-notice').get_attribute('hidden')
                     assert controls.locator('#open-create').is_enabled()
@@ -500,16 +485,9 @@ def main():
                     assert 'service account' in controls.locator('#creation-availability').text_content()
                     route('/unchanged-' + env, 'vgs-second')
                 controls.fill('#account-file','/tmp/previous.json')
-                controls.locator('#browse-account-file').click()
-                controls.locator('#account-file-status').filter(has_text='Click Connect account').wait_for()
-                assert controls.input_value('#account-file') == '/tmp/Service account ü.json'
-                assert controls.locator('#environment-status').filter(has_text='Not connected').is_visible()
-                controls.locator('#browse-account-file').click()
-                controls.locator('#account-file-status').filter(has_text='cancelled').wait_for()
-                assert controls.input_value('#account-file') == '/tmp/Service account ü.json'
-                controls.locator('#browse-account-file').click()
-                controls.locator('#account-file-error').filter(has_text='File explorer is unavailable').wait_for()
-                assert controls.locator('#account-file').is_enabled()
+                controls.locator('#refresh-account-files').click()
+                controls.locator('#refresh-account-files').is_enabled()
+                assert controls.input_value('#account-file') == '/tmp/previous.json'
                 controls.fill('#account-file','/missing/fixture-account.txt')
                 controls.locator('#connect-account').click()
                 controls.locator('#account-file-error').filter(has_text='could not read').wait_for()

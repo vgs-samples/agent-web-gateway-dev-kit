@@ -26,6 +26,8 @@ PRIVATE_TEXT = {
 
 # Exact reviewed teaching fixtures only. A renamed or edited HAR remains private.
 PUBLIC_SYNTHETIC_HARS = {
+    # Structural regression excerpt: bodies, identifiers and timings are redacted.
+    'skills/vgs-checkout-adapter/assets/cybersource-relay-payment-decline.har': 'ae9af113abefda85ee800716407e4c98cad69a5ac542a604001fdadb35b0bc6f',
     'examples/adapters/adyen/fixtures/capture.synthetic.har': '4d36277f98fa8e4aa0b76ac81ea24307951f7ec9798b12133c7b8def8018f1af',
     'examples/adapters/adyen/fixtures/encrypt.synthetic.har': '4ca19658d9b27f6e83538878ada2482b113450b00d81a72d7f6011e9ad12bde0',
     'examples/adapters/cybersource/fixtures/bridge-sdk.synthetic.har': 'c75e1e0021262af60c7fa72f7377417537e91bf2be672119915815463e3a5dd8',

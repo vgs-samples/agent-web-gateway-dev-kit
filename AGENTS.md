@@ -53,7 +53,7 @@ Do not work around a `403` by editing the kit, hand-writing `card.json` or `sand
 - **Sandbox and public test cards only.** The wrapper stores the public VGS test card ending 1111. Never enter, request, or store a real card number in this workflow.
 - **Never place an order or submit a payment** unless the developer approves that item and maximum total in this conversation.
 - **Never print or share** client secrets, access tokens, session proxy credentials, PAC links, private HAR bodies, or private setup/session files.
-- **Never commit** `~/.awg-dev-kit`, `.private-extension`, `sites.yaml`, `card.json`, `.env` files, or `runs/`. Keep an overridden `AWG_HOME` outside the repository.
+- **Never commit** `~/.vgs/awg`, `.private-extension`, `sites.yaml`, `card.json`, `.env` files, or `runs/`. Keep an overridden `AWG_HOME` outside the repository.
 - Type session stand-ins into payment forms, never raw card data or vault aliases.
 - A person completes any 3-D Secure challenge or CAPTCHA. Do not bypass site controls.
 - Report observed status codes, request IDs, and reveal counts. Say "unknown" when evidence does not establish the cause.

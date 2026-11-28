@@ -16,6 +16,7 @@ from urllib.request import Request
 from awg_dev_api import API, KIT, TENANT, Client
 from session_operations import Operations, private_json
 from account_files import AccountFileError, discover_tenants
+from saved_accounts import saved_accounts
 from credential_picker import CredentialFilePicker
 from panel_recording import TestRecording, RecordingError
 from egress_profiles import EgressProfiles, EgressProfileError
@@ -178,15 +179,16 @@ class CatalogRegistry:
             return catalog
 
     def account(self, environment):
+        saved = saved_accounts(environment)
         try:
             catalog = self.get(environment)
         except (OSError, ValueError, KeyError):
             catalog = None
         if catalog:
             result = catalog.operations.account()
-            return {'configured': True, 'environment': environment, 'domains': domains(environment, result.get('tenantId')), 'credentialsFile': getattr(getattr(catalog, 'client', None), 'credentials_file', None), **result}
+            return {'configured': True, 'environment': environment, 'domains': domains(environment, result.get('tenantId')), 'credentialsFile': getattr(getattr(catalog, 'client', None), 'credentials_file', None), **result, **saved}
         return {'environment': environment, 'tenantId': None, 'configured': False, 'connected': False,
-                'domains': domains(environment), 'scopes': [], 'creationAvailable': False, 'tokenizerReady': False}
+                'domains': domains(environment), 'scopes': [], 'creationAvailable': False, 'tokenizerReady': False, **saved}
 
     def connect(self, environment, options):
         if environment not in ENVIRONMENTS or not isinstance(options, dict) or set(options) - {'credentialsFile', 'tenantId'}:
@@ -268,7 +270,7 @@ class CatalogServer:
                         match = re.fullmatch(r'/environments/(dev|sandbox|live)(/.*)', route)
                         if not match: raise ValueError('Unknown environment')
                         environment, route = match.groups()
-                    catalog = registry.get(environment) if route not in ('/account', '/credentials', '/egress-profiles') and not route.startswith(('/credentials/picker', '/recording')) else None
+                    catalog = registry.get(environment) if route not in ('/account', '/credentials', '/egress-profiles') and not route.startswith(('/credentials/', '/recording')) else None
                     if route == '/gateway/read' and write:
                         length = int(self.headers.get('Content-Length', '0'))
                         if not 0 < length <= 4096 or self.headers.get('Content-Type') != 'application/json':
@@ -298,6 +300,8 @@ class CatalogServer:
                             data = registry.egress_profiles.listing()
                     elif route == '/account' and not write:
                         data = {**registry.account(environment), 'mcp': owner.mcp_status}
+                    elif route == '/credentials/files' and not write:
+                        data = saved_accounts(environment)
                     elif route == '/credentials' and write:
                         length = int(self.headers.get('Content-Length', '0'))
                         if not 0 < length <= 8192 or self.headers.get('Content-Type') != 'application/json':

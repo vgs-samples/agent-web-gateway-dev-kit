@@ -26,7 +26,7 @@ while IFS='=' read -r key value; do
   case "$key" in
     VGS_TENANT|VGS_CLIENT_ID|VGS_CLIENT_SECRET) export "$key=$value" ;;
   esac
-done < "${AWG_HOME:-$HOME/.awg-dev-kit}/sandbox.env"
+done < "${AWG_HOME:-$HOME/.vgs/awg}/sandbox/sandbox.env"
 export TENANT_ID="$VGS_TENANT"
 ```
 
